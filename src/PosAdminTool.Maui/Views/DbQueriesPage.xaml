@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="PosAdminTool.Maui.Views.DbQueriesPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:PosAdminTool.Maui.Controls"
+    Title="DB Queries">
+    <Grid Background="{StaticResource AppPageBackgroundBrush}">
+        <Grid
+            x:Name="AnimatedRoot"
+            Padding="28"
+            RowDefinitions="Auto,Auto,*"
+            RowSpacing="16">
+            <Border Style="{StaticResource HeroPanelStyle}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="24">
+                    <VerticalStackLayout Spacing="6">
+                        <HorizontalStackLayout Spacing="10">
+                            <controls:PulsingDot DotColor="{StaticResource AccentBlueEnd}" HeightRequest="14" WidthRequest="14" />
+                            <Label Style="{StaticResource EyebrowLabel}" Text="Remote client data" VerticalTextAlignment="Center" />
+                        </HorizontalStackLayout>
+                        <Label Style="{StaticResource PageTitleLabel}" Text="DB Queries" />
+                        <Label Style="{StaticResource SecondaryLabel}" Text="Sample scanned codes, inspect the resolved client identity, and stream curated results into the POS cart automation flow." />
+                    </VerticalStackLayout>
+                    <Border Grid.Column="1" Style="{StaticResource StatusPillStyle}" VerticalOptions="Center">
+                        <Label FontAttributes="Bold" FontSize="12" Text="{Binding StatusMessage}" />
+                    </Border>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="1" Style="{StaticResource GlassPanelStyle}">
+                <Grid ColumnDefinitions="Auto,260,*,Auto" ColumnSpacing="12" RowDefinitions="Auto,Auto" RowSpacing="14">
+                    <Label Style="{StaticResource EyebrowLabel}" Text="Client" VerticalTextAlignment="Center" />
+                    <Picker Grid.Column="1" ItemsSource="{Binding ClientNames}" SelectedItem="{Binding SelectedClient}" />
+                    <Label Grid.Column="2" Style="{StaticResource SecondaryLabel}" Text="Resolve the selected client profile and inspect the generated SQL connection identity before executing queries." VerticalTextAlignment="Center" />
+                    <Button Grid.Column="3" Command="{Binding TestConnectionCommand}" Style="{StaticResource TealButtonStyle}" Text="Test Connection" />
+
+                    <Grid Grid.Row="1" Grid.ColumnSpan="4" ColumnDefinitions="*,*,*,*" ColumnSpacing="12">
+                        <Border Style="{StaticResource GlassCardStyle}">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Style="{StaticResource EyebrowLabel}" Text="Server" />
+                                <Label FontAttributes="Bold" FontSize="16" Text="{Binding Server}" />
+                            </VerticalStackLayout>
+                        </Border>
+                        <Border Grid.Column="1" Style="{StaticResource GlassCardStyle}">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Style="{StaticResource EyebrowLabel}" Text="User" />
+                                <Label FontAttributes="Bold" FontSize="16" Text="{Binding User}" />
+                            </VerticalStackLayout>
+                        </Border>
+                        <Border Grid.Column="2" Style="{StaticResource GlassCardStyle}">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Style="{StaticResource EyebrowLabel}" Text="Password" />
+                                <Label FontAttributes="Bold" FontSize="16" Text="{Binding PasswordMask}" />
+                            </VerticalStackLayout>
+                        </Border>
+                        <Border Grid.Column="3" Style="{StaticResource GlassCardStyle}">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Style="{StaticResource EyebrowLabel}" Text="Database" />
+                                <Label FontAttributes="Bold" FontSize="16" Text="{Binding Database}" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="2" ColumnDefinitions="0.34*,0.66*" ColumnSpacing="14">
+                <Border Style="{StaticResource GlassPanelStyle}">
+                    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto" RowSpacing="12">
+                        <VerticalStackLayout Spacing="4">
+                            <Label Style="{StaticResource SectionTitleLabel}" Text="Random codes" />
+                            <Label Style="{StaticResource SecondaryLabel}" Text="Query invoice items with randomized ordering and hand the result set to cart automation when needed." />
+                        </VerticalStackLayout>
+                        <Label Grid.Row="1" Style="{StaticResource EyebrowLabel}" Text="Count" />
+                        <Entry Grid.Row="2" Keyboard="Numeric" Text="{Binding QueryCount}" />
+                        <Button Grid.Row="3" Command="{Binding RunQueryCommand}" Style="{StaticResource PrimaryButtonStyle}" Text="Run Query" />
+                        <Border Grid.Row="4" Style="{StaticResource StatusPillStyle}" VerticalOptions="Start">
+                            <Label Style="{StaticResource SecondaryLabel}" Text="Automation uses the encrypted POS credentials from Configuration." />
+                        </Border>
+                        <Button Grid.Row="5" Command="{Binding AddToCartCommand}" Style="{StaticResource TealButtonStyle}" Text="Add to Cart" />
+                    </Grid>
+                </Border>
+
+                <Border Grid.Column="1" Style="{StaticResource ConsolePanelStyle}">
+                    <Grid RowDefinitions="Auto,*">
+                        <Grid Padding="18,14" ColumnDefinitions="Auto,*,Auto" BackgroundColor="{AppThemeBinding Dark={StaticResource DarkConsoleHeader}, Light={StaticResource LightConsoleHeader}}">
+                            <Label FontAttributes="Bold" Text="ScannedCode Console" TextColor="{AppThemeBinding Dark={StaticResource DarkConsoleText}, Light={StaticResource LightConsoleText}}" />
+                            <Label Grid.Column="1" FontFamily="Cascadia Mono" FontSize="12" HorizontalOptions="Center" Text="{Binding StatusMessage}" TextColor="{AppThemeBinding Dark={StaticResource DarkConsoleMeta}, Light={StaticResource LightConsoleMeta}}" />
+                            <HorizontalStackLayout Grid.Column="2" Spacing="6">
+                                <BoxView BackgroundColor="{AppThemeBinding Dark={StaticResource DarkSuccessColor}, Light={StaticResource LightSuccessColor}}" CornerRadius="4" HeightRequest="8" WidthRequest="8" />
+                                <BoxView BackgroundColor="{AppThemeBinding Dark={StaticResource DarkWarningColor}, Light={StaticResource LightWarningColor}}" CornerRadius="4" HeightRequest="8" WidthRequest="8" />
+                                <BoxView BackgroundColor="{AppThemeBinding Dark={StaticResource DarkDangerColor}, Light={StaticResource LightDangerColor}}" CornerRadius="4" HeightRequest="8" WidthRequest="8" />
+                            </HorizontalStackLayout>
+                        </Grid>
+                        <Editor
+                            Grid.Row="1"
+                            AutoSize="Disabled"
+                            IsReadOnly="True"
+                            Style="{StaticResource ConsoleEditorStyle}"
+                            Text="{Binding ResultsText}" />
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+        <Border
+            BackgroundColor="#88000000"
+            IsVisible="{Binding IsBusy}"
+            InputTransparent="False"
+            ZIndex="999">
+            <ActivityIndicator
+                IsRunning="{Binding IsBusy}"
+                Color="{StaticResource AccentBlueEnd}"
+                HeightRequest="48"
+                WidthRequest="48"
+                HorizontalOptions="Center"
+                VerticalOptions="Center" />
+        </Border>
+    </Grid>
+</ContentPage>

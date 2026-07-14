@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Window
+    x:Class="PosAdminTool.Maui.MainWindow"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:PosAdminTool.Maui"
+    Title="DBS POS Admin Tool">
+
+    <Window.TitleBar>
+        <TitleBar
+            x:Name="WindowTitleBar"
+            HeightRequest="46"
+            Title="DBS POS Admin Tool"
+            Subtitle="Windows operations shell"
+            BackgroundColor="{AppThemeBinding Dark={StaticResource DarkShellChrome}, Light={StaticResource LightShellChrome}}"
+            ForegroundColor="{AppThemeBinding Dark={StaticResource DarkText}, Light={StaticResource LightText}}">
+            <VisualStateManager.VisualStateGroups>
+                <VisualStateGroupList>
+                    <VisualStateGroup x:Name="TitleActiveStates">
+                        <VisualState x:Name="TitleBarTitleActive">
+                            <VisualState.Setters>
+                                <Setter Property="BackgroundColor" Value="{AppThemeBinding Dark={StaticResource DarkShellChrome}, Light={StaticResource LightShellChrome}}" />
+                                <Setter Property="ForegroundColor" Value="{AppThemeBinding Dark={StaticResource DarkText}, Light={StaticResource LightText}}" />
+                            </VisualState.Setters>
+                        </VisualState>
+                        <VisualState x:Name="TitleBarTitleInactive">
+                            <VisualState.Setters>
+                                <Setter Property="BackgroundColor" Value="{AppThemeBinding Dark={StaticResource DarkSurface}, Light={StaticResource LightSurfaceAlt}}" />
+                                <Setter Property="ForegroundColor" Value="{AppThemeBinding Dark={StaticResource DarkTextMuted}, Light={StaticResource LightTextMuted}}" />
+                            </VisualState.Setters>
+                        </VisualState>
+                    </VisualStateGroup>
+                </VisualStateGroupList>
+            </VisualStateManager.VisualStateGroups>
+
+            <TitleBar.LeadingContent>
+                <Border
+                    Padding="10,5"
+                    BackgroundColor="{AppThemeBinding Dark={StaticResource DarkSubtleFill}, Light={StaticResource LightSubtleFill}}"
+                    HorizontalOptions="Start"
+                    Margin="8,10,0,0"
+                    Stroke="{AppThemeBinding Dark={StaticResource DarkCardBorder}, Light={StaticResource LightCardBorder}}"
+                    StrokeShape="RoundRectangle 999"
+                    StrokeThickness="1">
+                    <HorizontalStackLayout Spacing="8">
+                        <Border
+                            BackgroundColor="{StaticResource AccentBlueStart}"
+                            HeightRequest="12"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 999"
+                            VerticalOptions="Center"
+                            WidthRequest="12" />
+                        <Label Style="{StaticResource EyebrowLabel}" Text="Windows Store Frame" TextColor="{StaticResource AccentBlueStart}" VerticalTextAlignment="Center" />
+                    </HorizontalStackLayout>
+                </Border>
+            </TitleBar.LeadingContent>
+
+            <TitleBar.Content>
+                <Border
+                    Padding="12,6"
+                    BackgroundColor="{AppThemeBinding Dark={StaticResource DarkCardStrong}, Light={StaticResource LightSurface}}"
+                    HorizontalOptions="Fill"
+                    MaximumWidthRequest="460"
+                    Margin="0,6,0,0"
+                    Stroke="{AppThemeBinding Dark={StaticResource DarkCardBorder}, Light={StaticResource LightCardBorder}}"
+                    StrokeShape="RoundRectangle 16"
+                    StrokeThickness="1">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                        <Border
+                            x:Name="SectionCodeBadge"
+                            Padding="7,4"
+                            BackgroundColor="{AppThemeBinding Dark={StaticResource DarkSubtleFill}, Light={StaticResource LightSubtleFill}}"
+                            HorizontalOptions="Start"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 10"
+                            VerticalOptions="Center">
+                            <Label
+                                x:Name="SectionCodeLabel"
+                                FontAttributes="Bold"
+                                FontFamily="Segoe UI"
+                                FontSize="11"
+                                Text="CFG"
+                                TextColor="{StaticResource AccentBlueStart}" />
+                        </Border>
+
+                        <VerticalStackLayout Grid.Column="1" Spacing="0">
+                            <Label x:Name="SectionTitleLabel" FontAttributes="Bold" FontFamily="Segoe UI" FontSize="13" Text="Configuration" />
+                            <Label x:Name="SectionDescriptionLabel" Style="{StaticResource SecondaryLabel}" Text="Branch identity, SQL settings, and automation credentials." />
+                        </VerticalStackLayout>
+                    </Grid>
+                </Border>
+            </TitleBar.Content>
+
+            <TitleBar.TrailingContent>
+                <HorizontalStackLayout Margin="0,6,16,0" Spacing="10">
+                    <Border Style="{StaticResource StatusPillStyle}" HeightRequest="34" Padding="12,0" VerticalOptions="Center">
+                        <Label x:Name="ThemeStatusLabel" Style="{StaticResource SecondaryLabel}" Text="Light" VerticalOptions="Center" VerticalTextAlignment="Center" />
+                    </Border>
+
+                    <Button
+                        BackgroundColor="{AppThemeBinding Dark={StaticResource DarkSubtleFill}, Light={StaticResource LightSubtleFill}}"
+                        BorderColor="{AppThemeBinding Dark={StaticResource DarkCardBorder}, Light={StaticResource LightCardBorder}}"
+                        BorderWidth="1"
+                        Clicked="OnOpenLogClicked"
+                        CornerRadius="10"
+                        FontAttributes="Bold"
+                        FontFamily="Segoe UI"
+                        FontSize="12"
+                        HeightRequest="34"
+                        Padding="12,0"
+                        Text="Log"
+                        TextColor="{AppThemeBinding Dark={StaticResource DarkText}, Light={StaticResource LightText}}"
+                        VerticalOptions="Center" />
+
+                    <Button
+                        x:Name="ThemeButton"
+                        BackgroundColor="{AppThemeBinding Dark={StaticResource DarkInput}, Light={StaticResource LightInput}}"
+                        BorderColor="{AppThemeBinding Dark={StaticResource DarkCardBorder}, Light={StaticResource LightCardBorder}}"
+                        BorderWidth="1"
+                        Clicked="OnToggleThemeClicked"
+                        CornerRadius="15"
+                        FontFamily="Segoe UI"
+                        FontSize="13"
+                        HeightRequest="34"
+                        WidthRequest="70"
+                        Padding="0"
+                        Text="☀️  ●  "
+                        TextColor="{StaticResource AccentBlueStart}"
+                        VerticalOptions="Center" />
+                </HorizontalStackLayout>
+            </TitleBar.TrailingContent>
+        </TitleBar>
+    </Window.TitleBar>
+
+    <local:AppShell x:Name="ShellHost" />
+</Window>

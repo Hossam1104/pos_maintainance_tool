@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <Color x:Key="DarkBackground">#0F1116</Color>
+    <Color x:Key="DarkBackgroundMid">#151922</Color>
+    <Color x:Key="DarkBackgroundEnd">#0D141D</Color>
+    <Color x:Key="DarkSurface">#171B24</Color>
+    <Color x:Key="DarkSurfaceAlt">#1D2330</Color>
+    <Color x:Key="DarkCard">#D91A202B</Color>
+    <Color x:Key="DarkCardStrong">#F0202733</Color>
+    <Color x:Key="DarkCardBorder">#334B5C70</Color>
+    <Color x:Key="DarkText">#F5F7FA</Color>
+    <Color x:Key="DarkTextSecondary">#D0D7E2</Color>
+    <Color x:Key="DarkTextMuted">#8D99AA</Color>
+    <Color x:Key="DarkInput">#202734</Color>
+    <Color x:Key="DarkShellChrome">#131821</Color>
+    <Color x:Key="DarkHeroStart">#253246</Color>
+    <Color x:Key="DarkHeroEnd">#131A24</Color>
+    <Color x:Key="DarkHeroBorder">#557B8DA6</Color>
+    <Color x:Key="DarkSubtleFill">#202A38</Color>
+    <Color x:Key="DarkDangerFill">#26D13438</Color>
+    <Color x:Key="DarkSuccessColor">#6FD08C</Color>
+    <Color x:Key="DarkWarningColor">#F4C85D</Color>
+    <Color x:Key="DarkDangerColor">#FF96A1</Color>
+    <Color x:Key="DarkInfoColor">#7AB8FF</Color>
+
+    <Color x:Key="AccentBlueStart">#0F6CBD</Color>
+    <Color x:Key="AccentBlueEnd">#2899F5</Color>
+    <Color x:Key="AccentTealStart">#0F766E</Color>
+    <Color x:Key="AccentTealEnd">#14B8A6</Color>
+    <Color x:Key="AccentGold">#F2B84B</Color>
+    <Color x:Key="DangerRedStart">#C42B1C</Color>
+    <Color x:Key="DangerRedEnd">#E74856</Color>
+
+    <Color x:Key="LightBackground">#F4F7FB</Color>
+    <Color x:Key="LightBackgroundMid">#EEF3F9</Color>
+    <Color x:Key="LightBackgroundEnd">#FAFCFF</Color>
+    <Color x:Key="LightSurface">#FFFFFF</Color>
+    <Color x:Key="LightSurfaceAlt">#F6F9FC</Color>
+    <Color x:Key="LightCard">#F7FFFFFF</Color>
+    <Color x:Key="LightCardStrong">#FFFFFFFF</Color>
+    <Color x:Key="LightCardBorder">#D9E2EC</Color>
+    <Color x:Key="LightText">#111827</Color>
+    <Color x:Key="LightTextSecondary">#465466</Color>
+    <Color x:Key="LightTextMuted">#7B8797</Color>
+    <Color x:Key="LightInput">#F6F8FB</Color>
+    <Color x:Key="LightShellChrome">#EFF3F8</Color>
+    <Color x:Key="LightHeroStart">#FFFFFF</Color>
+    <Color x:Key="LightHeroEnd">#EFF6FF</Color>
+    <Color x:Key="LightHeroBorder">#DCE7F6</Color>
+    <Color x:Key="LightSubtleFill">#EEF4FA</Color>
+    <Color x:Key="LightDangerFill">#14D13438</Color>
+    <Color x:Key="LightSuccessColor">#0F7A36</Color>
+    <Color x:Key="LightWarningColor">#8A5A00</Color>
+    <Color x:Key="LightDangerColor">#C42B1C</Color>
+    <Color x:Key="LightInfoColor">#0F6CBD</Color>
+
+    <Color x:Key="DarkConsoleBackground">#0B1016</Color>
+    <Color x:Key="DarkConsoleHeader">#111822</Color>
+    <Color x:Key="DarkConsoleText">#B7F0C6</Color>
+    <Color x:Key="DarkConsoleBorder">#3341A369</Color>
+    <Color x:Key="DarkConsoleMeta">#88B7F0C6</Color>
+
+    <Color x:Key="LightConsoleBackground">#F7FBFF</Color>
+    <Color x:Key="LightConsoleHeader">#ECF3FA</Color>
+    <Color x:Key="LightConsoleText">#175C41</Color>
+    <Color x:Key="LightConsoleBorder">#D4E2EF</Color>
+    <Color x:Key="LightConsoleMeta">#6E8194</Color>
+</ResourceDictionary>

@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="PosAdminTool.Maui.Views.ConfigurationPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:PosAdminTool.Maui.Controls"
+    xmlns:converters="clr-namespace:PosAdminTool.Maui.Converters"
+    Title="Configuration">
+    <ContentPage.Resources>
+        <converters:BoolToColorConverter x:Key="BoolToColorConverter" />
+    </ContentPage.Resources>
+
+    <Grid Background="{StaticResource AppPageBackgroundBrush}">
+        <Grid
+            x:Name="AnimatedRoot"
+            Padding="28"
+            ColumnSpacing="16"
+            RowDefinitions="Auto,Auto,*,Auto"
+            RowSpacing="16">
+            <Border Style="{StaticResource HeroPanelStyle}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="24">
+                    <VerticalStackLayout Spacing="6">
+                        <HorizontalStackLayout Spacing="10">
+                            <controls:PulsingDot DotColor="{StaticResource AccentTealEnd}" HeightRequest="14" WidthRequest="14" />
+                            <Label Style="{StaticResource EyebrowLabel}" Text="Configuration workspace" VerticalTextAlignment="Center" />
+                        </HorizontalStackLayout>
+                        <Label Style="{StaticResource PageTitleLabel}" Text="Configuration" />
+                        <Label
+                            Style="{StaticResource SecondaryLabel}"
+                            Text="Manage encrypted SQL credentials, branch identity, runtime folders, and POS automation settings from one fluent workspace." />
+                        <Label Style="{StaticResource SecondaryLabel}" Text="{Binding ConfigPath}" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Grid.Column="1" HorizontalOptions="End" Spacing="12" VerticalOptions="Center">
+                        <Border
+                            Style="{StaticResource StatusPillStyle}"
+                            Stroke="{Binding IsServerOnline, Converter={StaticResource BoolToColorConverter}}">
+                            <HorizontalStackLayout Spacing="8">
+                                <controls:PulsingDot
+                                    DotColor="{Binding IsServerOnline, Converter={StaticResource BoolToColorConverter}}"
+                                    HeightRequest="10"
+                                    WidthRequest="10" />
+                                <Label
+                                    FontAttributes="Bold"
+                                    FontSize="12"
+                                    Text="{Binding ServerStatusText}"
+                                    TextColor="{Binding IsServerOnline, Converter={StaticResource BoolToColorConverter}}"
+                                    VerticalTextAlignment="Center" />
+                            </HorizontalStackLayout>
+                        </Border>
+                    </VerticalStackLayout>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1" ColumnDefinitions="*,*,*,*" ColumnSpacing="12">
+                <Border Style="{StaticResource GlassCardStyle}">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Style="{StaticResource EyebrowLabel}" Text="Branch" />
+                        <Label Style="{StaticResource MetricValueLabel}" Text="{Binding BranchCode}" />
+                    </VerticalStackLayout>
+                </Border>
+                <Border Grid.Column="1" Style="{StaticResource GlassCardStyle}">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Style="{StaticResource EyebrowLabel}" Text="POS" />
+                        <Label Style="{StaticResource MetricValueLabel}" Text="{Binding PosNumber}" />
+                    </VerticalStackLayout>
+                </Border>
+                <Border Grid.Column="2" Style="{StaticResource GlassCardStyle}">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Style="{StaticResource EyebrowLabel}" Text="Client" />
+                        <Label Style="{StaticResource MetricValueLabel}" Text="{Binding ClientName}" />
+                    </VerticalStackLayout>
+                </Border>
+                <Border Grid.Column="3" Style="{StaticResource GlassCardStyle}">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Style="{StaticResource EyebrowLabel}" Text="Release" />
+                        <Label Style="{StaticResource MetricValueLabel}" Text="{Binding Release}" />
+                    </VerticalStackLayout>
+                </Border>
+            </Grid>
+
+            <Grid Grid.Row="2" ColumnDefinitions="1.05*,1.05*,0.9*" ColumnSpacing="14">
+                <Border Style="{StaticResource GlassPanelStyle}">
+                    <Grid RowDefinitions="Auto,*,Auto" RowSpacing="14">
+                        <VerticalStackLayout Spacing="4">
+                            <Label Style="{StaticResource SectionTitleLabel}" Text="SQL and branch identity" />
+                            <Label Style="{StaticResource SecondaryLabel}" Text="Credentials are stored encrypted in the compatibility configuration file." />
+                        </VerticalStackLayout>
+
+                        <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="12" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
+                            <Label Style="{StaticResource EyebrowLabel}" Text="SQL Instance" />
+                            <Entry Grid.Row="1" Text="{Binding SqlInstance}" Placeholder="e.g. .\SQLEXPRESS" />
+
+                            <Label Grid.Column="1" Style="{StaticResource EyebrowLabel}" Text="SQL User" />
+                            <Entry Grid.Row="1" Grid.Column="1" Text="{Binding SqlUser}" Placeholder="e.g. sa" />
+
+                            <Label Grid.Row="2" Style="{StaticResource EyebrowLabel}" Text="SQL Password" />
+                            <Entry Grid.Row="3" IsPassword="True" Text="{Binding SqlPassword}" Placeholder="Enter SQL password" />
+
+                            <Label Grid.Row="2" Grid.Column="1" Style="{StaticResource EyebrowLabel}" Text="API URL" />
+                            <Entry Grid.Row="3" Grid.Column="1" Text="{Binding ApiBaseUrl}" Placeholder="e.g. https://api.example.com" />
+
+                            <Label Grid.Row="4" Style="{StaticResource EyebrowLabel}" Text="Branch Code" />
+                            <Entry Grid.Row="5" Text="{Binding BranchCode}" Placeholder="e.g. 101" />
+
+                            <Label Grid.Row="4" Grid.Column="1" Style="{StaticResource EyebrowLabel}" Text="POS Number" />
+                            <Entry Grid.Row="5" Grid.Column="1" Text="{Binding PosNumber}" Placeholder="e.g. 1" />
+                        </Grid>
+
+                        <Border Grid.Row="2" Style="{StaticResource StatusPillStyle}">
+                            <Label FontAttributes="Bold" FontSize="12" Text="Secrets stay encrypted at rest" TextColor="{AppThemeBinding Dark={StaticResource DarkSuccessColor}, Light={StaticResource LightSuccessColor}}" />
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Column="1" Style="{StaticResource GlassPanelStyle}">
+                    <Grid RowDefinitions="Auto,*,Auto" RowSpacing="14">
+                        <VerticalStackLayout Spacing="4">
+                            <Label Style="{StaticResource SectionTitleLabel}" Text="Runtime paths and automation" />
+                            <Label Style="{StaticResource SecondaryLabel}" Text="Backup, restore, and POS automation inputs used by the maintenance flows." />
+                        </VerticalStackLayout>
+
+                        <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="12" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
+                            <Label Style="{StaticResource EyebrowLabel}" Text="Backup Folder" />
+                            <Entry Grid.Row="1" Text="{Binding BackupFolder}" Placeholder="e.g. D:\DB Backups" />
+
+                            <Label Grid.Column="1" Style="{StaticResource EyebrowLabel}" Text="DB Files Path" />
+                            <Entry Grid.Row="1" Grid.Column="1" Text="{Binding DbFilesPath}" Placeholder="e.g. D:\DB Backups" />
+
+                            <Label Grid.Row="2" Grid.ColumnSpan="2" Style="{StaticResource EyebrowLabel}" Text="POS Executable" />
+                            <Entry Grid.Row="3" Grid.ColumnSpan="2" Text="{Binding PosExecutablePath}" Placeholder="Full path to POS .exe" />
+
+                            <Label Grid.Row="4" Style="{StaticResource EyebrowLabel}" Text="POS Username" />
+                            <Entry Grid.Row="5" Text="{Binding PosUsername}" Placeholder="POS login username" />
+
+                            <Label Grid.Row="4" Grid.Column="1" Style="{StaticResource EyebrowLabel}" Text="POS Password" />
+                            <Entry Grid.Row="5" Grid.Column="1" IsPassword="True" Text="{Binding PosPassword}" Placeholder="POS login password" />
+                        </Grid>
+
+                        <Border Grid.Row="2" Style="{StaticResource StatusPillStyle}">
+                            <Label Style="{StaticResource SecondaryLabel}" Text="RMS+ automation uses the credentials saved here." />
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Column="2" Style="{StaticResource GlassPanelStyle}">
+                    <Grid RowDefinitions="Auto,*,*" RowSpacing="12">
+                        <VerticalStackLayout Spacing="4">
+                            <Label Style="{StaticResource SectionTitleLabel}" Text="System lists" />
+                            <Label Style="{StaticResource SecondaryLabel}" Text="Databases and Windows services loaded from the saved configuration." />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Grid.Row="1" Spacing="8">
+                            <Label Style="{StaticResource EyebrowLabel}" Text="Databases" />
+                            <Editor AutoSize="Disabled" HeightRequest="170" Text="{Binding DatabasesText}" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Grid.Row="2" Spacing="8">
+                            <Label Style="{StaticResource EyebrowLabel}" Text="Services" />
+                            <Editor AutoSize="Disabled" HeightRequest="170" Text="{Binding ServicesText}" />
+                        </VerticalStackLayout>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <Border Grid.Row="3" Style="{StaticResource GlassPanelStyle}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                    <Label Style="{StaticResource SecondaryLabel}" Text="{Binding StatusMessage}" VerticalTextAlignment="Center" />
+                    <HorizontalStackLayout Grid.Column="1" Spacing="10">
+                        <Button Command="{Binding ImportFromRmsCommand}" Style="{StaticResource TealButtonStyle}" Text="Import RMS+" />
+                        <Button Command="{Binding VerifyBranchCommand}" Style="{StaticResource PrimaryButtonStyle}" Text="Verify Branch" />
+                        <Button Command="{Binding TestDbCommand}" Style="{StaticResource GhostButtonStyle}" Text="Test DB" />
+                        <Button Command="{Binding SaveConfigCommand}" Style="{StaticResource PrimaryButtonStyle}" Text="Save Config" />
+                    </HorizontalStackLayout>
+                </Grid>
+            </Border>
+        </Grid>
+        <Border
+            BackgroundColor="#88000000"
+            IsVisible="{Binding IsBusy}"
+            InputTransparent="False"
+            ZIndex="999">
+            <ActivityIndicator
+                IsRunning="{Binding IsBusy}"
+                Color="{StaticResource AccentBlueEnd}"
+                HeightRequest="48"
+                WidthRequest="48"
+                HorizontalOptions="Center"
+                VerticalOptions="Center" />
+        </Border>
+    </Grid>
+</ContentPage>

@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10" xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10" IgnorableNamespaces="uap">
+  <Identity Name="com.dbs.posadmintool" Publisher="CN=DBS" Version="2.4.0.0" />
+  <Properties>
+    <DisplayName>DBS POS Admin Tool</DisplayName>
+    <PublisherDisplayName>DBS</PublisherDisplayName>
+    <Logo>Resources\Images\app_icon.ico</Logo>
+  </Properties>
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26200.0" />
+  </Dependencies>
+  <Applications>
+    <Application Id="App" Executable="$targetnametoken$.exe" EntryPoint="$targetentrypoint$">
+      <uap:VisualElements DisplayName="DBS POS Admin Tool" Description="RMS+ POS administration dashboard" BackgroundColor="#0A0A1A" Square150x150Logo="Resources\Images\app_icon.ico" Square44x44Logo="Resources\Images\app_icon.ico">
+        <uap:DefaultTile Wide310x150Logo="app_iconWideTile.png" Square71x71Logo="app_iconSmallTile.png" Square310x310Logo="app_iconLargeTile.png" ShortName="DBS POS Admin Tool">
+          <uap:ShowNameOnTiles>
+            <uap:ShowOn Tile="square150x150Logo" />
+            <uap:ShowOn Tile="wide310x150Logo" />
+          </uap:ShowNameOnTiles>
+        </uap:DefaultTile>
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+</Package>

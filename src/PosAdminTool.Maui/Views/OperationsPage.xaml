@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="PosAdminTool.Maui.Views.OperationsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:PosAdminTool.Maui.Controls"
+    Title="Operations">
+    <Grid Background="{StaticResource AppPageBackgroundBrush}">
+        <Grid
+            x:Name="AnimatedRoot"
+            Padding="28"
+            RowDefinitions="Auto,*,Auto,Auto"
+            RowSpacing="16">
+            <Border Style="{StaticResource HeroPanelStyle}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="24">
+                    <VerticalStackLayout Spacing="6">
+                        <HorizontalStackLayout Spacing="10">
+                            <controls:PulsingDot DotColor="{StaticResource AccentGold}" HeightRequest="14" WidthRequest="14" />
+                            <Label Style="{StaticResource EyebrowLabel}" Text="Backup and restore pipeline" VerticalTextAlignment="Center" />
+                        </HorizontalStackLayout>
+                        <Label Style="{StaticResource PageTitleLabel}" Text="Operations" />
+                        <Label Style="{StaticResource SecondaryLabel}" Text="Package databases, restore curated snapshots, and run guarded maintenance tasks with explicit operator confirmation." />
+                    </VerticalStackLayout>
+                    <Border Grid.Column="1" Style="{StaticResource StatusPillStyle}" VerticalOptions="Center">
+                        <Label FontAttributes="Bold" FontSize="12" Text="{Binding StatusMessage}" />
+                    </Border>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1" ColumnDefinitions="1.05*,0.95*" ColumnSpacing="14">
+                <Border Style="{StaticResource GlassPanelStyle}">
+                    <Grid RowDefinitions="Auto,*,Auto" RowSpacing="14">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Style="{StaticResource SectionTitleLabel}" Text="Backup manifest" />
+                                <Label Style="{StaticResource SecondaryLabel}" Text="Select the RMS+ databases and configuration payloads to package into a recoverable archive." />
+                            </VerticalStackLayout>
+                            <Button Grid.Column="1" Command="{Binding SelectAllBackupItemsCommand}" Style="{StaticResource GhostButtonStyle}" Text="Select All" />
+                        </Grid>
+
+                        <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="10" RowDefinitions="Auto,Auto,Auto" RowSpacing="10" VerticalOptions="Start" Margin="0,4,0,0">
+                            <Border Style="{StaticResource StatusPillStyle}">
+                                <HorizontalStackLayout Spacing="4">
+                                    <CheckBox IsChecked="{Binding BackupBranchDatabase}" WidthRequest="40" Margin="0" VerticalOptions="Center" />
+                                    <Label Text="RmsBranchSrv Database" VerticalTextAlignment="Center" />
+                                </HorizontalStackLayout>
+                            </Border>
+                            <Border Grid.Column="1" Style="{StaticResource StatusPillStyle}">
+                                <HorizontalStackLayout Spacing="4">
+                                    <CheckBox IsChecked="{Binding BackupCashierDatabase}" WidthRequest="40" Margin="0" VerticalOptions="Center" />
+                                    <Label Text="RmsCashierSrv Database" VerticalTextAlignment="Center" />
+                                </HorizontalStackLayout>
+                            </Border>
+                            <Border Grid.Row="1" Style="{StaticResource StatusPillStyle}">
+                                <HorizontalStackLayout Spacing="4">
+                                    <CheckBox IsChecked="{Binding BackupBranchConfig}" WidthRequest="40" Margin="0" VerticalOptions="Center" />
+                                    <Label Text="Branch appsettings" VerticalTextAlignment="Center" />
+                                </HorizontalStackLayout>
+                            </Border>
+                            <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource StatusPillStyle}">
+                                <HorizontalStackLayout Spacing="4">
+                                    <CheckBox IsChecked="{Binding BackupCashierServerConfig}" WidthRequest="40" Margin="0" VerticalOptions="Center" />
+                                    <Label Text="Cashier server appsettings" VerticalTextAlignment="Center" />
+                                </HorizontalStackLayout>
+                            </Border>
+                            <Border Grid.Row="2" Grid.ColumnSpan="2" Style="{StaticResource StatusPillStyle}">
+                                <HorizontalStackLayout Spacing="4">
+                                    <CheckBox IsChecked="{Binding BackupCashierUiConfig}" WidthRequest="40" Margin="0" VerticalOptions="Center" />
+                                    <Label Text="Cashier UI appsettings" VerticalTextAlignment="Center" />
+                                </HorizontalStackLayout>
+                            </Border>
+                        </Grid>
+
+                        <Button Grid.Row="2" Command="{Binding RunBackupCommand}" Style="{StaticResource TealButtonStyle}" Text="Run Backup" />
+                    </Grid>
+                </Border>
+
+                <Border Grid.Column="1" Style="{StaticResource GlassPanelStyle}">
+                    <Grid RowDefinitions="Auto,*,Auto" RowSpacing="14">
+                        <VerticalStackLayout Spacing="4">
+                            <Label Style="{StaticResource SectionTitleLabel}" Text="Restore target" />
+                            <Label Style="{StaticResource SecondaryLabel}" Text="Extract a ZIP archive and restore SQL files with the required MOVE clauses for the selected destination." />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Grid.Row="1" Spacing="14" VerticalOptions="Start" Margin="0,4,0,0">
+                            <Grid ColumnDefinitions="150,*" ColumnSpacing="12">
+                                <VerticalStackLayout Spacing="4">
+                                    <Label Style="{StaticResource EyebrowLabel}" Text="Type" />
+                                    <Picker SelectedItem="{Binding RestoreType}">
+                                        <Picker.Items>
+                                            <x:String>Full</x:String>
+                                            <x:String>Database Only</x:String>
+                                            <x:String>Config Only</x:String>
+                                        </Picker.Items>
+                                    </Picker>
+                                </VerticalStackLayout>
+                                <VerticalStackLayout Grid.Column="1" Spacing="4">
+                                    <Label Style="{StaticResource EyebrowLabel}" Text="Target DB" />
+                                    <Entry Text="{Binding TargetDatabase}" />
+                                </VerticalStackLayout>
+                            </Grid>
+
+                            <VerticalStackLayout Spacing="4">
+                                <Label Style="{StaticResource EyebrowLabel}" Text="Backup ZIP" />
+                                <Entry Text="{Binding BackupZipPath}" />
+                            </VerticalStackLayout>
+
+                            <VerticalStackLayout Spacing="4">
+                                <Label Style="{StaticResource EyebrowLabel}" Text="DB Files Path" />
+                                <Entry Text="{Binding DbFilesPath}" />
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+
+                        <Button Grid.Row="2" Command="{Binding RestoreDatabaseCommand}" Style="{StaticResource PrimaryButtonStyle}" Text="Restore Database" />
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <Border Grid.Row="2" Style="{StaticResource DangerPanelStyle}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
+                    <VerticalStackLayout Spacing="8">
+                        <Label FontAttributes="Bold" FontSize="18" Text="Danger zone" TextColor="{AppThemeBinding Dark={StaticResource DarkDangerColor}, Light={StaticResource LightDangerColor}}" />
+                        <Label Style="{StaticResource SecondaryLabel}" Text="These actions permanently remove branch data or generated files. Keep the operator acknowledgement enabled before execution." />
+                        <HorizontalStackLayout Spacing="4">
+                            <CheckBox IsChecked="{Binding RiskAccepted}" WidthRequest="40" Margin="0" VerticalOptions="Center" />
+                            <Label Text="I understand these actions can remove RMS+ data and files." VerticalTextAlignment="Center" />
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+                    <HorizontalStackLayout Grid.Column="1" Spacing="12" VerticalOptions="Center">
+                        <Button Command="{Binding CleanupCommand}" Style="{StaticResource DangerButtonStyle}" Text="Cleanup Files" ToolTipProperties.Text="Permanently deletes all configured folders listed in the cleanup manifest." />
+                        <Button Command="{Binding ResetBranchDataCommand}" Style="{StaticResource DangerButtonStyle}" Text="Reset Branch Data" ToolTipProperties.Text="Drops and re-creates branch data tables in the local SQL database. This cannot be undone." />
+                    </HorizontalStackLayout>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="3" Style="{StaticResource GlassPanelStyle}">
+                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="8">
+                    <ProgressBar Progress="{Binding ProgressValue}" ProgressColor="{StaticResource AccentTealEnd}" />
+                    <Label Grid.Column="1" Style="{StaticResource SecondaryLabel}" Text="{Binding ProgressText}" />
+                    <Label Grid.Row="1" Grid.ColumnSpan="2" Style="{StaticResource SecondaryLabel}" Text="{Binding StatusMessage}" />
+                </Grid>
+            </Border>
+        </Grid>
+        <Border
+            BackgroundColor="#88000000"
+            IsVisible="{Binding IsBusy}"
+            InputTransparent="False"
+            ZIndex="999">
+            <ActivityIndicator
+                IsRunning="{Binding IsBusy}"
+                Color="{StaticResource AccentBlueEnd}"
+                HeightRequest="48"
+                WidthRequest="48"
+                HorizontalOptions="Center"
+                VerticalOptions="Center" />
+        </Border>
+    </Grid>
+</ContentPage>

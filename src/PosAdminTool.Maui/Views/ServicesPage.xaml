@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="PosAdminTool.Maui.Views.ServicesPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:PosAdminTool.Maui.Controls"
+    Title="Services">
+    <Grid Background="{StaticResource AppPageBackgroundBrush}">
+        <Grid
+            x:Name="AnimatedRoot"
+            Padding="28"
+            RowDefinitions="Auto,Auto,Auto"
+            RowSpacing="16">
+            <Border Style="{StaticResource HeroPanelStyle}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="24">
+                    <VerticalStackLayout Spacing="6">
+                        <HorizontalStackLayout Spacing="10">
+                            <controls:PulsingDot DotColor="{AppThemeBinding Dark={StaticResource DarkSuccessColor}, Light={StaticResource LightSuccessColor}}" HeightRequest="14" WidthRequest="14" />
+                            <Label Style="{StaticResource EyebrowLabel}" Text="Service control center" VerticalTextAlignment="Center" />
+                        </HorizontalStackLayout>
+                        <Label Style="{StaticResource PageTitleLabel}" Text="Services" />
+                        <Label Style="{StaticResource SecondaryLabel}" Text="Monitor RMS+ Windows services, inspect live state, and issue operator-safe control actions." />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Grid.Column="1" HorizontalOptions="End" Spacing="12" VerticalOptions="Center">
+                        <Border Style="{StaticResource StatusPillStyle}">
+                            <HorizontalStackLayout Spacing="8">
+                                <controls:PulsingDot DotColor="{AppThemeBinding Dark={StaticResource DarkInfoColor}, Light={StaticResource LightInfoColor}}" HeightRequest="10" WidthRequest="10" />
+                                <Label FontAttributes="Bold" FontSize="12" Text="Auto-refresh every 5 seconds" TextColor="{AppThemeBinding Dark={StaticResource DarkInfoColor}, Light={StaticResource LightInfoColor}}" />
+                            </HorizontalStackLayout>
+                        </Border>
+                        <Button Command="{Binding RefreshCommand}" Style="{StaticResource PrimaryButtonStyle}" Text="Refresh" />
+                    </VerticalStackLayout>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1" ColumnDefinitions="*,*,*" ColumnSpacing="12">
+                <Border Style="{StaticResource GlassCardStyle}">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Style="{StaticResource EyebrowLabel}" Text="Watchlist" />
+                        <Label Style="{StaticResource MetricValueLabel}" Text="{Binding Services.Count}" />
+                    </VerticalStackLayout>
+                </Border>
+                <Border Grid.Column="1" Style="{StaticResource GlassCardStyle}">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Style="{StaticResource EyebrowLabel}" Text="Polling" />
+                        <Label Style="{StaticResource MetricValueLabel}" Text="5s" />
+                    </VerticalStackLayout>
+                </Border>
+                <Border Grid.Column="2" Style="{StaticResource GlassCardStyle}">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Style="{StaticResource EyebrowLabel}" Text="Privilege" />
+                        <Label Style="{StaticResource MetricValueLabel}" Text="Admin" />
+                    </VerticalStackLayout>
+                </Border>
+            </Grid>
+
+            <Border Grid.Row="2" Style="{StaticResource GlassPanelStyle}">
+                <Grid RowDefinitions="Auto,*" RowSpacing="14">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                        <VerticalStackLayout Spacing="4">
+                            <Label Style="{StaticResource SectionTitleLabel}" Text="Service catalog" />
+                            <Label Style="{StaticResource SecondaryLabel}" Text="Start, stop, or restart the configured RMS+ services from a single command deck." />
+                        </VerticalStackLayout>
+                        <Border Grid.Column="1" Style="{StaticResource StatusPillStyle}">
+                            <Label FontAttributes="Bold" FontSize="12" Text="Live state monitoring" TextColor="{AppThemeBinding Dark={StaticResource DarkInfoColor}, Light={StaticResource LightInfoColor}}" />
+                        </Border>
+                    </Grid>
+
+                    <Label
+                        Grid.Row="1"
+                        Style="{StaticResource SecondaryLabel}"
+                        Text="No services are configured for monitoring."
+                        IsVisible="False">
+                        <Label.Triggers>
+                            <DataTrigger TargetType="Label" Binding="{Binding Services.Count}" Value="0">
+                                <Setter Property="IsVisible" Value="True" />
+                            </DataTrigger>
+                        </Label.Triggers>
+                    </Label>
+
+                    <FlexLayout
+                        Grid.Row="1"
+                        BindableLayout.ItemsSource="{Binding Services}"
+                        Direction="Row"
+                        Wrap="Wrap"
+                        JustifyContent="SpaceBetween"
+                        AlignItems="Stretch">
+                        <FlexLayout.Triggers>
+                            <DataTrigger TargetType="FlexLayout" Binding="{Binding Services.Count}" Value="0">
+                                <Setter Property="IsVisible" Value="False" />
+                            </DataTrigger>
+                        </FlexLayout.Triggers>
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate>
+                                <controls:ServiceCard
+                                    FlexLayout.Basis="32%"
+                                    RestartCommand="{Binding RestartCommand}"
+                                    ServiceName="{Binding Name}"
+                                    StartCommand="{Binding StartCommand}"
+                                    Status="{Binding Status}"
+                                    StopCommand="{Binding StopCommand}" />
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </FlexLayout>
+                </Grid>
+            </Border>
+        </Grid>
+        <Border
+            BackgroundColor="#88000000"
+            IsVisible="{Binding IsBusy}"
+            InputTransparent="False"
+            ZIndex="999">
+            <ActivityIndicator
+                IsRunning="{Binding IsBusy}"
+                Color="{StaticResource AccentBlueEnd}"
+                HeightRequest="48"
+                WidthRequest="48"
+                HorizontalOptions="Center"
+                VerticalOptions="Center" />
+        </Border>
+    </Grid>
+</ContentPage>
