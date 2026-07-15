@@ -17,7 +17,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PosAdminTool.Maui")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("2.4.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("2.4.0+260d9c2c7aca61df557c9f4adbaaedb900ab90de")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("2.4.0+9ac34bab86bf8f276b0ff0923598a90e09db4385")]
 [assembly: System.Reflection.AssemblyProductAttribute("PosAdminTool.Maui")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PosAdminTool.Maui")]
 [assembly: System.Reflection.AssemblyVersionAttribute("2.4.0.0")]
