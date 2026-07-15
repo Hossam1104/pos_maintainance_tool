@@ -1,13 +1,13 @@
 {
   "version": 2,
-  "dgSpecHash": "ns2yc8Q32Ws=",
+  "dgSpecHash": "H1lKEqpFHFI=",
   "success": true,
   "projectFilePath": "D:\\AI Tools\\DBS\\pos_maintainance_tool\\tests\\PosAdminTool.Application.Tests\\PosAdminTool.Application.Tests.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Win11\\.nuget\\packages\\coverlet.collector\\6.0.4\\coverlet.collector.6.0.4.nupkg.sha512",
     "C:\\Users\\Win11\\.nuget\\packages\\microsoft.codecoverage\\17.14.1\\microsoft.codecoverage.17.14.1.nupkg.sha512",
-    "C:\\Users\\Win11\\.nuget\\packages\\microsoft.extensions.dependencyinjection.abstractions\\10.0.9\\microsoft.extensions.dependencyinjection.abstractions.10.0.9.nupkg.sha512",
-    "C:\\Users\\Win11\\.nuget\\packages\\microsoft.extensions.logging.abstractions\\10.0.9\\microsoft.extensions.logging.abstractions.10.0.9.nupkg.sha512",
+    "C:\\Users\\Win11\\.nuget\\packages\\microsoft.extensions.dependencyinjection.abstractions\\10.0.10\\microsoft.extensions.dependencyinjection.abstractions.10.0.10.nupkg.sha512",
+    "C:\\Users\\Win11\\.nuget\\packages\\microsoft.extensions.logging.abstractions\\10.0.10\\microsoft.extensions.logging.abstractions.10.0.10.nupkg.sha512",
     "C:\\Users\\Win11\\.nuget\\packages\\microsoft.net.test.sdk\\17.14.1\\microsoft.net.test.sdk.17.14.1.nupkg.sha512",
     "C:\\Users\\Win11\\.nuget\\packages\\microsoft.testplatform.objectmodel\\17.14.1\\microsoft.testplatform.objectmodel.17.14.1.nupkg.sha512",
     "C:\\Users\\Win11\\.nuget\\packages\\microsoft.testplatform.testhost\\17.14.1\\microsoft.testplatform.testhost.17.14.1.nupkg.sha512",

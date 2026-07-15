@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PosAdminTool.Application")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9ac34bab86bf8f276b0ff0923598a90e09db4385")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+46510fd984768bda8ed2b0c64d3d59ed64f016f8")]
 [assembly: System.Reflection.AssemblyProductAttribute("PosAdminTool.Application")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PosAdminTool.Application")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

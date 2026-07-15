@@ -239,7 +239,7 @@
           "buildTransitive/net8.0/_._": {}
         }
       },
-      "Microsoft.Extensions.DependencyInjection.Abstractions/10.0.9": {
+      "Microsoft.Extensions.DependencyInjection.Abstractions/10.0.10": {
         "type": "package",
         "compile": {
           "lib/net10.0/Microsoft.Extensions.DependencyInjection.Abstractions.dll": {
@@ -255,10 +255,10 @@
           "buildTransitive/net8.0/_._": {}
         }
       },
-      "Microsoft.Extensions.Logging.Abstractions/10.0.9": {
+      "Microsoft.Extensions.Logging.Abstractions/10.0.10": {
         "type": "package",
         "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.9"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.10"
         },
         "compile": {
           "lib/net10.0/Microsoft.Extensions.Logging.Abstractions.dll": {
@@ -514,7 +514,7 @@
           }
         }
       },
-      "Microsoft.Win32.SystemEvents/10.0.9": {
+      "Microsoft.Win32.SystemEvents/10.0.10": {
         "type": "package",
         "compile": {
           "lib/net10.0/Microsoft.Win32.SystemEvents.dll": {
@@ -586,7 +586,7 @@
           "buildTransitive/net8.0/_._": {}
         }
       },
-      "System.Diagnostics.EventLog/10.0.9": {
+      "System.Diagnostics.EventLog/10.0.10": {
         "type": "package",
         "compile": {
           "lib/net10.0/System.Diagnostics.EventLog.dll": {
@@ -635,10 +635,10 @@
           }
         }
       },
-      "System.Drawing.Common/10.0.9": {
+      "System.Drawing.Common/10.0.10": {
         "type": "package",
         "dependencies": {
-          "Microsoft.Win32.SystemEvents": "10.0.9"
+          "Microsoft.Win32.SystemEvents": "10.0.10"
         },
         "compile": {
           "lib/net10.0/System.Drawing.Common.dll": {
@@ -776,10 +776,10 @@
           }
         }
       },
-      "System.ServiceProcess.ServiceController/10.0.9": {
+      "System.ServiceProcess.ServiceController/10.0.10": {
         "type": "package",
         "dependencies": {
-          "System.Diagnostics.EventLog": "10.0.9"
+          "System.Diagnostics.EventLog": "10.0.10"
         },
         "compile": {
           "lib/net10.0/System.ServiceProcess.ServiceController.dll": {
@@ -1127,10 +1127,10 @@
         "useSharedDesignerContext.txt"
       ]
     },
-    "Microsoft.Extensions.DependencyInjection.Abstractions/10.0.9": {
-      "sha512": "g41l/30G3K4B/d/L8kjux0+30e27c8D0FVQ/PFCpbekgfDpj9mnDhieP67EqXWvl1EWNeZh2rpR4F5B/jcDOHA==",
+    "Microsoft.Extensions.DependencyInjection.Abstractions/10.0.10": {
+      "sha512": "z/2xXlFw2aLGjHyEm6E0tQ+In6VfzQzTrtArbQ2c0TQE16ZbyDCMGPvaUT9I0s8rgy9sRWlU2P9waW37qV04qA==",
       "type": "package",
-      "path": "microsoft.extensions.dependencyinjection.abstractions/10.0.9",
+      "path": "microsoft.extensions.dependencyinjection.abstractions/10.0.10",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -1153,15 +1153,15 @@
         "lib/netstandard2.0/Microsoft.Extensions.DependencyInjection.Abstractions.xml",
         "lib/netstandard2.1/Microsoft.Extensions.DependencyInjection.Abstractions.dll",
         "lib/netstandard2.1/Microsoft.Extensions.DependencyInjection.Abstractions.xml",
-        "microsoft.extensions.dependencyinjection.abstractions.10.0.9.nupkg.sha512",
+        "microsoft.extensions.dependencyinjection.abstractions.10.0.10.nupkg.sha512",
         "microsoft.extensions.dependencyinjection.abstractions.nuspec",
         "useSharedDesignerContext.txt"
       ]
     },
-    "Microsoft.Extensions.Logging.Abstractions/10.0.9": {
-      "sha512": "9S/DFt4cohlMPpzIxjG6kk0L8MuN2vDm9pbMCulxtJzzk82oJHVLBd8vuQxaPskaYQwKqmFmbannf5eoChgjYg==",
+    "Microsoft.Extensions.Logging.Abstractions/10.0.10": {
+      "sha512": "zkFxGYUvdxAvIKTyXHrmW+Sux53D4SezD9dMyZ6hrwwzPQJNuwCRy1f5W7AvYTqacEGhWF2XderRQG1OvbV8og==",
       "type": "package",
-      "path": "microsoft.extensions.logging.abstractions/10.0.9",
+      "path": "microsoft.extensions.logging.abstractions/10.0.10",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -1225,7 +1225,7 @@
         "lib/net9.0/Microsoft.Extensions.Logging.Abstractions.xml",
         "lib/netstandard2.0/Microsoft.Extensions.Logging.Abstractions.dll",
         "lib/netstandard2.0/Microsoft.Extensions.Logging.Abstractions.xml",
-        "microsoft.extensions.logging.abstractions.10.0.9.nupkg.sha512",
+        "microsoft.extensions.logging.abstractions.10.0.10.nupkg.sha512",
         "microsoft.extensions.logging.abstractions.nuspec",
         "useSharedDesignerContext.txt"
       ]
@@ -1558,10 +1558,10 @@
         "microsoft.sqlserver.server.nuspec"
       ]
     },
-    "Microsoft.Win32.SystemEvents/10.0.9": {
-      "sha512": "dk5HKolAR9bBxlL4dl6Koaf0s/Q47QApog+/o341LSuvWGW6ig4q5fTsgYG0MrK//l2Slv6mygncMK/8lgXVDg==",
+    "Microsoft.Win32.SystemEvents/10.0.10": {
+      "sha512": "IY0lTfC2uVwTizjtGgQ03ViwyXGQ9lMDblzB889/HyguAZJ2J8pRrjPown8h2eJe8WFc8nh+BUEsEPkshzizYQ==",
       "type": "package",
-      "path": "microsoft.win32.systemevents/10.0.9",
+      "path": "microsoft.win32.systemevents/10.0.10",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -1582,7 +1582,7 @@
         "lib/net9.0/Microsoft.Win32.SystemEvents.xml",
         "lib/netstandard2.0/Microsoft.Win32.SystemEvents.dll",
         "lib/netstandard2.0/Microsoft.Win32.SystemEvents.xml",
-        "microsoft.win32.systemevents.10.0.9.nupkg.sha512",
+        "microsoft.win32.systemevents.10.0.10.nupkg.sha512",
         "microsoft.win32.systemevents.nuspec",
         "runtimes/win/lib/net10.0/Microsoft.Win32.SystemEvents.dll",
         "runtimes/win/lib/net10.0/Microsoft.Win32.SystemEvents.xml",
@@ -1666,10 +1666,10 @@
         "useSharedDesignerContext.txt"
       ]
     },
-    "System.Diagnostics.EventLog/10.0.9": {
-      "sha512": "s2PcxHK4IYQ6gmD3VSBkym9tWGkFisKjcjWBdl7a+n4Yy66ae4beJ1ZdjDp060SSll4W3Rt4H2LW87dWckv+QQ==",
+    "System.Diagnostics.EventLog/10.0.10": {
+      "sha512": "OvGz3PrzuAI/Sj7LTcXcCe3FClRI1IyRMZjNONcZtFh+Ww7nAtSh4kh08r8KVe/xxkXJPjR0Y1jF7H+N42d4xQ==",
       "type": "package",
-      "path": "system.diagnostics.eventlog/10.0.9",
+      "path": "system.diagnostics.eventlog/10.0.10",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -1699,7 +1699,7 @@
         "runtimes/win/lib/net9.0/System.Diagnostics.EventLog.Messages.dll",
         "runtimes/win/lib/net9.0/System.Diagnostics.EventLog.dll",
         "runtimes/win/lib/net9.0/System.Diagnostics.EventLog.xml",
-        "system.diagnostics.eventlog.10.0.9.nupkg.sha512",
+        "system.diagnostics.eventlog.10.0.10.nupkg.sha512",
         "system.diagnostics.eventlog.nuspec",
         "useSharedDesignerContext.txt"
       ]
@@ -1742,10 +1742,10 @@
         "version.txt"
       ]
     },
-    "System.Drawing.Common/10.0.9": {
-      "sha512": "ShkEj8jOhklJgrN3SoaVbCcopvqyIgVXHso2/eibQBL7IZxzJjND77UYVlViHqpwPxyQeA67IOut4b41clBkQw==",
+    "System.Drawing.Common/10.0.10": {
+      "sha512": "R9q9TI//kGavXWTxvaSS9ERj79s+Vm7V7769zEmRbzdrIOJzAnGw+wWSo/JkaVdQfAAefV2V1bWYKCHF7Zs5oQ==",
       "type": "package",
-      "path": "system.drawing.common/10.0.9",
+      "path": "system.drawing.common/10.0.10",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -1790,7 +1790,7 @@
         "lib/xamarinmac20/_._",
         "lib/xamarintvos10/_._",
         "lib/xamarinwatchos10/_._",
-        "system.drawing.common.10.0.9.nupkg.sha512",
+        "system.drawing.common.10.0.10.nupkg.sha512",
         "system.drawing.common.nuspec",
         "useSharedDesignerContext.txt"
       ]
@@ -1972,10 +1972,10 @@
         "version.txt"
       ]
     },
-    "System.ServiceProcess.ServiceController/10.0.9": {
-      "sha512": "VaYklIT689DthcRzbqt3S8z3GkymiD+US+RLzMFfoPxNIyUxMpXT116cO6rVrKHSuwgdvb35HRKN/PmDmbL+3g==",
+    "System.ServiceProcess.ServiceController/10.0.10": {
+      "sha512": "9tI/EtlMimwJn9EEtbqFrVqGCD98VfVdnW6UekC7/YHO5Ky/LMUfXibBv9+AV8g9u7uim20oHgiOqzaeEWAhqg==",
       "type": "package",
-      "path": "system.serviceprocess.servicecontroller/10.0.9",
+      "path": "system.serviceprocess.servicecontroller/10.0.10",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -2002,7 +2002,7 @@
         "runtimes/win/lib/net8.0/System.ServiceProcess.ServiceController.xml",
         "runtimes/win/lib/net9.0/System.ServiceProcess.ServiceController.dll",
         "runtimes/win/lib/net9.0/System.ServiceProcess.ServiceController.xml",
-        "system.serviceprocess.servicecontroller.10.0.9.nupkg.sha512",
+        "system.serviceprocess.servicecontroller.10.0.10.nupkg.sha512",
         "system.serviceprocess.servicecontroller.nuspec",
         "useSharedDesignerContext.txt"
       ]
@@ -2157,7 +2157,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.301/PortableRuntimeIdentifierGraph.json",
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.302/PortableRuntimeIdentifierGraph.json",
         "packagesToPrune": {
           "Microsoft.CSharp": "(,4.7.32767]",
           "Microsoft.VisualBasic": "(,10.4.32767]",
