@@ -33,6 +33,21 @@ public partial class App : Microsoft.UI.Xaml.Application
         }
     }
 
+    private void MergeResourceDictionaries()
+    {
+        // WindowsAppSDK 1.8's unpackaged XAML markup compiler cannot convert a
+        // ResourceDictionary.Source string literal to Uri (XamlParseException,
+        // HRESULT 0x802b000a). Constructing the Uri in code bypasses the broken
+        // markup type converter. See microsoft/microsoft-ui-xaml#6674.
+        //
+        // The default Fluent control resources (e.g. TabViewButtonBackground, used by
+        // NavigationView's default style) aren't merged automatically in this unpackaged
+        // build, so they're added explicitly and first, ahead of the app's own overrides.
+        Resources.MergedDictionaries.Add(new Microsoft.UI.Xaml.Controls.XamlControlsResources());
+        Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("ms-appx:///Resources/Colors.xaml") });
+        Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("ms-appx:///Resources/Styles.xaml") });
+    }
+
     private static void LogCrash(string source, Exception? ex)
     {
         try
@@ -60,6 +75,7 @@ public partial class App : Microsoft.UI.Xaml.Application
             return;
         }
 
+        MergeResourceDictionaries();
         _window = new MainWindow();
         _window.Activate();
     }

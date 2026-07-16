@@ -31,4 +31,22 @@
     <PackageReference Include="Microsoft.Extensions.Logging" Version="10.*" />
   </ItemGroup>
 
+  <!--
+    WindowsAppSDK 1.8 regression (unpackaged, RID-specific publish): the app's
+    resources.pri and compiled-XAML .xbf files land in the intermediate OutDir
+    but are not copied into the RID-specific PublishDir, so Application.LoadComponent
+    throws XamlParseException (HRESULT 0x802b000a) at runtime and the process fail-fasts
+    with 0xc000027b. See microsoft/WindowsAppSDK#3451, microsoft/microsoft-ui-xaml#10803.
+  -->
+  <Target Name="CopyXamlResourcesToPublishDir" AfterTargets="Publish" Condition="'$(RuntimeIdentifier)' != ''">
+    <ItemGroup>
+      <_XamlPublishFixItems Include="$(OutDir)**\*.pri" />
+      <_XamlPublishFixItems Include="$(OutDir)**\*.xbf" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_XamlPublishFixItems)"
+          DestinationFiles="@(_XamlPublishFixItems->'$(PublishDir)%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true"
+          Condition="'@(_XamlPublishFixItems)' != ''" />
+  </Target>
+
 </Project>

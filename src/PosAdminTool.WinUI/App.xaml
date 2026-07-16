@@ -5,11 +5,6 @@
     xmlns:converters="using:PosAdminTool.WinUI.Converters">
     <Application.Resources>
         <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="ms-appx:///Resources/Colors.xaml" />
-                <ResourceDictionary Source="ms-appx:///Resources/Styles.xaml" />
-            </ResourceDictionary.MergedDictionaries>
-
             <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
             <converters:BoolToBrushConverter x:Key="BoolToBrushConverter" />
             <converters:ServiceStatusToBrushConverter x:Key="ServiceStatusToBrushConverter" />
