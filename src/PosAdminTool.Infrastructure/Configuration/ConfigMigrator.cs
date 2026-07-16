@@ -17,17 +17,21 @@ public static class ConfigMigrator
         settings.BackupFolder = string.IsNullOrWhiteSpace(settings.BackupFolder) ? defaults.BackupFolder : settings.BackupFolder;
         settings.DbFilesPath = string.IsNullOrWhiteSpace(settings.DbFilesPath) ? defaults.DbFilesPath : settings.DbFilesPath;
         settings.Release = string.IsNullOrWhiteSpace(settings.Release) ? defaults.Release : settings.Release;
-        settings.PosExecutablePath = string.IsNullOrWhiteSpace(settings.PosExecutablePath) ? defaults.PosExecutablePath : settings.PosExecutablePath;
         settings.Databases = settings.Databases is { Count: > 0 } ? settings.Databases : defaults.Databases;
         settings.Services = settings.Services is { Count: > 0 } ? settings.Services : defaults.Services;
         settings.FoldersToDelete = settings.FoldersToDelete is { Count: > 0 } ? settings.FoldersToDelete : defaults.FoldersToDelete;
-        settings.ClientRemoteDbs ??= [];
         settings.BranchConfigPath = string.IsNullOrWhiteSpace(settings.BranchConfigPath) ? defaults.BranchConfigPath : settings.BranchConfigPath;
         settings.CashierGrpcConfigPath = string.IsNullOrWhiteSpace(settings.CashierGrpcConfigPath) ? defaults.CashierGrpcConfigPath : settings.CashierGrpcConfigPath;
         settings.CashierUiConfigPath = string.IsNullOrWhiteSpace(settings.CashierUiConfigPath) ? defaults.CashierUiConfigPath : settings.CashierUiConfigPath;
-        settings.CashierUiAppsettingsPath = string.IsNullOrWhiteSpace(settings.CashierUiAppsettingsPath) ? defaults.CashierUiAppsettingsPath : settings.CashierUiAppsettingsPath;
         settings.RmsInfoPath = string.IsNullOrWhiteSpace(settings.RmsInfoPath) ? defaults.RmsInfoPath : settings.RmsInfoPath;
         settings.ReleasePath = string.IsNullOrWhiteSpace(settings.ReleasePath) ? defaults.ReleasePath : settings.ReleasePath;
+
+        settings.DbDownloader ??= new();
+        settings.DbDownloader.ApiUrl = string.IsNullOrWhiteSpace(settings.DbDownloader.ApiUrl) ? defaults.DbDownloader.ApiUrl : settings.DbDownloader.ApiUrl;
+        settings.DbDownloader.BackupRootFolder = string.IsNullOrWhiteSpace(settings.DbDownloader.BackupRootFolder) ? defaults.DbDownloader.BackupRootFolder : settings.DbDownloader.BackupRootFolder;
+        settings.DbDownloader.KnownBranchCodes ??= [];
+        settings.DbDownloader.PollIntervalSeconds = settings.DbDownloader.PollIntervalSeconds > 0 ? settings.DbDownloader.PollIntervalSeconds : defaults.DbDownloader.PollIntervalSeconds;
+        settings.DbDownloader.TimeoutSeconds = settings.DbDownloader.TimeoutSeconds > 0 ? settings.DbDownloader.TimeoutSeconds : defaults.DbDownloader.TimeoutSeconds;
 
         return settings;
     }

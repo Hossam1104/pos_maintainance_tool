@@ -112,23 +112,11 @@ public sealed class ConfigurationService(ICryptoService cryptoService) : IConfig
     private void EncryptSecrets(AppSettings settings)
     {
         settings.SqlPassword = cryptoService.Encrypt(settings.SqlPassword);
-        settings.PosPassword = cryptoService.Encrypt(settings.PosPassword);
-
-        foreach (var config in settings.ClientRemoteDbs.Values)
-        {
-            config.Password = cryptoService.Encrypt(config.Password);
-        }
     }
 
     private void DecryptSecrets(AppSettings settings)
     {
         settings.SqlPassword = cryptoService.Decrypt(settings.SqlPassword);
-        settings.PosPassword = cryptoService.Decrypt(settings.PosPassword);
-
-        foreach (var config in settings.ClientRemoteDbs.Values)
-        {
-            config.Password = cryptoService.Decrypt(config.Password);
-        }
     }
 
     private static string? ReadCryptoSalt(string json)

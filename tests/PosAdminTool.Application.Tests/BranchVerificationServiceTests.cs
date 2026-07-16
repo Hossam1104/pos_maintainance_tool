@@ -24,7 +24,7 @@ public sealed class BranchVerificationServiceTests
             return ValueTask.CompletedTask;
         }
 
-        public Task TestConnectionAsync(AppSettings settings, ClientDbConfig? overrideConnection = null, CancellationToken cancellationToken = default)
+        public Task TestConnectionAsync(AppSettings settings, CancellationToken cancellationToken = default)
         {
             throw new InvalidOperationException("Database should not be called.");
         }
@@ -35,11 +35,6 @@ public sealed class BranchVerificationServiceTests
         }
 
         public Task ResetBranchDataAsync(AppSettings settings, string branchCode, CancellationToken cancellationToken = default)
-        {
-            throw new InvalidOperationException("Database should not be called.");
-        }
-
-        public Task<IReadOnlyList<string>> QueryRandomScannedCodesAsync(ClientDbConfig config, int count, CancellationToken cancellationToken = default)
         {
             throw new InvalidOperationException("Database should not be called.");
         }

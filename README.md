@@ -1,25 +1,27 @@
 # DBS POS Admin Tool
 
-DBS POS Admin Tool is a .NET 10 MAUI desktop application for administering RMS+ Point-of-Sale installations at retail branches. It replaces the previous Python/PySide6 implementation with a Windows-first, clean-architecture C# codebase.
+DBS POS Admin Tool is a .NET 10 **WinUI 3** desktop application for administering RMS+ Point-of-Sale installations at retail branches. It uses a Windows Store–style Fluent UI (Mica backdrop, `NavigationView` rail, light/dark runtime theming) on top of a clean-architecture C# codebase.
 
 ## Tech Stack
 
 - .NET 10
 - C# 13
-- .NET MAUI for the Windows desktop UI
+- WinUI 3 (Windows App SDK) for the desktop UI — unpackaged, self-contained deployment
 - CommunityToolkit.Mvvm for MVVM state and commands
 - Microsoft.Data.SqlClient for SQL Server operations
 - System.ServiceProcess.ServiceController for Windows service control
-- FlaUI UIA3 for POS UI automation
+- FlaUI is no longer used — POS UI automation was removed along with the legacy DB Queries tab
 
 ## Architecture
 
 ```text
 src/
   PosAdminTool.Domain/          Core models, enums, and service interfaces
-  PosAdminTool.Application/     Backup, restore, cleanup, DB query, and use-case orchestration
-  PosAdminTool.Infrastructure/  Encrypted config, SQL Server access, Windows services, connectivity, FlaUI
-  PosAdminTool.Maui/            Shell tabs, XAML pages, controls, converters, styles, and view models
+  PosAdminTool.Application/     Backup, restore, cleanup, DB downloader, and use-case orchestration
+  PosAdminTool.Infrastructure/  Encrypted config, SQL Server access, Windows services, connectivity,
+                                 SMB backup repository, backup-trigger HTTP client
+  PosAdminTool.WinUI/           NavigationView shell, XAML pages, controls, converters,
+                                 design-token resource dictionaries, and view models
 
 tests/
   PosAdminTool.Domain.Tests/
@@ -27,36 +29,42 @@ tests/
   PosAdminTool.Infrastructure.Tests/
 ```
 
-The UI is split into five Shell tabs: Configuration, Services, Operations, DB Queries, and Log. Long-running work is async and reports progress back to the UI.
+The UI is a `NavigationView` rail with five sections: Configuration, Services, Operations, DB Downloader, and Log. Long-running work is async and reports progress back to the UI via a shared `LogHub` activity console.
 
 ## Features
 
 - Load and save RMS+ configuration at `~/.pos_admin_tool/config.json`
-- Encrypt SQL, POS, and remote client database passwords with PBKDF2-derived AES keys
+- Encrypt the SQL and RDB passwords at rest with PBKDF2-derived AES keys
 - Import settings from RMS+ machine files under `C:\ProgramData\RMS_Plus` and `C:\Workspaces\DBS\RMS`
 - Monitor RMS services and control start, stop, and restart actions
 - Monitor API server TCP connectivity
 - Back up selected RMS databases and config files into timestamped ZIP archives
 - Restore SQL Server backups with logical file discovery and MOVE clauses
 - Verify branch existence in the RMS database
-- Run random `ScannedCode` queries against configured remote client databases
-- Automate POS login, invoice opening, and barcode entry through FlaUI
 - Provide guarded cleanup and branch reset operations
-- Switch between dark and light MAUI themes
+- **Download branch production DB backups from the main server** (see below)
+- Switch between dark and light themes at runtime, independent of the OS setting
+
+### DB Downloader
+
+Triggers a production DB backup job for one or more branches and downloads the resulting ZIP archives once they're validated on the server.
+
+**Workflow:**
+1. Search/check the branches to include (the branch list is editable and stored in config), then set the API URL, RDB server IP/username/password, and the backup root folder on the server (e.g. `D:\DbBackups`).
+2. **Trigger Backup Job** — `POST`s the selected branch codes to the configured API as a single batch call.
+3. The app watches the server's backup root folder for a new batch folder (identified by the most recently *created* folder, not the highest serial number) and polls it for each branch's `<BranchCode>_<Serial>.zip`.
+4. Each branch becomes independently downloadable as soon as its zip is detected and its size is stable across two polls (guards against downloading a still-writing file). Branches that never produce a zip within the configured timeout are marked timed out without blocking the rest of the batch.
+5. Click **Download** next to a ready branch to save its zip locally (default: `Downloads\PosAdminTool_DbBackups`).
+
+**Infrastructure dependency:** the app reads the server's backup folder over an SMB/UNC administrative share (`\\<server>\D$\...`) using the configured RDB credentials, via `PosAdminTool.Infrastructure.Smb.SmbBackupRepository`. This requires the client machine to have SMB (port 445) access to the server — RDP access alone is not sufficient. Folder access is abstracted behind `IBackupRepository`, so a future HTTP-based provider can replace SMB without touching the application logic in `DbDownloadService`.
 
 ## Requirements
 
 - Windows 10/11
 - .NET 10 SDK
-- .NET MAUI Windows workload
 - SQL Server access to the configured RMS databases
 - Administrator privileges for service control and destructive maintenance operations
-
-Install the MAUI workload if it is missing:
-
-```powershell
-dotnet workload install maui-windows
-```
+- SMB/UNC access to the RDB server's backup folder, for the DB Downloader feature
 
 ## Build
 
@@ -66,23 +74,27 @@ dotnet build PosAdminTool.sln -warnaserror
 dotnet test PosAdminTool.sln --no-build
 ```
 
+## Run
+
+WinUI 3's self-contained, unpackaged deployment stages its native runtime dependencies only during **publish**, not a plain `dotnet build`. Always run the app from a published output:
+
+```powershell
+dotnet publish src\PosAdminTool.WinUI\PosAdminTool.WinUI.csproj -c Debug -r win-x64 --self-contained true
+.\src\PosAdminTool.WinUI\bin\Debug\net10.0-windows10.0.19041.0\win-x64\publish\PosAdminTool.WinUI.exe
+```
+
+`run_app.cmd` launches the last-built Debug output with elevation prompts skipped (`POS_ADMIN_SKIP_ELEVATION=1`), for local development.
+
 ## Publish
 
-To publish as a folder containing the executable and its dependencies:
+To publish as a **standalone, single-file executable** that bundles all dependencies (including the .NET 10 runtime and Windows App SDK components):
 
 ```powershell
-dotnet publish src\PosAdminTool.Maui\PosAdminTool.Maui.csproj -c Release -f net10.0-windows10.0.19041.0
+dotnet publish src\PosAdminTool.WinUI\PosAdminTool.WinUI.csproj -c Release -r win-x64 -p:PublishSingleFile=true --self-contained true
 ```
 
-To publish as a **standalone, single-file executable** that bundles all dependencies (including .NET 10 runtime and Windows App SDK components) and can run on any device:
-
-```powershell
-dotnet publish src\PosAdminTool.Maui\PosAdminTool.Maui.csproj -c Release -f net10.0-windows10.0.19041.0 -r win-x64 -p:PublishSingleFile=true -p:SelfContained=true -p:WindowsAppSDKSelfContained=true
-```
-
-The resulting standalone executable will be generated at:
-`src\PosAdminTool.Maui\bin\Release\net10.0-windows10.0.19041.0\win-x64\publish\PosAdminTool.Maui.exe`
-
+The resulting executable is generated at:
+`src\PosAdminTool.WinUI\bin\Release\net10.0-windows10.0.19041.0\win-x64\publish\PosAdminTool.WinUI.exe`
 
 ## Configuration Notes
 
@@ -92,4 +104,4 @@ The app keeps the previous config location for compatibility:
 %USERPROFILE%\.pos_admin_tool\config.json
 ```
 
-Secrets are written encrypted. Remote client DB profiles are intentionally empty by default; add client server, user, database, and password values through the config file or future profile-management UI before using the DB Queries tab.
+Secrets (SQL password, RDB password) are written encrypted. The DB Downloader's known branch list and server settings are also persisted here, editable from the DB Downloader page.

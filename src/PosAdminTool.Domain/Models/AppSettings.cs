@@ -26,14 +26,6 @@ public sealed class AppSettings
 
     public string Release { get; set; } = "N/A";
 
-    public string PosExecutablePath { get; set; } = @"C:\Workspaces\DBS\RMS\RMS.CashierUI\RMS.Pos.Cashier.UI.exe";
-
-    public string PosUsername { get; set; } = string.Empty;
-
-    public string PosPassword { get; set; } = string.Empty;
-
-    public Dictionary<string, ClientDbConfig> ClientRemoteDbs { get; set; } = [];
-
     public List<string> Databases { get; set; } =
     [
         "RmsCashierSrv",
@@ -65,12 +57,11 @@ public sealed class AppSettings
 
     public string CashierUiConfigPath { get; set; } = @"C:\Workspaces\DBS\RMS\RMS.CashierUI\appsettings.json";
 
-    // TODO: Consider consolidating CashierUiConfigPath and CashierUiAppsettingsPath — they currently point to the same path.
-    public string CashierUiAppsettingsPath { get; set; } = @"C:\Workspaces\DBS\RMS\RMS.CashierUI\appsettings.json";
-
     public string RmsInfoPath { get; set; } = @"C:\ProgramData\RMS_Plus\RMSInfo.json";
 
     public string ReleasePath { get; set; } = @"C:\ProgramData\RMS_Plus\ReleaseNumber.txt";
+
+    public DbDownloaderSettings DbDownloader { get; set; } = new();
 
     public AppSettings Clone()
     {
@@ -88,19 +79,15 @@ public sealed class AppSettings
             BackupFolder = BackupFolder,
             DbFilesPath = DbFilesPath,
             Release = Release,
-            PosExecutablePath = PosExecutablePath,
-            PosUsername = PosUsername,
-            PosPassword = PosPassword,
-            ClientRemoteDbs = ClientRemoteDbs.ToDictionary(pair => pair.Key, pair => pair.Value.Clone(), StringComparer.OrdinalIgnoreCase),
             Databases = [.. Databases],
             Services = [.. Services],
             FoldersToDelete = [.. FoldersToDelete],
             BranchConfigPath = BranchConfigPath,
             CashierGrpcConfigPath = CashierGrpcConfigPath,
             CashierUiConfigPath = CashierUiConfigPath,
-            CashierUiAppsettingsPath = CashierUiAppsettingsPath,
             RmsInfoPath = RmsInfoPath,
-            ReleasePath = ReleasePath
+            ReleasePath = ReleasePath,
+            DbDownloader = DbDownloader.Clone()
         };
     }
 }

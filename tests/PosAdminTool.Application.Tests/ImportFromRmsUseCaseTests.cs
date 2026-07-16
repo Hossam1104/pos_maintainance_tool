@@ -79,7 +79,7 @@ public sealed class ImportFromRmsUseCaseTests
             var configuration = new FakeConfigurationService(new AppSettings
             {
                 RmsInfoPath = rmsInfoPath,
-                CashierUiAppsettingsPath = cashierUiPath,
+                CashierUiConfigPath = cashierUiPath,
                 ClientName = "N/A"
             });
             var useCase = new ImportFromRmsUseCase(configuration);

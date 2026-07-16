@@ -159,14 +159,14 @@ public sealed class ImportFromRmsUseCase(IConfigurationService configurationServ
 
     private static async Task ReadClientNameAsync(AppSettings settings, OperationResult result, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(settings.CashierUiAppsettingsPath) || !File.Exists(settings.CashierUiAppsettingsPath))
+        if (string.IsNullOrWhiteSpace(settings.CashierUiConfigPath) || !File.Exists(settings.CashierUiConfigPath))
         {
             return;
         }
 
         try
         {
-            using var stream = File.OpenRead(settings.CashierUiAppsettingsPath);
+            using var stream = File.OpenRead(settings.CashierUiConfigPath);
             using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
             if (doc.RootElement.TryGetProperty("Settings", out var settingsElement)
                 && settingsElement.ValueKind == JsonValueKind.Object

@@ -9,11 +9,9 @@ namespace PosAdminTool.Infrastructure.Windows;
 
 public sealed partial class SqlCmdExecutor : IDatabaseService
 {
-    public async Task TestConnectionAsync(AppSettings settings, ClientDbConfig? overrideConnection = null, CancellationToken cancellationToken = default)
+    public async Task TestConnectionAsync(AppSettings settings, CancellationToken cancellationToken = default)
     {
-        var connectionString = overrideConnection is null
-            ? BuildConnectionString(settings)
-            : BuildClientConnectionString(overrideConnection);
+        var connectionString = BuildConnectionString(settings);
 
         await using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
@@ -66,38 +64,6 @@ public sealed partial class SqlCmdExecutor : IDatabaseService
         await using var command = new SqlCommand(sql, connection) { CommandTimeout = 120 };
         command.Parameters.Add("@branch_code", SqlDbType.NVarChar, 50).Value = branchCode;
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-    }
-
-    public async Task<IReadOnlyList<string>> QueryRandomScannedCodesAsync(ClientDbConfig config, int count, CancellationToken cancellationToken = default)
-    {
-        const string sql = """
-            SET NOCOUNT ON;
-            SELECT TOP (@count) ScannedCode
-            FROM InvoiceItems
-            WHERE SerialNumber IS NOT NULL
-            ORDER BY NEWID();
-            """;
-
-        await using var connection = new SqlConnection(BuildClientConnectionString(config));
-        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-        await using var command = new SqlCommand(sql, connection) { CommandTimeout = 30 };
-        command.Parameters.Add("@count", SqlDbType.Int).Value = count;
-
-        var results = new List<string>();
-        await using var reader = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken).ConfigureAwait(false);
-        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-        {
-            if (!await reader.IsDBNullAsync(0, cancellationToken).ConfigureAwait(false))
-            {
-                var code = reader.GetString(0);
-                if (!string.IsNullOrWhiteSpace(code))
-                {
-                    results.Add(code.Trim());
-                }
-            }
-        }
-
-        return results;
     }
 
     public async Task BackupDatabaseAsync(AppSettings settings, string databaseName, string backupFilePath, bool useCompatibilityMode, CancellationToken cancellationToken = default)
@@ -199,29 +165,6 @@ public sealed partial class SqlCmdExecutor : IDatabaseService
         {
             builder.UserID = settings.SqlUser;
             builder.Password = settings.SqlPassword;
-        }
-
-        return builder.ConnectionString;
-    }
-
-    private static string BuildClientConnectionString(ClientDbConfig config)
-    {
-        var builder = new SqlConnectionStringBuilder
-        {
-            DataSource = config.Server,
-            InitialCatalog = string.IsNullOrWhiteSpace(config.Database) ? "master" : config.Database,
-            TrustServerCertificate = true,
-            ConnectTimeout = 5
-        };
-
-        if (string.IsNullOrWhiteSpace(config.User))
-        {
-            builder.IntegratedSecurity = true;
-        }
-        else
-        {
-            builder.UserID = config.User;
-            builder.Password = config.Password;
         }
 
         return builder.ConnectionString;
