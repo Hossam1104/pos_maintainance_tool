@@ -1,6 +1,45 @@
 {
   "version": 1,
   "dependencies": {
-    "net10.0": {}
+    "net10.0-windows10.0.19041": {
+      "Microsoft.AspNetCore.Authentication.Negotiate": {
+        "type": "Direct",
+        "requested": "[10.0.10, )",
+        "resolved": "10.0.10",
+        "contentHash": "OWroK6dgXRKygJ95IlYVkZdH/HBcLSO6MyeSe8ZkFco+kUQlOndfHsWE1tjWjPFHnh5cPT6T7vE5kU7QOiqQxQ==",
+        "dependencies": {
+          "System.DirectoryServices.Protocols": "10.0.10"
+        }
+      },
+      "Microsoft.AspNetCore.OpenApi": {
+        "type": "Direct",
+        "requested": "[10.0.10, )",
+        "resolved": "10.0.10",
+        "contentHash": "d4Atx9IHq7JgX0F/h7Db+m9zAUzC+cKdI9k+OWnnyQIOUQtfvjIEuhvbjPigVMkAmPUgCbJ8Yp6M9ghUqHtJSQ==",
+        "dependencies": {
+          "Microsoft.OpenApi": "2.0.0"
+        }
+      },
+      "Microsoft.Extensions.ApiDescription.Server": {
+        "type": "Direct",
+        "requested": "[10.0.10, )",
+        "resolved": "10.0.10",
+        "contentHash": "AdNZonHDGXO67UoaE+NZ7YDZAztU4qszxeWyE51FeCfHXDSHV9VjxYeq+oDdHhLgT6TheoJzhDnqoVfJRIT5Wg=="
+      },
+      "Microsoft.OpenApi": {
+        "type": "Direct",
+        "requested": "[2.7.5, )",
+        "resolved": "2.7.5",
+        "contentHash": "0FA67RSnRM4tcBKqiqVu/HPdZ9+QOKbmeRjxRUGTCjPU4C0bmUhd97Dso7Yild5P7nOV6GxJ2xrK0Kv/O9xp0w=="
+      },
+      "System.DirectoryServices.Protocols": {
+        "type": "Transitive",
+        "resolved": "10.0.10",
+        "contentHash": "VQdfESaky3eXlvEuvtBndmZjOt65g+Ah6/0j39MPgPJ3gkbGuURlTFDRq0Y2uX64z5qVEVe1Ln6B4a06+vIzTQ=="
+      },
+      "posadmintool.contracts": {
+        "type": "Project"
+      }
+    }
   }
 }

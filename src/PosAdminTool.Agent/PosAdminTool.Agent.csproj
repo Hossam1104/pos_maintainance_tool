@@ -1,14 +1,39 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <!-- Windows-only per docs/adr/001-platform-win-x64-only.md; needed here specifically for
+         WindowsIdentity/WindowsPrincipal group-membership checks in authorization (Session 02). -->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
     <UserSecretsId>pos-admin-tool-agent</UserSecretsId>
   </PropertyGroup>
 
   <PropertyGroup>
     <AngularWorkspaceDir>$(MSBuildThisFileDirectory)..\PosAdminTool.Web\</AngularWorkspaceDir>
     <AngularDistDir>$(AngularWorkspaceDir)dist\web\browser\</AngularDistDir>
+    <!-- Regenerated on every build; consumed by the Angular workspace's `generate-api-client` script
+         (task 7). Not committed — see src/PosAdminTool.Web/.gitignore. -->
+    <OpenApiGenerateDocumentsOnBuild>true</OpenApiGenerateDocumentsOnBuild>
+    <OpenApiDocumentsDirectory>$(AngularWorkspaceDir)openapi\</OpenApiDocumentsDirectory>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="10.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
+    <!-- Microsoft.AspNetCore.OpenApi 10.0.10 pulls Microsoft.OpenApi 2.0.0, which has a known high
+         severity stack-overflow-via-circular-$ref advisory (GHSA-v5pm-xwqc-g5wc) in its document
+         reader. We only generate our own document (writer path), never parse an untrusted one, but
+         the fix is a free, drop-in patched version, so pin it explicitly rather than accept the risk. -->
+    <PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
+    <PackageReference Include="Microsoft.Extensions.ApiDescription.Server" Version="10.0.10">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PosAdminTool.Contracts\PosAdminTool.Contracts.csproj" />
+  </ItemGroup>
 
   <!--
     The published agent must run on a target machine with no Node installed (plan section 5.1,

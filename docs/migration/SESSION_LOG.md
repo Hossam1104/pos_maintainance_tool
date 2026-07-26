@@ -242,3 +242,189 @@ POS_ADMIN_SKIP_ELEVATION=true, launched the published exe
 ### Next session
 
 Session 02 (Contracts, API conventions, auth, and host file browse) is unblocked.
+
+## Session 02 — Contracts, API conventions, auth, and host file browse
+
+Date: 2026-07-27
+Scope: Stable public contracts and cross-cutting API behavior. The only live business-shaped
+endpoints introduced are `GET /api/v1/session`, `GET /api/v1/antiforgery`, and the file-browse pair
+(`POST /api/v1/files/browse`, `POST /api/v1/files/handles`) — no real privileged operation exists yet.
+
+### Decisions and changes
+
+- **Contracts** (`PosAdminTool.Contracts/V1/**`): ~40 versioned DTOs across Session/Device/
+  Configuration/Services/Operations/Backups/Restore/Maintenance/Downloader/Artifacts/Activity/Files,
+  plus shared `EvidenceDto`/`FreshnessState`/`PagedResultDto`/`ErrorCodes`/
+  `ProblemDetailsExtensionKeys`. None reuse `AppSettings`, `DbDownloaderSettings`,
+  `OperationResult`, or `BranchBackupItem` (task 2) — verified structurally, not just by review, via
+  `ContractShapeTests` reflection tests (see below). `ServiceActionKind` deliberately omits the
+  legacy `Domain.Enums.ServiceControlAction.Delete` value: no plan section or session describes
+  service deletion as in-scope, and adding it later needs a plan change plus the full destructive-op
+  control set (plan section 6.3), not a silent carry-over.
+- **Agent TFM changed to `net10.0-windows10.0.19041.0`** (from Session 01's plain `net10.0`), same
+  as Infrastructure/WinUI. Needed for a correct `WindowsPrincipal.IsInRole(WindowsBuiltInRole.Administrator)`
+  check — Windows-only per ADR-001, so this only makes an existing constraint explicit, not a new one.
+- **Auth**: Negotiate (Windows Integrated), single "LocalAdministratorsOnly" policy. The actual
+  group-membership check is behind an injectable `IAdministratorGroupChecker`
+  (`WindowsAdministratorGroupChecker` in production, casts to `WindowsPrincipal` and checks
+  `WindowsBuiltInRole.Administrator` against the real token — a bare `ClaimsPrincipal.IsInRole` does
+  not reliably match Windows group SIDs) so the policy is unit-testable without a real domain.
+  `GET /api/v1/session` requires only authentication, not the admin policy, so a non-admin user gets
+  a normal `200` with `isAuthorized: false` instead of a bare `403` — the shell needs that to explain
+  itself (plan section 7.3).
+  - **Real NegotiateHandler is incompatible with the in-memory `WebApplicationFactory` TestServer**:
+    it implements `IAuthenticationRequestHandler`, so ASP.NET Core's authentication middleware
+    invokes it on *every* request regardless of default scheme, and it throws
+    `NotSupportedException` ("requires a server that supports IConnectionItemsFeature like Kestrel")
+    immediately. Confirmed by making the failure visible (a throwaway diagnostic test) rather than
+    guessing. Fixed by gating `.AddNegotiate()` behind a `Testing:DisableNegotiate` configuration
+    flag the test factory sets via `UseSetting`; tests substitute `FakeAuthenticationHandler`
+    instead. Verified the real path separately: published and ran the Agent for real, confirmed an
+    unauthenticated `GET /api/v1/session` returns a genuine `401` with `WWW-Authenticate: Negotiate`
+    from real Kestrel (not the fake). A full interactive authenticated-as-admin round trip against a
+    real domain account was not exercised — out of reach in this environment; the authorization
+    *policy* itself (admin vs. non-admin vs. unauthenticated) is fully covered by automated tests via
+    the fake scheme + injectable group checker.
+- **Antiforgery**: double-submit cookie (`XSRF-TOKEN`, deliberately not `HttpOnly` so the SPA can
+  read and mirror it — it carries no secret or session identity, only a random anti-CSRF value),
+  header `X-CSRF-TOKEN`, bootstrapped via `GET /api/v1/antiforgery`. Applied via a reusable
+  `AntiforgeryEndpointFilter` to `POST /api/v1/files/handles` (a mutation — it creates server-side
+  handle state) but not `POST /api/v1/files/browse` (read-only despite the POST verb; POST is used
+  because the request needs a body, matching the plan's own `POST /api/v1/files/browse` naming).
+- **CSP + X-Frame-Options**: `default-src 'self'` etc., `frame-ancestors 'none'`, `X-Frame-Options: DENY`,
+  set on every response via early middleware. No permissive CORS was added — same-origin only,
+  matching Session 01.
+- **Problem Details / correlation IDs / JSON conventions**: `AddProblemDetails()` +
+  `UseExceptionHandler()` (never a developer exception page outside Development); a correlation-ID
+  middleware generates or echoes `X-Correlation-Id` and injects it into every Problem Details
+  response's `extensions.correlationId`; enums serialize as camelCase strings (not raw member names
+  or numbers) via a global `JsonStringEnumConverter(JsonNamingPolicy.CamelCase)`; a global 1 MB
+  Kestrel request-body-size default for JSON API bodies (future upload endpoints override per-route).
+- **File browse** (`PosAdminTool.Agent/Files/**`, plan section 5.7 — "the session's most important
+  new design"): browse roots come only from `FileBrowseOptions` configuration (empty by default —
+  zero roots is the safe starting state until a later session configures real ones), never from the
+  request. `FileBrowseService.Resolve` layers defenses in this order: reject any `%` (unresolved
+  environment variable) outright rather than expand it; reject `Path.IsPathRooted` or any `:`
+  (absolute paths, UNC paths, drive-relative paths, and NTFS alternate-data-stream syntax all
+  rejected uniformly); reject any literal `..` path segment; canonicalize via `Path.GetFullPath`
+  and *then* re-check containment against the canonicalized root (not a naive string prefix check —
+  it appends the directory separator before comparing, closing the sibling-directory-with-a-shared-name-prefix
+  bug class); finally walk the resolved path's ancestor chain up to the root checking for
+  `FileAttributes.ReparsePoint` at every level, rejecting symlinks/junctions rather than following
+  them. A reparse point found while *listing* a directory is excluded from the listing (the rest of
+  a legitimate directory still renders); a reparse point found while resolving a *handle* target
+  rejects the whole request. Verified against a **real directory junction** (`mklink /J`, not a
+  mock) pointing outside the configured root — confirmed rejected.
+- **File handles**: `InMemoryFileHandleStore`, single-purpose, single-use (atomic
+  `Interlocked.Exchange`-based claim, not a plain bool, to close a TOCTOU race), bound to the issuing
+  principal, 5-minute TTL. Order of checks in `Redeem` matters: expiry → principal → purpose → mark
+  used — a wrong-principal or wrong-purpose attempt does **not** consume the handle, so the
+  legitimate holder can still redeem it once afterward. Clock is injected via `TimeProvider` (not
+  `DateTimeOffset.UtcNow` directly) specifically so expiry is unit-testable without a real 5-minute
+  sleep.
+- **OpenAPI + typed Angular client** (task 7): `Microsoft.AspNetCore.OpenApi` +
+  `Microsoft.Extensions.ApiDescription.Server` generate `openapi/PosAdminTool.Agent.json` on every
+  `dotnet build` of the Agent (not committed — regenerated). `ng-openapi-gen@1.0.5` turns that into
+  an Angular-`HttpClient`-based typed client at `src/app/core/api/generated/` (not committed either).
+  All endpoints given explicit `.WithName(...)` + `.Produces<T>()` — without this, minimal API
+  response types aren't inferred into the OpenAPI schema and the generated client methods return
+  `Observable<StrictHttpResponse<void>>` instead of the real DTO type (caught this by inspecting the
+  first generation's output, not by assuming `.Produces` was unnecessary). `npm run build` now runs
+  `generate-api-client` (which itself runs `dotnet build` on the Agent) before `ng build`, so the
+  literal Session 02 verification command ("generated client compiles under strict TS") is always
+  true for that command, not just true if you remember a separate manual step first.
+  - **CI consequence**: this moved the `angular` job in `.github/workflows/ci.yml` from
+    `ubuntu-latest` to `windows-latest` (matching the `dotnet` job) with a `setup-dotnet` step added,
+    because `npm run build` now needs to build a `net10.0-windows`-TFM project. Angular itself is
+    OS-agnostic; the toolchain around it, as now wired, is not.
+- Fixed `Microsoft.OpenApi` (transitive via `Microsoft.AspNetCore.OpenApi` 10.0.10, resolved to
+  2.0.0) to `2.7.5`: NuGet restore flagged a high-severity advisory (GHSA-v5pm-xwqc-g5wc,
+  CVE-2026-49451, stack overflow via circular `$ref` in the document *reader*). Our usage only
+  *writes* our own document, never parses an untrusted one, so the practical exposure was low, but
+  the fix is a free same-major-line version bump, so it was applied rather than accepted as risk.
+- Updated `docs/migration/FEATURE_PARITY_MATRIX.md`: corrected the "Browse backup destination" and
+  "Select restore source" rows from a stale `/api/v1/browse-sessions` naming (never matched the plan
+  or the session prompt) to the actual `/api/v1/files/browse` / `/api/v1/files/handles` endpoints,
+  and added rows for the two new cross-cutting endpoints (`/api/v1/session`, `/api/v1/antiforgery`).
+
+### Verification (exact output)
+
+`dotnet build PosAdminTool.sln -c Release`:
+
+```text
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+```
+
+`dotnet test PosAdminTool.sln -c Release`:
+
+```text
+Passed!  - Failed:     0, Passed:     4, Skipped:     0, Total:     4 - PosAdminTool.Domain.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:     5, Skipped:     0, Total:     5 - PosAdminTool.Infrastructure.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:    37, Skipped:     0, Total:    37 - PosAdminTool.Agent.IntegrationTests.dll (net10.0)
+Passed!  - Failed:     0, Passed:     8, Skipped:     0, Total:     8 - PosAdminTool.Application.Tests.dll (net10.0)
+```
+
+(54 total, 0 failed. `PosAdminTool.Agent.IntegrationTests` grew from Session 01's 7 to 37: 6
+health/SPA + loopback/wildcard-scan carried over, plus this session's session-endpoint (3),
+file-browse abuse-case (13), handle-lifecycle (6), contract-serialization (3), contract-shape (2),
+and Problem-Details-convention (2) tests.)
+
+`npm --prefix src/PosAdminTool.Web run build` (regenerates the OpenAPI doc + typed client, then
+builds under strict TypeScript):
+
+```text
+Build succeeded. [generate-openapi-document]
+Generation from openapi/PosAdminTool.Agent.json finished with 9 models and 1 services. [ng-openapi-gen]
+Application bundle generation complete. [1.6s]
+Output location: .../src/PosAdminTool.Web/dist/web
+```
+
+`npm --prefix src/PosAdminTool.Web run lint` → `All files pass linting.` (generated
+`src/app/core/api/generated/**` excluded from lint scope — it is regenerated code, never hand-edited.)
+
+Manual real-agent verification (published `-r win-x64`, launched, not via TestServer):
+
+```text
+GET /health/live                    -> 200, no auth required
+GET /api/v1/session (no credential) -> 401, WWW-Authenticate: Negotiate (real Negotiate handler, real Kestrel)
+GET /                               -> 200 (Angular shell, unaffected by API auth)
+netstat: TCP 127.0.0.1:5001 ... LISTENING   (no 0.0.0.0 or :: entry)
+```
+
+### Standing regression gate
+
+- Secret-scan tests: not yet introduced (Session 03). Not applicable this session.
+- **Path-policy tests: introduced this session** (file-browse abuse cases in `FileEndpointTests`) —
+  join the standing gate from here on. Pass.
+- Loopback test: `LoopbackBindingTests` (automated, carried from Session 01) + manual `netstat`
+  check above against the Session-02-updated Agent. Pass.
+- Full existing .NET and Angular unit suites: 54/54 .NET tests pass; Angular default unit test
+  (2 tests, unaffected) passes.
+
+### Risks and prerequisites for Session 03
+
+- A full interactive Negotiate round trip (real domain/local admin account, real browser or SSPI
+  client) was not exercised in this environment — flagged above. Worth a manual pass on a real
+  Windows device before the Session 07 go/no-go gate, alongside the SQL/SMB identity checks that
+  gate already requires.
+- `PosAdminTool.Contracts` now has real shape; Session 03 should build directly on
+  `RedactedConfigurationDto`/`ConfigurationUpdateRequestDto`/`ClearSecretRequestDto` rather than
+  reinventing the secret keep/replace/clear contract.
+- File-browse roots are configured empty by default; whichever session first needs a real managed
+  root (backup destination in Session 08, restore source in Session 09/10) must add it to
+  `FileBrowseOptions` deliberately, not assume one exists.
+- **Discovered mid-session and left untouched, not part of this session's work**: an `AGENTS.md`
+  file and eight empty `.ai/*.md` files appeared in the repository root partway through this
+  session, none git-tracked, none created by this session's work. They describe an unrelated
+  "AI agent operating instructions" convention this migration's workflow does not use (this
+  repository's actual authority is `docs/NET10_ANGULAR22_MIGRATION_PLAN.md` and
+  `docs/NET10_ANGULAR22_SESSION_PROMPTS.md`). Not staged or committed here. Flagged for the user —
+  possibly a different tool pointed at the same working directory concurrently.
+- A pre-existing, untracked `src/PosAdminTool.Maui/` directory still remains on disk (noted in
+  Session 01's log too); still out of this session's scope to remove unilaterally.
+
+### Next session
+
+Session 03 (Secure configuration) is unblocked.

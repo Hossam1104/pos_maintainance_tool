@@ -45,6 +45,10 @@ __screenshots__/
 /blob-report/
 /playwright/.cache/
 
+# Generated OpenAPI document and typed API client (regenerated from the Agent on every build/generate)
+/openapi/
+/src/app/core/api/generated/
+
 # System files
 .DS_Store
 Thumbs.db

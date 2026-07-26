@@ -23,12 +23,18 @@ jobs:
 
   angular:
     name: Angular lint/test/build
-    runs-on: ubuntu-latest
+    # windows-latest, not ubuntu-latest: `npm run build` regenerates the typed API client from the
+    # Agent's OpenAPI document (task 7), which requires `dotnet build` on the Agent project — a
+    # net10.0-windows-TFM project (Session 02) that cannot build on Linux.
+    runs-on: windows-latest
     defaults:
       run:
         working-directory: src/PosAdminTool.Web
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
       - uses: actions/setup-node@v4
         with:
           node-version-file: src/PosAdminTool.Web/.nvmrc
@@ -38,7 +44,7 @@ jobs:
         run: npm run lint
       - name: Test
         run: npm run test -- --watch=false
-      - name: Build
+      - name: Build (regenerates the typed API client from the Agent's OpenAPI document)
         run: npm run build
 
   agent-integration-tests:
