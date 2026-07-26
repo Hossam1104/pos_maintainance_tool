@@ -1,0 +1,24 @@
+# WinUI UI parity map
+
+This release-gate artifact records all 11 current WinUI XAML files as audited on 2026-07-26. Five are routable pages; the remainder are the shell, app resource, reusable controls, or resource dictionaries that shape what a technician sees. Future visual and functional parity must be judged against this map and `FEATURE_PARITY_MATRIX.md`, not just against a route list.
+
+| XAML artifact | Current presentation and behavior | Target parity obligation |
+| --- | --- | --- |
+| `App.xaml` | Merges colour and style resource dictionaries for the whole WinUI app. | Angular design tokens must provide equivalent semantic light/dark surfaces, visible focus, contrast, spacing, and reduced-motion behavior. |
+| `MainWindow.xaml` | Title bar, “Windows operations shell” status text, light/dark button, NavigationView rail with Configuration, Services, Operations, DB Downloader, and Log, plus content frame ([`MainWindow.xaml`](../../src/PosAdminTool.WinUI/MainWindow.xaml:12)). | Responsive shell with persistent branch identity/status, navigation to all mapped routes, keyboard navigation, and the new signal path. |
+| `ConfigurationPage.xaml` | Configuration workspace: config path and server status; branch/POS/client/release metrics; editable SQL instance/user/password, API URL, branch/POS; backup/DB paths; database/service multiline lists; Import RMS+, Verify Branch, Test DB, Save Config actions ([`ConfigurationPage.xaml`](../../src/PosAdminTool.WinUI/Views/ConfigurationPage.xaml:43)). | `/settings` retains edits/actions with write-only secrets and safe browse handling; `/device` presents read-only identity/connectivity evidence. |
+| `ServicesPage.xaml` | Service-control page with five-second auto-refresh label, refresh action, service count/polling/admin cards, and a service-card grid ([`ServicesPage.xaml`](../../src/PosAdminTool.WinUI/Views/ServicesPage.xaml:21)). | `/services` shows display/internal name, state, age, outcome, and start/stop/restart; agent polling/SSE replaces UI timer. |
+| `OperationsPage.xaml` | Backup manifest with five selectable items and Select All/Run Backup; restore mode, target DB, raw backup ZIP and DB path inputs, Restore Database; danger-zone acknowledgement with Cleanup Files and Reset Branch Data; progress overlay ([`OperationsPage.xaml`](../../src/PosAdminTool.WinUI/Views/OperationsPage.xaml:45)). | Split `/backups`, `/restore`, `/maintenance`; retain components and three restore modes; replace raw paths, Explorer open, and checkbox-only destructive gate with server-side workflows. |
+| `DbDownloaderPage.xaml` | Configurable API/RDB/backup-root settings, branch search/add/remove/selection, Trigger Backup Job, per-branch status/progress/download actions ([`DbDownloaderPage.xaml`](../../src/PosAdminTool.WinUI/Views/DbDownloaderPage.xaml:30)). | `/downloads` retains batch and independent branch experience; removes visible credentials/SMB paths; uses opaque IDs and Agent-held settings. |
+| `LogPage.xaml` | Live timestamped activity-console text and Clear Log command ([`LogPage.xaml`](../../src/PosAdminTool.WinUI/Views/LogPage.xaml:19)). | `/activity` retains live operational feedback but adds filtering, correlation-ID copy, sanitized export, and no secret/raw-exception display. |
+| `Controls/ServiceCard.xaml` | Reusable service status card with status indicator and start/stop/restart command buttons. | Service rows/cards need keyboard-operable equivalent actions with visible pending/outcome states and no premature success claim. |
+| `Controls/StatusDot.xaml` | Reusable coloured state indicator. | Status must have text/icon semantics in addition to colour and meet contrast requirements. |
+| `Resources/Colors.xaml` | Light/dark colour resources and semantic success/info/danger brushes. | Preserve semantic token roles, then verify every UI combination to WCAG 2.2 AA. |
+| `Resources/Styles.xaml` | Shared hero, panel, card, button, console, status-pill, and danger styles. | Carry forward hierarchy—not literal Fluent styling—into the Branch Signal Desk token system with responsive 360 px layouts. |
+
+## Current visual and interaction gaps
+
+- The operation screen accepts raw host paths for restore and uses an Explorer launch after backup; the browser replacement must use upload/browse handles and artifact download/copy affordances.
+- The danger acknowledgement is only UI state. The browser UI must visibly explain the server preview, one-time challenge, typed confirmation, and affected services, paths, and tables.
+- The log is a mutable in-memory console. The target must retain usable activity feedback while ensuring messages are sanitized and audit evidence remains separate from clearing the view.
+- The shell has no overview. The new overview is required because UI modernization—not a technology swap—is the project driver.
