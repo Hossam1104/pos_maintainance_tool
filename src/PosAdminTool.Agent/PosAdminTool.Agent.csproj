@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <UserSecretsId>pos-admin-tool-agent</UserSecretsId>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <AngularWorkspaceDir>$(MSBuildThisFileDirectory)..\PosAdminTool.Web\</AngularWorkspaceDir>
+    <AngularDistDir>$(AngularWorkspaceDir)dist\web\browser\</AngularDistDir>
+  </PropertyGroup>
+
+  <!--
+    The published agent must run on a target machine with no Node installed (plan section 5.1,
+    task 9). Node/npm are only used here, on the machine running `dotnet publish`, to produce the
+    Angular production build, which is then injected directly into the publish file list below.
+    Nothing is written back into this project's own wwwroot/ on disk.
+  -->
+  <Target Name="RestoreAngularWorkspace" BeforeTargets="Publish"
+          Condition="!Exists('$(AngularWorkspaceDir)node_modules')">
+    <Exec Command="npm ci" WorkingDirectory="$(AngularWorkspaceDir)" />
+  </Target>
+
+  <Target Name="BuildAngularWorkspace" AfterTargets="RestoreAngularWorkspace" BeforeTargets="Publish">
+    <Exec Command="npm run build" WorkingDirectory="$(AngularWorkspaceDir)" />
+  </Target>
+
+  <Target Name="PublishAngularDist" AfterTargets="BuildAngularWorkspace" BeforeTargets="ComputeFilesToPublish">
+    <ItemGroup>
+      <_AngularDistFiles Include="$(AngularDistDir)**" />
+      <ResolvedFileToPublish Include="@(_AngularDistFiles)">
+        <RelativePath>wwwroot\%(RecursiveDir)%(Filename)%(Extension)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+
+</Project>

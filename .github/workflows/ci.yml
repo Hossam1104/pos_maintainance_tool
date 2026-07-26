@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  dotnet:
+    name: .NET restore/build/test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Restore (locked mode)
+        run: dotnet restore PosAdminTool.sln --locked-mode
+      - name: Build
+        run: dotnet build PosAdminTool.sln -c Release --no-restore
+      - name: Test
+        run: dotnet test PosAdminTool.sln -c Release --no-build
+
+  angular:
+    name: Angular lint/test/build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/PosAdminTool.Web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: src/PosAdminTool.Web/.nvmrc
+      - name: Install (locked)
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Test
+        run: npm run test -- --watch=false
+      - name: Build
+        run: npm run build
+
+  agent-integration-tests:
+    name: Agent integration tests
+    runs-on: windows-latest
+    needs: dotnet
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Restore (locked mode)
+        run: dotnet restore tests/PosAdminTool.Agent.IntegrationTests/PosAdminTool.Agent.IntegrationTests.csproj --locked-mode
+      - name: Run Agent integration tests
+        run: dotnet test tests/PosAdminTool.Agent.IntegrationTests/PosAdminTool.Agent.IntegrationTests.csproj -c Release
+
+  winui-publish-check:
+    name: WinUI parity baseline (publish, not build)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Publish WinUI (proves the parity baseline still works)
+        run: >
+          dotnet publish src/PosAdminTool.WinUI/PosAdminTool.WinUI.csproj
+          -c Debug -r win-x64 --self-contained false
