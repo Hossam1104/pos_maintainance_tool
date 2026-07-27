@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using PosAdminTool.Agent.Authorization;
 using PosAdminTool.Agent.Files;
 using PosAdminTool.Agent.IntegrationTests.TestSupport;
+using PosAdminTool.Infrastructure.Configuration;
 
 namespace PosAdminTool.Agent.IntegrationTests;
 
@@ -25,6 +26,15 @@ public sealed class AgentWebApplicationFactory : WebApplicationFactory<Program>
 
     public string FakeBrowseRootPath { get; } =
         Directory.CreateTempSubdirectory("pos-admin-agent-browse-root-").FullName;
+
+    // Isolated stand-ins for %ProgramData%\DBS\PosAdminTool and the legacy
+    // %USERPROFILE%\.pos_admin_tool\config.json so integration tests never touch the real machine
+    // state (excute_prompt.md Stop condition: never test against real production paths/credentials).
+    public string FakeConfigRootPath { get; } =
+        Directory.CreateTempSubdirectory("pos-admin-agent-config-root-").FullName;
+
+    public string FakeLegacyConfigPath { get; } =
+        Path.Combine(Directory.CreateTempSubdirectory("pos-admin-agent-legacy-config-").FullName, "config.json");
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -61,6 +71,9 @@ public sealed class AgentWebApplicationFactory : WebApplicationFactory<Program>
                     AbsolutePath = FakeBrowseRootPath,
                 });
             });
+
+            services.AddSingleton(new AgentConfigurationStoreOptions { RootDirectory = FakeConfigRootPath });
+            services.AddSingleton(new LegacyConfigurationImporterOptions { SourceFilePath = FakeLegacyConfigPath });
         });
     }
 
@@ -96,6 +109,17 @@ public sealed class AgentWebApplicationFactory : WebApplicationFactory<Program>
             if (Directory.Exists(FakeBrowseRootPath))
             {
                 Directory.Delete(FakeBrowseRootPath, recursive: true);
+            }
+
+            if (Directory.Exists(FakeConfigRootPath))
+            {
+                Directory.Delete(FakeConfigRootPath, recursive: true);
+            }
+
+            var legacyConfigDirectory = Path.GetDirectoryName(FakeLegacyConfigPath);
+            if (legacyConfigDirectory is not null && Directory.Exists(legacyConfigDirectory))
+            {
+                Directory.Delete(legacyConfigDirectory, recursive: true);
             }
         }
     }

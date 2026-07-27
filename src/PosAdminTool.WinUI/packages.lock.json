@@ -395,6 +395,7 @@
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.10, )",
           "PosAdminTool.Application": "[1.0.0, )",
           "PosAdminTool.Domain": "[1.0.0, )",
+          "System.Security.Cryptography.ProtectedData": "[9.0.11, )",
           "System.ServiceProcess.ServiceController": "[10.0.10, )"
         }
       }

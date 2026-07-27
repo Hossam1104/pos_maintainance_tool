@@ -19,4 +19,5 @@ public static class ErrorCodes
     public const string HandleAlreadyUsed = "file_handle.already_used";
     public const string HandleWrongPrincipal = "file_handle.wrong_principal";
     public const string HandleWrongPurpose = "file_handle.wrong_purpose";
+    public const string ConfigurationVersionConflict = "configuration.version_conflict";
 }

@@ -112,11 +112,13 @@ public sealed class ConfigurationService(ICryptoService cryptoService) : IConfig
     private void EncryptSecrets(AppSettings settings)
     {
         settings.SqlPassword = cryptoService.Encrypt(settings.SqlPassword);
+        settings.DbDownloader.RdbPassword = cryptoService.Encrypt(settings.DbDownloader.RdbPassword);
     }
 
     private void DecryptSecrets(AppSettings settings)
     {
         settings.SqlPassword = cryptoService.Decrypt(settings.SqlPassword);
+        settings.DbDownloader.RdbPassword = cryptoService.Decrypt(settings.DbDownloader.RdbPassword);
     }
 
     private static string? ReadCryptoSalt(string json)

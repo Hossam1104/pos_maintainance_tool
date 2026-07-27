@@ -33,6 +33,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\PosAdminTool.Contracts\PosAdminTool.Contracts.csproj" />
+    <ProjectReference Include="..\PosAdminTool.Domain\PosAdminTool.Domain.csproj" />
+    <ProjectReference Include="..\PosAdminTool.Application\PosAdminTool.Application.csproj" />
+    <ProjectReference Include="..\PosAdminTool.Infrastructure\PosAdminTool.Infrastructure.csproj" />
   </ItemGroup>
 
   <!--

@@ -1,6 +1,10 @@
 namespace PosAdminTool.Domain.Models;
 
-public sealed class DbDownloaderSettings
+/// <summary>
+/// Non-secret DB Downloader settings owned by the Agent. The RDB password never lives here — it is
+/// held only by <c>IAgentSecretStore</c> (plan section 5.5).
+/// </summary>
+public sealed class AgentDownloaderConfiguration
 {
     public string ApiUrl { get; set; } = string.Empty;
 
@@ -8,25 +12,19 @@ public sealed class DbDownloaderSettings
 
     public string RdbUsername { get; set; } = string.Empty;
 
-    public string RdbPassword { get; set; } = string.Empty;
-
-    public string BackupRootFolder { get; set; } = @"D:\DbBackups";
-
     public List<string> KnownBranchCodes { get; set; } = [];
 
     public int PollIntervalSeconds { get; set; } = 5;
 
     public int TimeoutSeconds { get; set; } = 1800;
 
-    public DbDownloaderSettings Clone()
+    public AgentDownloaderConfiguration Clone()
     {
-        return new DbDownloaderSettings
+        return new AgentDownloaderConfiguration
         {
             ApiUrl = ApiUrl,
             RdbServerIp = RdbServerIp,
             RdbUsername = RdbUsername,
-            RdbPassword = RdbPassword,
-            BackupRootFolder = BackupRootFolder,
             KnownBranchCodes = [.. KnownBranchCodes],
             PollIntervalSeconds = PollIntervalSeconds,
             TimeoutSeconds = TimeoutSeconds

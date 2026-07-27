@@ -7,7 +7,10 @@ using PosAdminTool.Agent.Authorization;
 using PosAdminTool.Agent.Correlation;
 using PosAdminTool.Agent.Endpoints;
 using PosAdminTool.Agent.Files;
+using PosAdminTool.Application.UseCases;
 using PosAdminTool.Contracts.V1.Common;
+using PosAdminTool.Domain.Interfaces;
+using PosAdminTool.Infrastructure.Configuration;
 
 // A Windows Service is launched by the Service Control Manager with an unpredictable current
 // working directory (commonly System32), not the publish folder. Anchor the content/web root to
@@ -64,6 +67,16 @@ builder.Services.AddSingleton<IFileBrowseService, FileBrowseService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IFileHandleStore, InMemoryFileHandleStore>();
 
+// Service-owned, ACL-restricted configuration and secret storage (plan section 5.5). Tests override
+// both options singletons to point at an isolated temporary directory instead of the real
+// %ProgramData%/%USERPROFILE%.
+builder.Services.AddSingleton(new AgentConfigurationStoreOptions());
+builder.Services.AddSingleton(new LegacyConfigurationImporterOptions());
+builder.Services.AddSingleton<IAgentConfigurationStore, JsonAgentConfigurationStore>();
+builder.Services.AddSingleton<IAgentSecretStore, DpapiAgentSecretStore>();
+builder.Services.AddSingleton<ILegacyConfigurationImporter, LegacyConfigurationImporter>();
+builder.Services.AddSingleton<AgentConfigurationUseCase>();
+
 builder.Services.AddProblemDetails(options =>
 {
     options.CustomizeProblemDetails = context =>
@@ -85,6 +98,19 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
+
+// One-time, non-secret legacy config.json import (plan section 5.5). Idempotent and read-only
+// against the legacy file, so it is safe to run on every startup; a failure here must never prevent
+// the Agent from serving requests with whatever configuration already exists.
+try
+{
+    var legacyImporter = app.Services.GetRequiredService<ILegacyConfigurationImporter>();
+    await legacyImporter.ImportAsync().ConfigureAwait(false);
+}
+catch (Exception ex)
+{
+    app.Logger.LogWarning(ex, "Legacy configuration import did not complete; continuing with the existing Agent configuration.");
+}
 
 if (app.Environment.IsDevelopment())
 {
@@ -133,6 +159,7 @@ var api = app.MapGroup("/api/v1");
 api.MapSessionEndpoints();
 api.MapAntiforgeryEndpoints();
 api.MapFileEndpoints();
+api.MapConfigurationEndpoints();
 
 var webRootPath = app.Environment.WebRootPath;
 if (!string.IsNullOrEmpty(webRootPath) && Directory.Exists(webRootPath))

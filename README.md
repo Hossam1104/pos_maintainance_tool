@@ -105,3 +105,5 @@ The app keeps the previous config location for compatibility:
 ```
 
 Secrets (SQL password, RDB password) are written encrypted. The DB Downloader's known branch list and server settings are also persisted here, editable from the DB Downloader page.
+
+The in-progress Angular/Agent replacement (`PosAdminTool.Agent`) does not use this file or its encryption scheme. It owns a separate, service-scoped configuration store under `%ProgramData%\DBS\PosAdminTool`, imports this file's non-secret settings once, and requires the SQL and RDB passwords to be re-entered rather than migrated — the legacy encryption key is bound to the interactive user and a Windows Service cannot reproduce it.
