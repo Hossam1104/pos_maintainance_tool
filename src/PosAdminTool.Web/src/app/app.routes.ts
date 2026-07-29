@@ -1,3 +1,10 @@
+import { isDevMode } from '@angular/core';
 import { Routes } from '@angular/router';
 
-export const routes: Routes = [];
+const page = () => import('./features/placeholder-page.component').then((m) => m.PlaceholderPageComponent);
+export const routes: Routes = [
+  { path: '', title: 'Overview · DBS POS Admin', loadComponent: () => import('./features/overview-page.component').then((m) => m.OverviewPageComponent) },
+  ...['device','services','backups','restore','maintenance','downloads','activity','settings'].map((path) => ({ path, title: `${path[0].toUpperCase()}${path.slice(1)} · DBS POS Admin`, data: { title: `${path[0].toUpperCase()}${path.slice(1)}`, detail: 'This workspace is prepared for its Agent-backed workflow in the next migration session.' }, loadComponent: page })),
+  ...(isDevMode() ? [{ path: 'gallery', title: 'Component gallery · DBS POS Admin', loadComponent: () => import('./features/component-gallery.component').then((m) => m.ComponentGalleryComponent) }] : []),
+  { path: '**', redirectTo: '' },
+];

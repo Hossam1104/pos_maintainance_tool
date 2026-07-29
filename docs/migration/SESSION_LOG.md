@@ -578,3 +578,35 @@ Date: 2026-07-29
 
 - Manual live-Agent SSE smoke was not run in this environment.
 - Session 05 is unblocked. It must rehydrate from REST and never resubmit an operation after reconnect.
+
+## Session 05 — Angular design system and application shell
+
+Date: 2026-07-29
+
+### Decisions and changes
+
+- Implemented the local-only Branch Signal Desk shell: semantic light/dark tokens, bundled Barlow Condensed, Source Sans 3, and IBM Plex Mono fonts, custom outline markers, responsive rail/tablet/phone navigation, device context, activity rail, unreachable state, and sanitized global error surface.
+- Added standalone lazy route placeholders for Overview, Device, Services, Backups, Restore, Maintenance, Downloads, Activity, Settings, plus a development-only component gallery. Fixture data remains local and contains no live Agent/business flow.
+- The keyboard-addressable branch signal path presents evidence, UTC check time, explicit status text, and a diagnostic route for loading, ready, degraded, unreachable, stale, and unknown states. CDK focus trapping is used by the shared dialog primitive; shared toast, skeleton, empty, error, form, and status primitives are included.
+- Added local font notices. `@angular/cdk` is pinned to compatible published version `22.0.6`; the required `22.0.8` package does not exist in the configured registry, while its peers explicitly support Angular 22.
+
+### Design self-critique
+
+- The shell deliberately avoids a metric-card dashboard. The only high-emphasis visual is the thin-rail signal path; panels, activity, and placeholders remain restrained instrument surfaces.
+- The status banner and activity rail were reviewed for generic-admin-template cues and kept as compact evidence surfaces rather than card grids or pills.
+- Compared with the WinUI parity map, this is better for responsive work, visible evidence/timestamps, keyboard navigation, theme support, and an explicit unavailable-Agent state. Feature actions themselves remain intentionally deferred to Sessions 06–12.
+
+### Verification
+
+- `npm --prefix src/PosAdminTool.Web run lint`: passed.
+- `npm --prefix src/PosAdminTool.Web run test -- --run`: passed, 5 tests in 4 files.
+- `npm --prefix src/PosAdminTool.Web run build`: passed; production bundle 256.38 kB initial, lazy route chunks emitted.
+- Production asset audit: no runtime external asset URLs. Angular emits inert W3C namespace and framework-documentation strings that do not trigger requests; Playwright also asserted all observed runtime requests stayed on `127.0.0.1`.
+- `npm --prefix src/PosAdminTool.Web run e2e`: passed, 3 Playwright checks (light/dark axe+keyboard and signal diagnostic routing).
+- `dotnet build PosAdminTool.sln -c Release --nologo`: passed, 0 warnings / 0 errors.
+- `dotnet publish src/PosAdminTool.WinUI/PosAdminTool.WinUI.csproj -c Release --nologo -o .artifacts/session-05-winui`: passed.
+- `dotnet test PosAdminTool.sln -c Release --nologo`: failed 1/98: existing `OperationEndpointTests.DestructiveDiagnostic_WritesExactlyOneSanitizedAuditRecord` could not find its temporary `audit/operations.jsonl`; isolated rerun also failed. No Session 05 change touches Agent audit code.
+
+### Blocker and next action
+
+- Session 05 UI implementation is complete, but the standing full-.NET regression gate is blocked by the repeatable Agent audit integration test failure above. Diagnose/fix that test or its Session 04 audit fixture, then rerun the full suite before clearing the Session 05 gate.
