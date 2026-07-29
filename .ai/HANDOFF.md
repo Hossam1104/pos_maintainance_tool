@@ -12,7 +12,7 @@
 
 ## Exact Next Action
 
-- Read `TASK.md` and start from its objective.
+- Read `TASK.md`; the ready task has not started.
 
 ## Changed Files
 
@@ -20,7 +20,7 @@
 
 ## Validation
 
-- Not run.
+- No task implementation is in progress.
 
 ## Blocker or Risk
 

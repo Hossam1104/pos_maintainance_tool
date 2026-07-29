@@ -1,29 +1,50 @@
 # Stable Project Context
 
 Read this file only when the task requires stable, non-obvious project knowledge.
-Do not copy facts that can be cheaply discovered from the repository.
 
 ## Product and Business Boundaries
 
-- Add non-obvious domain rules that affect implementation or testing.
+- DBS POS Admin Tool administers RMS+ point-of-sale installations on one Windows branch device for a local technician/administrator.
+- The retained WinUI tool configures RMS+, controls Windows services, backs up/restores SQL and files, performs guarded maintenance, and retrieves branch backup archives. A strangler migration is replacing its UI with same-origin Angular served by a privileged local Agent.
+- V1 is Windows 10/11 x64, per-device, English-first, and local-only. Cloud, a central server, remote/LAN management, mobile, `win-arm64`, and role matrices are out of scope.
+- Preserve readable legacy backup ZIPs. Import legacy non-secret settings once without modifying the legacy file; SQL and RDB passwords must be re-entered.
+- The repository owns no application database or migrations. It operates on configured external RMS SQL Server databases and host files.
 
 ## Architecture Invariants
 
-- Add architecture constraints that must remain true.
-- Do not paste a complete directory tree or dependency list.
+- Retained path: WinUI composes Domain, Application, and Infrastructure. Domain owns models/interfaces; Application owns workflows; Infrastructure owns SQL, Windows service, HTTP, SMB, filesystem, and configuration adapters.
+- Migration path: independent versioned DTOs live in `PosAdminTool.Contracts`; `PosAdminTool.Agent` is the ASP.NET Core composition root; `PosAdminTool.Web` is an Angular standalone SPA embedded into Agent publish output.
+- The Agent binds only to `127.0.0.1:5001`, uses same-origin Windows Negotiate authentication, authorizes local Administrators, and requires antiforgery validation for mutations. There is no configurable alternate bind.
+- Browser contracts and errors must never reveal a secret or absolute host path. Host file selection uses allowlisted browse roots and principal/purpose-bound, single-use, five-minute opaque handles.
+- Agent configuration is service-owned under `%ProgramData%\DBS\PosAdminTool`; secrets are separate and protected with machine-scope Windows DPAPI. The retained WinUI profile configuration remains separate.
+- Long work belongs to a bounded in-memory Agent operation registry, outside request lifetime. REST is state truth, SSE is transport only, idempotency is principal-scoped, named locks serialize conflicts, and only destructive completions are appended to JSONL audit.
+- Agent restart intentionally loses in-flight jobs and file handles. Do not add SQLite, SignalR, PWA/service-worker behavior, IndexedDB, or queued browser mutations.
+- Keep WinUI buildable/runnable until explicit Session 14 parity approval. Its removal must be a dedicated cutover change.
 
 ## Build and Validation Entry Points
 
-- Build:
-- Targeted tests:
-- Lint or type check:
-- Local run:
+- Restore — discovered in CI, not run during context initialization: `dotnet restore PosAdminTool.sln --locked-mode`; from `src/PosAdminTool.Web`, `npm ci`.
+- Build — discovered and recorded passing for Session 04, not re-run here: `dotnet build PosAdminTool.sln -c Release --nologo`.
+- .NET tests — recorded passing 98/98 for Session 04, not re-run here: `dotnet test PosAdminTool.sln -c Release --nologo`.
+- Agent targeted tests — discovered in CI: `dotnet test tests/PosAdminTool.Agent.IntegrationTests/PosAdminTool.Agent.IntegrationTests.csproj -c Release`.
+- Web checks — discovered in CI: `npm run lint`, `npm run test -- --watch=false`, and `npm run build` from `src/PosAdminTool.Web`.
+- Browser tests — configured but currently placeholder-only: `npm run e2e` from `src/PosAdminTool.Web`.
+- Local Agent — discovered, not executed: `dotnet run --project src/PosAdminTool.Agent/PosAdminTool.Agent.csproj`.
+- Retained WinUI — discovered: `run_app.cmd`; runtime validation requires `dotnet publish`, not plain build.
 
 ## Integrations
 
-- List integration purpose and contract location only.
-- Never include credentials, tokens, private URLs, or connection strings.
+- SQL Server — RMS checks, backup, restore, verification, and reset; interfaces in `src/PosAdminTool.Domain/Interfaces`, adapter in `src/PosAdminTool.Infrastructure/Windows/SqlCmdExecutor.cs`. Live service-identity access is unverified.
+- Windows Service Control Manager — RMS service status/control; `src/PosAdminTool.Infrastructure/Windows/WindowsServiceManager.cs`. Future Agent operations must own privilege and report confirmed outcomes.
+- RMS backup API — triggers multi-branch backup work; `src/PosAdminTool.Infrastructure/Http/BackupApiClient.cs`. Endpoint and credentials remain configuration, never shared memory.
+- SMB/UNC — discovers/downloads produced archives using explicit configured credentials; `src/PosAdminTool.Infrastructure/Smb/`. Session 0 behavior under the proposed service identity is unverified.
+- RMS local files — legacy import and backup sources; `src/PosAdminTool.Infrastructure/Configuration/LegacyConfigurationImporter.cs` and Application services. Import excludes secrets.
+- Angular browser — same-origin UI/API client; OpenAPI is generated from Agent build using `src/PosAdminTool.Web/ng-openapi-gen.json`.
 
 ## Critical Conventions
 
-- Add only conventions a model is unlikely to infer from nearby code.
+- Exact NuGet/npm versions and lockfiles are intentional; C# stays at 13 until ADR-0013 is changed.
+- `src/PosAdminTool.Web/openapi/` and `src/PosAdminTool.Web/src/app/core/api/generated/` are generated and ignored; change contracts/endpoints, then regenerate.
+- Angular/OpenAPI CI uses Windows because the Agent has a Windows TFM. Published branch devices need neither Node nor npm.
+- WinUI unpackaged resources are staged correctly only by publish; its project contains a required Windows App SDK XAML-resource copy workaround.
+- UI status must distinguish fresh, stale, unknown, Agent-unreachable, and RMS-server-unreachable states with evidence and timestamps, not colour alone.

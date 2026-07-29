@@ -63,6 +63,12 @@ Small, well-scoped tasks should use one model only. Use multiple models only whe
 - Work only within the requested scope.
 - Prefer existing patterns and utilities.
 - Avoid unrelated refactoring, formatting, and dependency changes.
+- Preserve `PosAdminTool.WinUI` until the explicit Session 14 parity approval and cutover.
+- Keep C# 13, exact dependency versions, and committed lockfiles unless the active task explicitly changes the toolchain decision.
+- Keep the Agent Windows x64, per-device, same-origin, and loopback-only; never add LAN/public binding or expose secrets or absolute host paths through browser contracts.
+- Do not add SQLite, SignalR, a PWA, a service worker, or IndexedDB without an approved decision change.
+- Do not edit generated Angular API files under `src/PosAdminTool.Web/openapi/` or `src/PosAdminTool.Web/src/app/core/api/generated/`.
+- Use Windows for Agent/OpenAPI generation. Validate the retained WinUI runtime with `dotnet publish`, because plain build does not stage all unpackaged WinUI resources.
 - Do not paste large files into project-memory documents.
 - Do not store raw logs, complete diffs, test output, credentials, URLs with secrets, connection strings, or personal data in `.ai/`.
 - Do not commit, push, deploy, or run destructive commands unless explicitly requested.
