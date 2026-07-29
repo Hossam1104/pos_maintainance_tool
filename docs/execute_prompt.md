@@ -98,64 +98,67 @@ Stop conditions:
   unless the assigned session explicitly requests it AND the user authorizes it.
 
 
-## Session 03 — Secure configuration *(security judgment)*
+## Session 05 — Angular design system and application shell
 
 ```text
 Goal:
-Replace unsafe user-bound JSON secret handling with a service-owned, redacted configuration system.
+Implement the Branch Signal Desk visual system and responsive shell. No feature business logic.
+
+This is the centerpiece session. UI modernization is the entire driver of this migration, so
+quality here is a release gate, not a preference.
+
+Design authority:
+Follow section 8 of docs/NET10_ANGULAR22_MIGRATION_PLAN.md exactly. Do NOT substitute a generic
+Angular Material dashboard, a gradient hero, a metric-card grid, or a rounded-pill-heavy theme.
 
 Tasks:
-1. Remove the hard-coded SQL password default at
-   src/PosAdminTool.Domain/Models/AppSettings.cs:13 (currently "P@ssw0rd").
-2. Remove the hard-coded environment-specific endpoint at
-   src/PosAdminTool.Domain/Models/DbDownloaderSettings.cs:5 (currently
-   http://10.10.9.181:8080/rmsmainserverApi/api/Updates/CreateDbBackupUpdate). New installations
-   must have no default server address.
-3. Separate non-secret settings from secret values in the domain model.
-4. Implement the ADR-approved Windows secure storage for BOTH the SQL password and the RDB
-   password, scoped to the SERVICE account. Note that ConfigurationService currently encrypts only
-   SqlPassword (lines 114 and 119) and not DbDownloader.RdbPassword, despite README.md:37 claiming
-   both — fix the code and then fix the README.
-5. Store service-owned configuration under %ProgramData%\DBS\PosAdminTool with ACLs restricted to
-   Administrators and the service identity. Make writes atomic: temp file, flush, replace.
-6. Implement a NON-SECRET-ONLY importer for the legacy %USERPROFILE%\.pos_admin_tool\config.json:
-   - read and validate; import branch code, POS number, paths, service list, server addresses, and
-     known branches;
-   - DO NOT attempt to decrypt or migrate the two secrets. The legacy key derivation is bound to the
-     interactive user identity and the service account cannot read it. This is a decided trade-off,
-     not a gap to work around — see plan section 5.5.
-   - never modify, rewrite, or delete the legacy file; it stays as a fallback while WinUI is retained;
-   - be idempotent and safe to rerun;
-   - record migration version and result.
-7. Implement first-run secret entry: detect that secrets are absent and require the operator to
-   enter the SQL and RDB passwords once, with clear explanation of why.
-8. Implement redacted GET/PUT semantics:
-   - return hasSqlPassword and hasRdbPassword flags, never the secret;
-   - omitted or blank secret field means KEEP the current secret;
-   - clearing a secret is an explicit, separately authorized operation;
-   - optimistic version/concurrency check on update.
-9. Add structured redaction and secret-scanning tests. These join the standing regression gate.
+1. Bundle Barlow Condensed, Source Sans 3, IBM Plex Mono, and the selected outline icon set
+   LOCALLY. Verify each license permits redistribution and include the required notices. No CDN,
+   no Google Fonts request, no emoji as iconography.
+2. Implement semantic light and dark tokens from sections 8.2 and 8.3, plus the type scale, 4 px
+   spacing system, radii (4 px controls, 8 px panels, 12 px major dialogs only), focus treatment,
+   and elevation.
+3. Build primitives: status marker, form controls, table/list, dialog, progress, skeleton, empty
+   state, error state, and toast.
+4. Build the shell: desktop rail, compact tablet navigation, phone bottom navigation, top device
+   context strip, activity rail, agent-unreachable banner, and a global error boundary.
+5. Implement the accessible branch signal path component with loading, ready, degraded, unreachable,
+   stale, and unknown states. Each node must be keyboard reachable, expose its evidence and
+   timestamp, and route to the relevant diagnostic area.
+6. Add layout routes and placeholders for Overview, Device, Services, Backups, Restore, Maintenance,
+   Downloads, Activity, and Settings.
+7. Use Angular CDK primitives for overlays, focus trapping, and live regions, but keep custom DBS
+   styling — do not adopt a component library's visual language.
+8. Add a development-only component gallery route.
+9. Use real domain vocabulary and realistic fake fixture data.
+10. There is no service worker, no PWA manifest, no IndexedDB, and no update-ready notice.
 
 Verification commands:
-  dotnet build PosAdminTool.sln -c Release
-  dotnet test  PosAdminTool.sln -c Release
-  # prove no secret default survives anywhere:
-  Select-String -Path src -Include *.cs -Recurse -Pattern 'P@ssw0rd|10\.10\.9\.181'
-      -> no matches in src/ (matches in docs/ describing the fix are expected)
+  npm --prefix src/PosAdminTool.Web run lint
+  npm --prefix src/PosAdminTool.Web run test -- --run
+  npm --prefix src/PosAdminTool.Web run build
+  # asset audit — prove nothing is fetched from the internet:
+  Select-String -Path src/PosAdminTool.Web/dist -Include *.js,*.css,*.html -Recurse -Pattern 'https?://(?!127\.0\.0\.1|localhost)'
+      -> no matches. Any external URL in the production bundle is a failure.
+  npm --prefix src/PosAdminTool.Web run e2e
+      -> accessibility and keyboard specs pass
 
 Required tests:
-- Fresh defaults contain no credential and no environment-specific address.
-- Both passwords round-trip through the new secure store.
-- API responses, log lines, and audit records never contain a supplied test secret. Use a
-  distinctive sentinel value and assert its total absence.
-- Blank secret field preserves the existing secret; explicit clear removes it; neither path ever
-  returns it.
-- Version conflict on concurrent update is detected and rejected.
-- Legacy non-secret import: succeeds, is idempotent on rerun, handles a corrupt file, handles a
-  missing file, handles partial data, and leaves the original file byte-identical.
-- First-run state is correctly detected when secrets are absent.
-- File ACL behavior has a Windows integration test or a clearly documented manual fixture.
+- Component unit tests for status semantics and navigation state.
+- Keyboard traversal and focus-order tests for the shell and every dialog.
+- Automated accessibility checks (axe or equivalent) on the shell and dialogs, in light AND dark.
+- Reduced-motion behavior: all status remains comprehensible with motion removed.
+- Contrast assertions for every semantic token pair against WCAG 2.2 AA.
+- Status is never conveyed by color alone.
+- The production build issues zero external font, icon, image, or script requests.
 
-Stop:
-Never test with real production credentials. Use sentinel values only.
+Deferred to Session 13 deliberately:
+Responsive visual snapshot baselines. Fixture data shapes will change in Sessions 06 and 07, so
+snapshots taken now would churn. Do not create them yet.
+
+Self-critique before handoff (required, and record it in the session log):
+- Name any element that still resembles a generic admin template, and revise it.
+- Confirm the signal path is the single memorable visual and that surrounding UI is restrained.
+- Compare against docs/migration/UI_PARITY_MAP.md and state plainly whether this is better than the
+  WinUI pages it replaces, and why.
 ```
