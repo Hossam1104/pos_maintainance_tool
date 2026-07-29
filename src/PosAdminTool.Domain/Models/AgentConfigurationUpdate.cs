@@ -23,8 +23,6 @@ public sealed class AgentConfigurationUpdate
 
     public string ApiBaseUrl { get; set; } = string.Empty;
 
-    public string BackupFolder { get; set; } = string.Empty;
-
     public List<string> Databases { get; set; } = [];
 
     public List<string> Services { get; set; } = [];

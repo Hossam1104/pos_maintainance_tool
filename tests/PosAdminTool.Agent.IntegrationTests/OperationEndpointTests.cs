@@ -23,8 +23,20 @@ public sealed class OperationEndpointTests(AgentWebApplicationFactory factory) :
         var client = await AdminAsync(); const string branch = "sentinel-branch-not-secret";
         var submit = await client.PostAsJsonAsync("/api/v1/operations", new SubmitOperationRequestDto("diagnostic-destructive", branch));
         var operation = await submit.Content.ReadFromJsonAsync<OperationDetailDto>(TestSupport.TestJsonOptions.Default);
-        for (var attempt = 0; attempt < 30; attempt++) { await Task.Delay(50); var response = await client.GetAsync($"/api/v1/operations/{operation!.OperationId}"); var current = await response.Content.ReadFromJsonAsync<OperationDetailDto>(TestSupport.TestJsonOptions.Default); if (current!.State == OperationState.Succeeded) break; }
-        var path = Path.Combine(factory.FakeConfigRootPath, "audit", "operations.jsonl"); var lines = await File.ReadAllLinesAsync(path);
+        var path = Path.Combine(factory.FakeConfigRootPath, "audit", "operations.jsonl");
+        OperationDetailDto? current = null;
+        for (var attempt = 0; attempt < 100; attempt++)
+        {
+            await Task.Delay(50);
+            var response = await client.GetAsync($"/api/v1/operations/{operation!.OperationId}");
+            current = await response.Content.ReadFromJsonAsync<OperationDetailDto>(TestSupport.TestJsonOptions.Default);
+            if (current!.State == OperationState.Succeeded && File.Exists(path)) break;
+        }
+
+        Assert.NotNull(current);
+        Assert.Equal(OperationState.Succeeded, current!.State);
+        Assert.True(File.Exists(path), "The completed destructive operation must persist its audit record before the assertion reads it.");
+        var lines = await File.ReadAllLinesAsync(path);
         Assert.Single(lines); Assert.DoesNotContain("sentinel-sql-pw", lines[0], StringComparison.Ordinal); Assert.Contains(branch, lines[0], StringComparison.Ordinal);
     }
 

@@ -1,8 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.Extensions.DependencyInjection;
 using PosAdminTool.Agent.IntegrationTests.TestSupport;
 using PosAdminTool.Contracts.V1.Common;
 using PosAdminTool.Contracts.V1.Configuration;
+using PosAdminTool.Domain.Interfaces;
 using PosAdminTool.Contracts.V1.Session;
 
 namespace PosAdminTool.Agent.IntegrationTests;
@@ -116,6 +118,33 @@ public class ConfigurationEndpointTests : IClassFixture<AgentWebApplicationFacto
     }
 
     [Fact]
+    public async Task Put_WithBlankRdbPassword_KeepsTheExistingSecret()
+    {
+        const string rdbSentinel = "sentinel-keep-rdb-pw";
+        var client = await CreateAdminClientWithAntiforgeryAsync();
+        var afterSet = await PutAsync(client, NewUpdateRequest(InitialVersion, rdbPassword: rdbSentinel));
+
+        var afterBlankUpdate = await PutAsync(client, NewUpdateRequest(afterSet.Version, rdbPassword: null));
+
+        Assert.True(afterBlankUpdate.Downloader.HasRdbPassword);
+    }
+
+    [Fact]
+    public async Task Get_DoesNotExposeTheAgentOwnedBackupFolder()
+    {
+        var store = _factory.Services.GetRequiredService<IAgentConfigurationStore>();
+        var configuration = await store.LoadAsync();
+        configuration.BackupFolder = _factory.FakeBrowseRootPath;
+        await store.SaveAsync(configuration);
+
+        var response = await _factory.CreateAdminClient().GetAsync("/api/v1/configuration");
+        var raw = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.DoesNotContain(_factory.FakeBrowseRootPath, raw, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Put_WithStaleExpectedVersion_ReturnsVersionConflictProblem()
     {
         var client = await CreateAdminClientWithAntiforgeryAsync();
@@ -170,6 +199,47 @@ public class ConfigurationEndpointTests : IClassFixture<AgentWebApplicationFacto
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    [Fact]
+    public async Task ClearSecret_WithInvalidSecretKind_IsRejected()
+    {
+        var client = await CreateAdminClientWithAntiforgeryAsync();
+
+        var response = await client.PostAsJsonAsync(
+            "/api/v1/configuration/secrets/clear",
+            new ClearSecretRequestDto((SecretKind)999, InitialVersion));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ClearRdbSecret_RemovesTheSecretAndNeverReturnsItsValue()
+    {
+        const string rdbSentinel = "sentinel-clear-rdb-pw";
+        var client = await CreateAdminClientWithAntiforgeryAsync();
+        var afterSet = await PutAsync(client, NewUpdateRequest(InitialVersion, rdbPassword: rdbSentinel));
+
+        var response = await client.PostAsJsonAsync(
+            "/api/v1/configuration/secrets/clear",
+            new ClearSecretRequestDto(SecretKind.RdbPassword, afterSet.Version));
+        var raw = await response.Content.ReadAsStringAsync();
+        var body = await response.Content.ReadFromJsonAsync<RedactedConfigurationDto>(TestJsonOptions.Default, CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.DoesNotContain(rdbSentinel, raw, StringComparison.Ordinal);
+        Assert.False(body!.Downloader.HasRdbPassword);
+    }
+
+    [Theory]
+    [InlineData("/api/v1/configuration/import-rms")]
+    [InlineData("/api/v1/configuration/test-database")]
+    [InlineData("/api/v1/configuration/verify-branch")]
+    public async Task MutatingDiagnosticEndpoints_RejectUnauthenticatedRequests(string path)
+    {
+        var response = await _factory.CreateClient().PostAsJsonAsync(path, new { });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
     private static async Task<RedactedConfigurationDto> PutAsync(HttpClient client, ConfigurationUpdateRequestDto request)
     {
         var response = await client.PutAsJsonAsync("/api/v1/configuration", request);
@@ -186,7 +256,6 @@ public class ConfigurationEndpointTests : IClassFixture<AgentWebApplicationFacto
             sqlInstance,
             string.Empty,
             sqlPassword,
-            string.Empty,
             string.Empty,
             string.Empty,
             string.Empty,

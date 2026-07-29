@@ -59,9 +59,20 @@ public static class ConfigurationEndpoints
             AgentConfigurationUseCase useCase,
             CancellationToken cancellationToken) =>
         {
+            var isKnownSecretKind = TryGetSecretKind(request.Secret, out var kind);
+            if (request.ExpectedVersion < 1 || !isKnownSecretKind)
+            {
+                var errors = new Dictionary<string, string[]>();
+                if (request.ExpectedVersion < 1) errors[nameof(request.ExpectedVersion)] = ["Expected version must be positive."];
+                if (!isKnownSecretKind) errors[nameof(request.Secret)] = ["Unknown secret kind."];
+                return Results.ValidationProblem(
+                    errors,
+                    extensions: new Dictionary<string, object?> { [ProblemDetailsExtensionKeys.ErrorCode] = ErrorCodes.ValidationFailed });
+            }
+
             try
             {
-                var snapshot = await useCase.ClearSecretAsync(ToDomain(request.Secret), request.ExpectedVersion, cancellationToken).ConfigureAwait(false);
+                var snapshot = await useCase.ClearSecretAsync(kind, request.ExpectedVersion, cancellationToken).ConfigureAwait(false);
                 return Results.Ok(ToDto(snapshot));
             }
             catch (ConfigurationVersionConflictException ex)
@@ -111,7 +122,6 @@ public static class ConfigurationEndpoints
             config.Release,
             config.ClientName,
             config.ApiBaseUrl,
-            config.BackupFolder,
             config.Databases,
             config.Services,
             new RedactedDownloaderConfigurationDto(
@@ -135,7 +145,6 @@ public static class ConfigurationEndpoints
         Release = request.Release,
         ClientName = request.ClientName,
         ApiBaseUrl = request.ApiBaseUrl,
-        BackupFolder = request.BackupFolder,
         Databases = [.. request.Databases],
         Services = [.. request.Services],
         Downloader = new AgentDownloaderConfigurationUpdate
@@ -159,20 +168,29 @@ public static class ConfigurationEndpoints
         if (request.BranchCode.Length > 50 || request.PosNumber.Length > 50) errors["identity"] = ["Branch and POS values must be 50 characters or fewer."];
         if (request.ApiBaseUrl.Length > 0 && !Uri.TryCreate(request.ApiBaseUrl, UriKind.Absolute, out _)) errors[nameof(request.ApiBaseUrl)] = ["API URL must be absolute."];
         if (request.Databases.Count > 50 || request.Services.Count > 50) errors["lists"] = ["Too many configured entries."];
-        if (request.Downloader is not null && (request.Downloader.PollIntervalSeconds is < 1 or > 3600 || request.Downloader.TimeoutSeconds is < 1 or > 86400))
-            errors["downloader"] = ["Downloader intervals are outside the permitted range."];
+        if (request.Downloader is not null)
+        {
+            if (request.Downloader.ApiUrl.Length > 0 && !Uri.TryCreate(request.Downloader.ApiUrl, UriKind.Absolute, out _)) errors[nameof(request.Downloader.ApiUrl)] = ["Downloader API URL must be absolute."];
+            if (request.Downloader.PollIntervalSeconds is < 1 or > 3600 || request.Downloader.TimeoutSeconds is < 1 or > 86400) errors["downloader"] = ["Downloader intervals are outside the permitted range."];
+            if (request.Downloader.KnownBranchCodes.Count > 50) errors[nameof(request.Downloader.KnownBranchCodes)] = ["Too many known branch codes."];
+        }
         problem = errors.Count == 0
             ? Results.Empty
             : Results.ValidationProblem(errors, extensions: new Dictionary<string, object?> { [ProblemDetailsExtensionKeys.ErrorCode] = ErrorCodes.ValidationFailed });
         return errors.Count > 0;
     }
 
-    private static AgentSecretKind ToDomain(SecretKind kind) => kind switch
+    private static bool TryGetSecretKind(SecretKind kind, out AgentSecretKind agentKind)
     {
-        SecretKind.SqlPassword => AgentSecretKind.SqlPassword,
-        SecretKind.RdbPassword => AgentSecretKind.RdbPassword,
-        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
-    };
+        agentKind = kind switch
+        {
+            SecretKind.SqlPassword => AgentSecretKind.SqlPassword,
+            SecretKind.RdbPassword => AgentSecretKind.RdbPassword,
+            _ => default,
+        };
+
+        return kind is SecretKind.SqlPassword or SecretKind.RdbPassword;
+    }
 
     private static IResult ToConflictProblem(ConfigurationVersionConflictException ex) =>
         Results.Problem(

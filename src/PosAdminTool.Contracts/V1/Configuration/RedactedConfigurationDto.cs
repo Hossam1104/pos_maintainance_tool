@@ -13,7 +13,6 @@ public sealed record RedactedConfigurationDto(
     string Release,
     string ClientName,
     string ApiBaseUrl,
-    string BackupFolder,
     IReadOnlyList<string> Databases,
     IReadOnlyList<string> Services,
     RedactedDownloaderConfigurationDto Downloader,

@@ -178,6 +178,7 @@ api.MapFileEndpoints();
 api.MapConfigurationEndpoints();
 api.MapDeviceEndpoints();
 api.MapOperationEndpoints();
+api.MapActivityEndpoints();
 api.MapEventEndpoints();
 
 var webRootPath = app.Environment.WebRootPath;

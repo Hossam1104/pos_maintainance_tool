@@ -44,7 +44,6 @@ public sealed class AgentConfigurationUseCase(
             current.Release = update.Release;
             current.ClientName = update.ClientName;
             current.ApiBaseUrl = update.ApiBaseUrl;
-            current.BackupFolder = update.BackupFolder;
             current.Databases = [.. update.Databases];
             current.Services = [.. update.Services];
             current.Downloader.ApiUrl = update.Downloader.ApiUrl;

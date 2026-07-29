@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Threading.Channels;
+using PosAdminTool.Contracts.V1.Activity;
 using PosAdminTool.Contracts.V1.Operations;
 
 namespace PosAdminTool.Agent.Operations;
@@ -26,6 +27,7 @@ public sealed class OperationRegistry
     }
 
     public IReadOnlyList<OperationSummaryDto> List() => _entries.Values.Select(x => x.ToSummary()).OrderByDescending(x => x.RequestedAtUtc).ToList();
+    public IReadOnlyList<ActivityRecordDto> ListActivity() => _entries.Values.Select(x => x.ToActivity()).OrderByDescending(x => x.AtUtc).ToList();
     public bool TryGet(string id, out OperationDetailDto? detail) { if (_entries.TryGetValue(id, out var x)) { detail = x.ToDto(); return true; } detail = null; return false; }
     public bool Cancel(string id, out OperationDetailDto? detail)
     {
@@ -52,6 +54,7 @@ public sealed class OperationRegistry
         private void Add(string stage, string message) => _events.Add(new(DateTimeOffset.UtcNow, stage, Sanitize(message)));
         private static string Sanitize(string value) => value.Length > 512 ? value[..512] : value.Replace("\r", " ").Replace("\n", " ");
         public OperationSummaryDto ToSummary() { lock (_gate) return new(Id, Type, State, Progress, Stage, Requested, Started, Ended); }
+        public ActivityRecordDto ToActivity() { lock (_gate) return new(Id, Ended ?? Requested, "operation", $"{Type}: {State}", Correlation, IsDestructive); }
         public OperationDetailDto ToDto() { lock (_gate) return new(Id, Type, State, Progress, Stage, Branch, Principal, Requested, Started, Ended, Locks, [.. _events], [], null, Correlation); }
     }
 }

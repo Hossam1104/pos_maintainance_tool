@@ -16,7 +16,6 @@ public sealed record ConfigurationUpdateRequestDto(
     string Release,
     string ClientName,
     string ApiBaseUrl,
-    string BackupFolder,
     IReadOnlyList<string> Databases,
     IReadOnlyList<string> Services,
     DownloaderConfigurationUpdateRequestDto Downloader,

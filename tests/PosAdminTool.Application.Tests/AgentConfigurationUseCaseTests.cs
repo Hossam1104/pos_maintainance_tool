@@ -120,7 +120,6 @@ public sealed class AgentConfigurationUseCaseTests
         BranchCode = string.Empty,
         PosNumber = string.Empty,
         ApiBaseUrl = string.Empty,
-        BackupFolder = string.Empty,
         Databases = [],
         Services = [],
         Downloader = new AgentDownloaderConfigurationUpdate { RdbPassword = rdbPassword },
