@@ -45,7 +45,7 @@ public sealed class AgentWebApplicationFactory : WebApplicationFactory<Program>
             Path.Combine(FakeWebRootPath, "index.html"),
             $"<!doctype html><html><body>{IndexMarker}</body></html>");
 
-        builder.UseEnvironment("Production");
+        builder.UseEnvironment("Development");
         builder.UseWebRoot(FakeWebRootPath);
         builder.UseSetting("Testing:DisableNegotiate", "true");
 

@@ -555,3 +555,26 @@ Zero matches (one doc-comment false positive found and fixed — see above — b
 ### Next session
 
 Session 04 is unblocked.
+
+## Session 04 — Job engine, SSE, and audit log
+
+Date: 2026-07-29
+
+### Decisions and changes
+
+- Added a bounded in-memory operation registry with opaque IDs, the approved six-state model, cancellation, monotonic stages, and REST rehydration.
+- Conflicting named resources serialize in the Agent worker with deterministic acquisition order; no operation truth is persisted after restart.
+- `Idempotency-Key` is scoped to the requesting principal; duplicate submissions return the original operation.
+- Fake diagnostics are development-only. A destructive fixture validates JSONL audit output without any real RMS operation.
+- Completed destructive diagnostics append one sanitized JSONL record under the service-owned audit directory.
+- SSE is transport-only; disconnecting it never cancels server work.
+
+### Verification
+
+- `dotnet build PosAdminTool.sln -c Release --nologo`: passed, 0 warnings / 0 errors.
+- `dotnet test PosAdminTool.sln -c Release --nologo`: passed, 98 total tests.
+
+### Risks and next session
+
+- Manual live-Agent SSE smoke was not run in this environment.
+- Session 05 is unblocked. It must rehydrate from REST and never resubmit an operation after reconnect.

@@ -1,0 +1,57 @@
+using System.Collections.Concurrent;
+using System.Threading.Channels;
+using PosAdminTool.Contracts.V1.Operations;
+
+namespace PosAdminTool.Agent.Operations;
+
+public sealed class OperationRegistry
+{
+    private const int Capacity = 32;
+    private readonly ConcurrentDictionary<string, Entry> _entries = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, string> _idempotency = new(StringComparer.Ordinal);
+    private readonly Channel<Entry> _queue = Channel.CreateBounded<Entry>(new BoundedChannelOptions(Capacity) { FullMode = BoundedChannelFullMode.Wait, SingleReader = true });
+
+    public event Action<OperationDetailDto>? Changed;
+
+    public bool TrySubmit(string operationType, string branchCode, string principal, string correlationId, string? idempotencyKey, out OperationDetailDto? detail, out bool duplicate)
+    {
+        duplicate = false;
+        var idempotencyId = string.IsNullOrWhiteSpace(idempotencyKey) ? null : $"{principal}\n{idempotencyKey}";
+        if (idempotencyId is not null && _idempotency.TryGetValue(idempotencyId, out var existing) && TryGet(existing, out detail)) { duplicate = true; return true; }
+        var entry = new Entry(operationType, branchCode, principal, correlationId);
+        if (!_queue.Writer.TryWrite(entry)) { detail = null; return false; }
+        _entries[entry.Id] = entry;
+        if (idempotencyId is not null) _idempotency.TryAdd(idempotencyId, entry.Id);
+        detail = entry.ToDto(); Publish(entry); return true;
+    }
+
+    public IReadOnlyList<OperationSummaryDto> List() => _entries.Values.Select(x => x.ToSummary()).OrderByDescending(x => x.RequestedAtUtc).ToList();
+    public bool TryGet(string id, out OperationDetailDto? detail) { if (_entries.TryGetValue(id, out var x)) { detail = x.ToDto(); return true; } detail = null; return false; }
+    public bool Cancel(string id, out OperationDetailDto? detail)
+    {
+        if (!_entries.TryGetValue(id, out var entry)) { detail = null; return false; }
+        entry.Cancel(); detail = entry.ToDto(); Publish(entry); return true;
+    }
+    public IAsyncEnumerable<Entry> ReadAllAsync(CancellationToken token) => _queue.Reader.ReadAllAsync(token);
+    public void Publish(Entry entry) => Changed?.Invoke(entry.ToDto());
+
+    public sealed class Entry
+    {
+        private readonly object _gate = new(); private readonly CancellationTokenSource _cancellation = new();
+        private readonly List<OperationEventDto> _events = [];
+        public Entry(string type, string branch, string principal, string correlation) { Id = Guid.NewGuid().ToString("N"); Type = type; Branch = branch; Principal = principal; Correlation = correlation; Requested = DateTimeOffset.UtcNow; State = OperationState.Queued; Locks = type == "diagnostic" ? ["services"] : ["sql", "services", "filesystem-cleanup", "downloader"]; IsDestructive = type == "diagnostic-destructive"; _events.Add(new(Requested, "queued", "Operation queued.")); }
+        public string Id { get; } public string Type { get; } public string Branch { get; } public string Principal { get; } public string Correlation { get; } public DateTimeOffset Requested { get; }
+        public OperationState State { get; private set; } public int Progress { get; private set; } public string Stage { get; private set; } = "queued"; public DateTimeOffset? Started { get; private set; } public DateTimeOffset? Ended { get; private set; }
+        public IReadOnlyList<string> Locks { get; } public bool IsDestructive { get; }
+        public CancellationToken Token => _cancellation.Token;
+        public void Cancel() { lock (_gate) { if (State is OperationState.Queued or OperationState.Running) { _cancellation.Cancel(); if (State == OperationState.Queued) { Transition(OperationState.Cancelled); Stage = "cancelled"; Ended = DateTimeOffset.UtcNow; Add(Stage, "Operation cancelled."); } } } }
+        public void Start() { lock (_gate) { Transition(OperationState.Running); Started = DateTimeOffset.UtcNow; Stage = "running"; Add("running", "Operation started."); } }
+        public void Report(int progress, string stage, string message) { lock (_gate) { Progress = Math.Clamp(Math.Max(Progress, progress), 0, 100); Stage = stage; Add(stage, message); } }
+        public void Complete(OperationState finalState, string? errorCode = null) { lock (_gate) { if (finalState == OperationState.Cancelled || finalState == OperationState.Succeeded || finalState == OperationState.PartiallySucceeded || finalState == OperationState.Failed) { Transition(finalState); if (finalState == OperationState.Succeeded) Progress = 100; Stage = finalState.ToString().ToLowerInvariant(); Ended = DateTimeOffset.UtcNow; Add(Stage, finalState == OperationState.Cancelled ? "Operation cancelled." : "Operation completed."); } } }
+        private void Transition(OperationState target) { if (State == OperationState.Queued && target is OperationState.Running or OperationState.Cancelled || State == OperationState.Running && target is OperationState.Succeeded or OperationState.PartiallySucceeded or OperationState.Failed or OperationState.Cancelled) { State = target; return; } throw new InvalidOperationException("Invalid operation state transition."); }
+        private void Add(string stage, string message) => _events.Add(new(DateTimeOffset.UtcNow, stage, Sanitize(message)));
+        private static string Sanitize(string value) => value.Length > 512 ? value[..512] : value.Replace("\r", " ").Replace("\n", " ");
+        public OperationSummaryDto ToSummary() { lock (_gate) return new(Id, Type, State, Progress, Stage, Requested, Started, Ended); }
+        public OperationDetailDto ToDto() { lock (_gate) return new(Id, Type, State, Progress, Stage, Branch, Principal, Requested, Started, Ended, Locks, [.. _events], [], null, Correlation); }
+    }
+}

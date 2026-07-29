@@ -20,4 +20,8 @@ public static class ErrorCodes
     public const string HandleWrongPrincipal = "file_handle.wrong_principal";
     public const string HandleWrongPurpose = "file_handle.wrong_purpose";
     public const string ConfigurationVersionConflict = "configuration.version_conflict";
+    public const string OperationNotFound = "operation.not_found";
+    public const string OperationQueueFull = "operation.queue_full";
+    public const string OperationInvalidStateTransition = "operation.invalid_state_transition";
+    public const string OperationUnsupported = "operation.unsupported";
 }

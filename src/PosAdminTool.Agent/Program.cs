@@ -7,6 +7,8 @@ using PosAdminTool.Agent.Authorization;
 using PosAdminTool.Agent.Correlation;
 using PosAdminTool.Agent.Endpoints;
 using PosAdminTool.Agent.Files;
+using PosAdminTool.Agent.Operations;
+using PosAdminTool.Agent.Audit;
 using PosAdminTool.Application.UseCases;
 using PosAdminTool.Contracts.V1.Common;
 using PosAdminTool.Domain.Interfaces;
@@ -66,6 +68,10 @@ builder.Services.Configure<FileBrowseOptions>(builder.Configuration.GetSection(F
 builder.Services.AddSingleton<IFileBrowseService, FileBrowseService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IFileHandleStore, InMemoryFileHandleStore>();
+builder.Services.AddSingleton<OperationRegistry>();
+builder.Services.AddSingleton<ResourceLockSet>();
+builder.Services.AddSingleton<OperationAuditWriter>();
+builder.Services.AddHostedService<OperationWorker>();
 
 // Service-owned, ACL-restricted configuration and secret storage (plan section 5.5). Tests override
 // both options singletons to point at an isolated temporary directory instead of the real
@@ -160,6 +166,8 @@ api.MapSessionEndpoints();
 api.MapAntiforgeryEndpoints();
 api.MapFileEndpoints();
 api.MapConfigurationEndpoints();
+api.MapOperationEndpoints();
+api.MapEventEndpoints();
 
 var webRootPath = app.Environment.WebRootPath;
 if (!string.IsNullOrEmpty(webRootPath) && Directory.Exists(webRootPath))
@@ -167,7 +175,7 @@ if (!string.IsNullOrEmpty(webRootPath) && Directory.Exists(webRootPath))
     app.UseDefaultFiles();
     app.UseStaticFiles();
 
-    if (app.Environment.IsProduction() && File.Exists(Path.Combine(webRootPath, "index.html")))
+    if (File.Exists(Path.Combine(webRootPath, "index.html")))
     {
         app.MapFallbackToFile("index.html");
     }
