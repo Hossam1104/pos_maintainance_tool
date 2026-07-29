@@ -11,6 +11,7 @@ export interface Operation { operationId: string; operationType: string; state: 
 export interface ActivityRecord { activityId: string; atUtc: string; category: string; summary: string; correlationId: string | null; isDestructive: boolean; }
 export interface PagedResult<T> { items: T[]; page: number; pageSize: number; totalCount: number; }
 export interface BrowseResult { rootId: string; relativeSubPath: string; entries: { name: string; isDirectory: boolean; relativeSubPath: string; sizeBytes: number | null; lastModifiedUtc: string | null; }[]; }
+export interface ServiceSummary { serviceId: string; displayName: string; state: 'unknown' | 'running' | 'stopped' | 'transitioning' | 'notFound'; lastChecked: Evidence; allowedActions: ('start' | 'stop' | 'restart')[]; lastOutcome: string | null; }
 
 @Injectable({ providedIn: 'root' })
 export class AgentApi {

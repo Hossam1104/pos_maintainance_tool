@@ -1,12 +1,13 @@
 # Current Task
 
 - **Task ID:** MIGRATION-SESSION-07
-- **Status:** Ready
+- **Status:** Blocked
 - **Role:** Implement
 
 ## Objective
 
-Deliver Agent-backed Windows-service parity, then stop for the mandatory GO / NO-GO decision.
+Agent-backed Windows-service parity is implemented. The mandatory gate is NO-GO pending explicit
+authorization for representative-device service-control evidence and a subsequent user decision.
 
 ## Execute
 

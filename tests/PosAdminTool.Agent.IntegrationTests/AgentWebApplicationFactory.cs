@@ -3,11 +3,13 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using PosAdminTool.Agent.Authorization;
 using PosAdminTool.Agent.Files;
 using PosAdminTool.Agent.IntegrationTests.TestSupport;
 using PosAdminTool.Infrastructure.Configuration;
+using PosAdminTool.Domain.Interfaces;
 
 namespace PosAdminTool.Agent.IntegrationTests;
 
@@ -38,6 +40,7 @@ public sealed class AgentWebApplicationFactory : WebApplicationFactory<Program>
         Path.Combine(Directory.CreateTempSubdirectory("pos-admin-agent-legacy-config-").FullName, "config.json");
 
     public SentinelLogSink LogSink { get; } = new();
+    public FakeServiceManager ServiceManager { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -77,6 +80,8 @@ public sealed class AgentWebApplicationFactory : WebApplicationFactory<Program>
 
             services.AddSingleton(new AgentConfigurationStoreOptions { RootDirectory = FakeConfigRootPath });
             services.AddSingleton(new LegacyConfigurationImporterOptions { SourceFilePath = FakeLegacyConfigPath });
+            services.RemoveAll<IServiceManager>();
+            services.AddSingleton<IServiceManager>(ServiceManager);
             services.AddSingleton(LogSink);
             services.AddSingleton<ILoggerProvider, SentinelTestLoggerProvider>();
         });

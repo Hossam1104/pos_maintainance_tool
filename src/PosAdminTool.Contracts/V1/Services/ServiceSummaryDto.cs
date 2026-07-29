@@ -11,4 +11,5 @@ public sealed record ServiceSummaryDto(
     string DisplayName,
     ServiceRuntimeState State,
     EvidenceDto LastChecked,
-    IReadOnlyList<ServiceActionKind> AllowedActions);
+    IReadOnlyList<ServiceActionKind> AllowedActions,
+    string? LastOutcome);

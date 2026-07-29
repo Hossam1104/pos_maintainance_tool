@@ -11,6 +11,7 @@ using PosAdminTool.Agent.Operations;
 using PosAdminTool.Agent.Audit;
 using PosAdminTool.Agent.Configuration;
 using PosAdminTool.Agent.Device;
+using PosAdminTool.Agent.Services;
 using PosAdminTool.Application.Services;
 using PosAdminTool.Application.UseCases;
 using PosAdminTool.Contracts.V1.Common;
@@ -92,6 +93,12 @@ builder.Services.AddSingleton<TestConnectionUseCase>();
 builder.Services.AddSingleton<BranchVerificationService>();
 builder.Services.AddSingleton<ImportFromRmsUseCase>();
 builder.Services.AddSingleton<DeviceDiagnosticsService>();
+builder.Services.AddSingleton<IServiceManager, WindowsServiceManager>();
+builder.Services.AddSingleton<ServiceCatalog>();
+builder.Services.AddSingleton<ServiceMonitor>();
+builder.Services.AddSingleton<ServiceCommandCoordinator>();
+builder.Services.AddHostedService<ServiceCommandWorker>();
+builder.Services.AddHostedService<ServicePollingWorker>();
 
 builder.Services.AddProblemDetails(options =>
 {
@@ -177,6 +184,7 @@ api.MapAntiforgeryEndpoints();
 api.MapFileEndpoints();
 api.MapConfigurationEndpoints();
 api.MapDeviceEndpoints();
+api.MapServiceEndpoints();
 api.MapOperationEndpoints();
 api.MapActivityEndpoints();
 api.MapEventEndpoints();
