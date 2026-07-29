@@ -1,31 +1,31 @@
 # Current Task
 
-- **Task ID:** MIGRATION-SESSION-07
-- **Status:** Blocked
+- **Task ID:** MIGRATION-SESSION-08
+- **Status:** In Progress
 - **Role:** Implement
 
 ## Objective
 
-Agent-backed Windows-service parity is implemented. The mandatory gate is NO-GO pending explicit
-authorization for representative-device service-control evidence and a subsequent user decision.
+Move the local backup workflow into the Agent operation engine with safe archive artifacts and a
+browser select/review/run/progress/result/catalog experience.
 
 ## Execute
 
-1. Adapt the retained Windows service manager behind authorized Agent commands. Accept only
-   server-issued IDs from the configured service list; never accept a service name from the browser.
-2. Implement bulk reads, timestamps, transitions, timeouts, cancellation, per-service locks,
-   idempotency, audit, and SSE-backed refresh recovery.
-3. Build the Services UI with accessible service-context action names and distinct command-sent,
-   running, confirmed, and failed states.
-4. Produce `docs/migration/GATE_07.md` with observed SQL/service-identity evidence, UI parity,
-   scope credibility, and risk status. Stop for an explicit user GO / NO-GO decision.
+1. Put BackupService file-system and shell behavior behind ports while retaining the selectable
+   branch/cashier databases and three appsettings files.
+2. Require an allowlisted destination browse handle; validate destination, free space, components,
+   branch/database identity, and configuration sources before work starts.
+3. Create human-readable archives with a versioned manifest, checksums, artifact metadata, safe
+   streaming download, persisted operation progress, cancellation, cleanup, and audit.
+4. Build the select/review/run/progress/result/catalog UI; retain branch and target database at review
+   and replace Explorer launch with resolved destination copy plus artifact download.
 
 ## Read First
 
-- `src/PosAdminTool.Infrastructure/Windows/WindowsServiceManager.cs`
-- `src/PosAdminTool.Agent/Endpoints/OperationEndpoints.cs`
+- `src/PosAdminTool.Application/Services/BackupService.cs`
 - `src/PosAdminTool.Agent/Operations/OperationRegistry.cs`
-- `src/PosAdminTool.Web/src/app/app.routes.ts`
+- `src/PosAdminTool.Agent/Endpoints/FileEndpoints.cs`
+- `src/PosAdminTool.Web/src/app/core/agent-api.service.ts`
 - `docs/migration/UI_PARITY_MAP.md`
 
 ## Validation
@@ -33,9 +33,8 @@ authorization for representative-device service-control evidence and a subsequen
 - `dotnet build PosAdminTool.sln -c Release`
 - `dotnet test PosAdminTool.sln -c Release`
 - `npm --prefix src/PosAdminTool.Web run test -- --run`
-- `npm --prefix src/PosAdminTool.Web run e2e -- --grep "service"`
+- `npm --prefix src/PosAdminTool.Web run e2e -- --grep "backup"`
 
 ## Constraints
 
-- Never control an actual RMS or system service without explicit environment authorization.
-- Do not start Session 08 without explicit user GO / NO-GO approval.
+- Never execute `BACKUP DATABASE` against a real database without explicit authorization.

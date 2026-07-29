@@ -1,6 +1,6 @@
 # Session 07 GO / NO-GO Gate
 
-- **Decision:** NO-GO pending representative-device evidence.
+- **Decision:** GO accepted by the user on 2026-07-30, with the blocking risk explicitly retained.
 - **Scope reviewed:** Agent-backed configured-service catalog, opaque server-issued IDs, authorized
   start/stop/restart commands, in-memory per-service serialization and idempotency, bounded timeout,
   JSONL audit, Agent polling/SSE recovery, and the responsive Services UI.
@@ -22,6 +22,5 @@ for this separate Windows-service permission boundary.
 
 ## Required decision
 
-Before Session 08, provide an explicit GO or NO-GO after either authorizing a representative-device
-check against a named non-production service or accepting the risk without that proof. No RMS or
-system service was controlled for this gate.
+The user provided GO on 2026-07-30, accepting the absence of representative-device SCM proof as a
+known risk. No RMS or system service was controlled for this gate.

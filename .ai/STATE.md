@@ -2,8 +2,8 @@
 
 - **Updated:** 2026-07-30
 - **Branch:** `migration/session-05`
-- **HEAD:** `58813e4` (`feat: Enhance configuration and device diagnostics endpoints`)
-- **Release or milestone:** .NET 10 + Angular 22 migration; Sessions 00-06 complete, Session 07 gate blocked
+- **HEAD:** `17a478b` (`feat: Implement service management endpoints and UI integration`)
+- **Release or milestone:** .NET 10 + Angular 22 migration; Sessions 00-07 complete, Session 08 active
 
 ## Working State
 
@@ -15,20 +15,20 @@
 
 ## Active Blocker
 
-- Session 07 is NO-GO pending explicit authorization for a representative-device LocalSystem service-control check and a subsequent user GO / NO-GO decision. The Agent identity is accepted as `LocalSystem`; the existing connection use case passed as `NT AUTHORITY\SYSTEM` at `2026-07-29T21:29:19Z`.
+- None. The user accepted the Session 07 GO gate on 2026-07-30 without a representative-device LocalSystem SCM control check.
 
 ## Known Risks
 
 - Managed-root behavior under LocalSystem and SMB access in Session 0 still require representative-device proof; SMB Session 0 behavior is the highest environment risk.
 - Manual live-Agent SSE smoke and a real browser Negotiate/admin round trip have not been recorded.
 - Legacy WinUI cleanup and restore retain documented destructive-path and archive-validation weaknesses until Sessions 09 and 11 replace those flows safely.
-- `docs/migration/GATE_07.md` records the blocked Session 07 GO/NO-GO evaluation; no RMS or system service has been controlled.
+- Representative-device LocalSystem SCM control remains unproven; the user accepted this risk in the Session 07 GO decision. No RMS or system service has been controlled.
 
 ## Recently Completed
 
-- Sessions 00-06 are indexed in `.ai/HISTORY.md`.
+- Sessions 00-07 are indexed in `.ai/HISTORY.md`.
 - Session 06 completed the Agent-backed Overview, Device, and Settings parity flow with redacted configuration and safe browse roots.
 
 ## Next Recommended Task
 
-- Authorize and collect the Session 07 representative-device SCM proof, then obtain the required GO / NO-GO decision before Session 08.
+- Execute `MIGRATION-SESSION-08` local backup workflow from `TASK.md`.

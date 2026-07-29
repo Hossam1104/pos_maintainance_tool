@@ -1,22 +1,19 @@
 # Active Handoff
 
-- **Status:** Blocked
-- **Task:** MIGRATION-SESSION-07
+- **Status:** In Progress
+- **Task:** MIGRATION-SESSION-08
 
 ## Completed delta
 
-- Implemented configured-service status/control endpoints, opaque IDs, queue/timeout/per-service
-  locking/idempotency/audit, polling/SSE updates, and the Services UI.
-- Added fake-SCM integration coverage and a Services Playwright flow; no live service was controlled.
-- `docs/migration/GATE_07.md` records a NO-GO because LocalSystem SCM rights have no
-  representative-device evidence.
+- Session 07 is complete; the user accepted GO with the absent representative-device SCM proof
+  retained as a known risk in `docs/migration/GATE_07.md`.
 
 ## Next action
 
-- Obtain explicit authorization for a named non-production representative service, collect the
-  LocalSystem control evidence, then request/record the user GO or NO-GO decision. Do not start
-  Session 08 before that decision.
+- Refactor and expose the local backup workflow through the Agent operation engine. Do not execute
+  a real SQL backup without explicit authorization.
 
 ## Risks
 
-- The gate is blocked on explicit environment authorization and the post-evidence user decision.
+- Existing BackupService directly uses host files and Explorer launch; Session 08 must replace those
+  behaviors with ports, browse handles, artifact streaming, and browser affordances.
