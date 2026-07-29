@@ -130,6 +130,17 @@ public class ConfigurationEndpointTests : IClassFixture<AgentWebApplicationFacto
     }
 
     [Fact]
+    public async Task Put_WithInvalidUrl_ReturnsValidationProblem()
+    {
+        var client = await CreateAdminClientWithAntiforgeryAsync();
+        var request = NewUpdateRequest(InitialVersion) with { ApiBaseUrl = "not a URL" };
+        var response = await client.PutAsJsonAsync("/api/v1/configuration", request);
+        var problem = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(ErrorCodes.ValidationFailed, problem![ProblemDetailsExtensionKeys.ErrorCode].ToString());
+    }
+
+    [Fact]
     public async Task ClearSecret_RemovesTheSecretAndNeverReturnsItsValue()
     {
         const string sqlSentinel = "sentinel-clear-sql-pw";
@@ -175,6 +186,8 @@ public class ConfigurationEndpointTests : IClassFixture<AgentWebApplicationFacto
             sqlInstance,
             string.Empty,
             sqlPassword,
+            string.Empty,
+            string.Empty,
             string.Empty,
             string.Empty,
             string.Empty,

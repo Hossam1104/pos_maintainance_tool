@@ -91,6 +91,8 @@ public sealed class LegacyConfigurationImporter(
             ImportString(root, "sql_user", v => config.SqlUser = v, fieldsImported, "SqlUser");
             ImportString(root, "branch_code", v => config.BranchCode = v, fieldsImported, "BranchCode");
             ImportString(root, "pos_number", v => config.PosNumber = v, fieldsImported, "PosNumber");
+            ImportString(root, "release", v => config.Release = v, fieldsImported, "Release");
+            ImportString(root, "client_name", v => config.ClientName = v, fieldsImported, "ClientName");
             ImportString(root, "api_base_url", v => config.ApiBaseUrl = v, fieldsImported, "ApiBaseUrl");
             ImportString(root, "backup_folder", v => config.BackupFolder = v, fieldsImported, "BackupFolder");
             ImportStringArray(root, "databases", v => config.Databases = v, fieldsImported, "Databases");

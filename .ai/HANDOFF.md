@@ -1,33 +1,25 @@
 # Active Handoff
 
-- **Status:** Blocked
-- **Task ID:** MIGRATION-SESSION-05-GATE
-- **From:** Codex
-- **To:** Next debug owner
-- **Checkpoint:** `migration/session-05` at `ef7803a`
+- **Status:** In Progress
+- **Task:** MIGRATION-SESSION-06
 
-## Completed
+## Completed delta
 
-- Sessions 00–04 are complete and indexed in `.ai/HISTORY.md`.
-- Session 05 Angular implementation and its web/WinUI checks are complete.
-- Obsolete standalone Session 05 prompts were retired; `TASK.md` now contains only the open gate.
-
-## Exact Next Action
-
-- Diagnose why the audit-record test observes operation success before `audit/operations.jsonl` is available only during the full solution run; fix the underlying ordering or fixture-lifecycle defect, then rerun targeted and full tests.
-
-## Relevant Files
-
-- `tests/PosAdminTool.Agent.IntegrationTests/OperationEndpointTests.cs`
-- `tests/PosAdminTool.Agent.IntegrationTests/AgentWebApplicationFactory.cs`
-- `src/PosAdminTool.Agent/Audit/OperationAuditWriter.cs`
-- `src/PosAdminTool.Agent/Operations/OperationWorker.cs`
+- Added authorized Agent endpoints for device identity, capabilities, connectivity, RMS import, DB test, and branch verification.
+- Added Agent-owned compatibility configuration adapter so existing RMS import, DB test, and branch verification use cases run without a user-profile config file; retained secrets stay in the vault.
+- Added redacted release/client identity, typed configuration validation, Device and Settings routes, Overview evidence binding, and initial endpoint/UI/E2E tests.
 
 ## Validation
 
-- Targeted audit test: passed 1/1.
-- Immediate full solution test: failed 1/98; audit file was missing when read.
+- `dotnet build PosAdminTool.sln -c Release --no-restore` passed.
+- `dotnet test PosAdminTool.sln -c Release --no-build` passed: 103 tests.
+- Angular unit tests (6), production build, and configuration Playwright test passed.
 
-## Blocker or Risk
+## Next action
 
-- Session 06 is not unblocked. Do not weaken the audit assertion or mask the race with an arbitrary delay.
+- Finish Session 06 parity: real Agent configuration E2E for import/edit/test/verify/save/reload/no-secret proof; full RDB keep/replace/clear and browse-root settings workflow; overview recent activity binding.
+
+## Risks
+
+- Main-server result is deliberately labelled TCP reachability only, not application health.
+- No new live service-identity SQL check was run in this continuation; the repository records the prior LocalSystem gate as passed.

@@ -9,10 +9,14 @@ using PosAdminTool.Agent.Endpoints;
 using PosAdminTool.Agent.Files;
 using PosAdminTool.Agent.Operations;
 using PosAdminTool.Agent.Audit;
+using PosAdminTool.Agent.Configuration;
+using PosAdminTool.Agent.Device;
+using PosAdminTool.Application.Services;
 using PosAdminTool.Application.UseCases;
 using PosAdminTool.Contracts.V1.Common;
 using PosAdminTool.Domain.Interfaces;
 using PosAdminTool.Infrastructure.Configuration;
+using PosAdminTool.Infrastructure.Windows;
 
 // A Windows Service is launched by the Service Control Manager with an unpredictable current
 // working directory (commonly System32), not the publish folder. Anchor the content/web root to
@@ -82,6 +86,12 @@ builder.Services.AddSingleton<IAgentConfigurationStore, JsonAgentConfigurationSt
 builder.Services.AddSingleton<IAgentSecretStore, DpapiAgentSecretStore>();
 builder.Services.AddSingleton<ILegacyConfigurationImporter, LegacyConfigurationImporter>();
 builder.Services.AddSingleton<AgentConfigurationUseCase>();
+builder.Services.AddSingleton<IConfigurationService, AgentLegacyConfigurationService>();
+builder.Services.AddSingleton<IDatabaseService, SqlCmdExecutor>();
+builder.Services.AddSingleton<TestConnectionUseCase>();
+builder.Services.AddSingleton<BranchVerificationService>();
+builder.Services.AddSingleton<ImportFromRmsUseCase>();
+builder.Services.AddSingleton<DeviceDiagnosticsService>();
 
 builder.Services.AddProblemDetails(options =>
 {
@@ -166,6 +176,7 @@ api.MapSessionEndpoints();
 api.MapAntiforgeryEndpoints();
 api.MapFileEndpoints();
 api.MapConfigurationEndpoints();
+api.MapDeviceEndpoints();
 api.MapOperationEndpoints();
 api.MapEventEndpoints();
 

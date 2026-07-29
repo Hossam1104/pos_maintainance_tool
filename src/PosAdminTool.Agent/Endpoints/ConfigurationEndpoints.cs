@@ -1,6 +1,8 @@
 using PosAdminTool.Agent.Antiforgery;
 using PosAdminTool.Agent.Authorization;
 using PosAdminTool.Application.UseCases;
+using PosAdminTool.Application.Services;
+using PosAdminTool.Agent.Device;
 using PosAdminTool.Contracts.V1.Common;
 using PosAdminTool.Contracts.V1.Configuration;
 using PosAdminTool.Domain.Enums;
@@ -30,6 +32,11 @@ public static class ConfigurationEndpoints
             AgentConfigurationUseCase useCase,
             CancellationToken cancellationToken) =>
         {
+            if (TryValidate(request, out var validationProblem))
+            {
+                return validationProblem;
+            }
+
             try
             {
                 var snapshot = await useCase.UpdateAsync(ToDomain(request), cancellationToken).ConfigureAwait(false);
@@ -66,6 +73,30 @@ public static class ConfigurationEndpoints
         .WithName("ClearConfigurationSecret")
         .Produces<RedactedConfigurationDto>()
         .ProducesProblem(StatusCodes.Status409Conflict);
+
+        configuration.MapPost("/import-rms", async (ImportFromRmsUseCase import, AgentConfigurationUseCase useCase, CancellationToken cancellationToken) =>
+        {
+            var result = await import.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+            return result.Status == PosAdminTool.Domain.Enums.OperationStatus.Success
+                ? Results.Ok(ToDto(await useCase.GetAsync(cancellationToken).ConfigureAwait(false)))
+                : Results.Problem(title: "RMS import failed", detail: "The Agent could not import RMS configuration.", statusCode: StatusCodes.Status422UnprocessableEntity);
+        })
+        .AddEndpointFilter<AntiforgeryEndpointFilter>()
+        .WithName("ImportConfigurationFromRms")
+        .Produces<RedactedConfigurationDto>()
+        .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+
+        configuration.MapPost("/test-database", async (DeviceDiagnosticsService diagnostics, CancellationToken cancellationToken) =>
+            Results.Ok(new DiagnosticResultDto(await diagnostics.TestDatabaseAsync(cancellationToken).ConfigureAwait(false))))
+        .AddEndpointFilter<AntiforgeryEndpointFilter>()
+        .WithName("TestConfigurationDatabase")
+        .Produces<DiagnosticResultDto>();
+
+        configuration.MapPost("/verify-branch", async (DeviceDiagnosticsService diagnostics, CancellationToken cancellationToken) =>
+            Results.Ok(new DiagnosticResultDto(await diagnostics.VerifyBranchAsync(cancellationToken).ConfigureAwait(false))))
+        .AddEndpointFilter<AntiforgeryEndpointFilter>()
+        .WithName("VerifyConfigurationBranch")
+        .Produces<DiagnosticResultDto>();
     }
 
     private static RedactedConfigurationDto ToDto(AgentConfigurationSnapshot snapshot)
@@ -77,6 +108,8 @@ public static class ConfigurationEndpoints
             snapshot.HasSqlPassword,
             config.BranchCode,
             config.PosNumber,
+            config.Release,
+            config.ClientName,
             config.ApiBaseUrl,
             config.BackupFolder,
             config.Databases,
@@ -99,6 +132,8 @@ public static class ConfigurationEndpoints
         SqlPassword = request.SqlPassword,
         BranchCode = request.BranchCode,
         PosNumber = request.PosNumber,
+        Release = request.Release,
+        ClientName = request.ClientName,
         ApiBaseUrl = request.ApiBaseUrl,
         BackupFolder = request.BackupFolder,
         Databases = [.. request.Databases],
@@ -115,6 +150,22 @@ public static class ConfigurationEndpoints
         },
         ExpectedVersion = request.ExpectedVersion
     };
+
+    private static bool TryValidate(ConfigurationUpdateRequestDto request, out IResult problem)
+    {
+        var errors = new Dictionary<string, string[]>();
+        if (request.ExpectedVersion < 1) errors[nameof(request.ExpectedVersion)] = ["Expected version must be positive."];
+        if (request.Downloader is null) errors[nameof(request.Downloader)] = ["Downloader settings are required."];
+        if (request.BranchCode.Length > 50 || request.PosNumber.Length > 50) errors["identity"] = ["Branch and POS values must be 50 characters or fewer."];
+        if (request.ApiBaseUrl.Length > 0 && !Uri.TryCreate(request.ApiBaseUrl, UriKind.Absolute, out _)) errors[nameof(request.ApiBaseUrl)] = ["API URL must be absolute."];
+        if (request.Databases.Count > 50 || request.Services.Count > 50) errors["lists"] = ["Too many configured entries."];
+        if (request.Downloader is not null && (request.Downloader.PollIntervalSeconds is < 1 or > 3600 || request.Downloader.TimeoutSeconds is < 1 or > 86400))
+            errors["downloader"] = ["Downloader intervals are outside the permitted range."];
+        problem = errors.Count == 0
+            ? Results.Empty
+            : Results.ValidationProblem(errors, extensions: new Dictionary<string, object?> { [ProblemDetailsExtensionKeys.ErrorCode] = ErrorCodes.ValidationFailed });
+        return errors.Count > 0;
+    }
 
     private static AgentSecretKind ToDomain(SecretKind kind) => kind switch
     {

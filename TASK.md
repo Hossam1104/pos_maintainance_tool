@@ -1,58 +1,43 @@
 # Current Task
 
-- **Task ID:** MIGRATION-SESSION-05-GATE
-- **Status:** Blocked
-- **Owner:** Unassigned
-- **Role:** Debug
+- **Task ID:** MIGRATION-SESSION-06
+- **Status:** In Progress
+- **Role:** Implement
 
 ## Objective
 
-Close the remaining Session 05 standing regression gate by diagnosing why
-`OperationEndpointTests.DestructiveDiagnostic_WritesExactlyOneSanitizedAuditRecord` passes in
-isolation but fails during the full solution test run, then rerun the full gate.
+Finish Overview, Device, and Settings parity backed by real Agent data.
 
-## Done When
+The `LocalSystem` SQL identity gate and the initial Session 06 build/test gates have passed.
 
-- The audit integration test is deterministic in isolated and full-suite execution.
-- The underlying production or fixture race/lifecycle defect is fixed without weakening the audit assertion.
-- `dotnet test PosAdminTool.sln -c Release --nologo` passes all 98 tests.
-- Session 05 verification and shared memory record the passing result.
-- `.ai/HANDOFF.md` is set to `Empty`; Session 06 is not activated before this gate closes.
+## Execute
 
-## Scope
+1. Complete the real-Agent configuration E2E flow: import legacy configuration, edit, fake DB test,
+   branch verification, save/reload, and prove no secret is returned.
+2. Complete Settings behavior for browse roots and SQL-secret keep/replace/clear, including typed
+   validation, dirty-form protection, and version conflicts that preserve unsaved values.
+3. Bind Overview recent activity and close remaining healthy/degraded/unreachable signal-path
+   coverage.
 
-### Read First
+## Read First
 
 - `.ai/HANDOFF.md`
-- `docs/migration/SESSION_LOG.md`, Session 05 only
-- `tests/PosAdminTool.Agent.IntegrationTests/OperationEndpointTests.cs`
-- `tests/PosAdminTool.Agent.IntegrationTests/AgentWebApplicationFactory.cs`
-- `src/PosAdminTool.Agent/Audit/OperationAuditWriter.cs`
-- `src/PosAdminTool.Agent/Operations/OperationWorker.cs`
+- `src/PosAdminTool.Agent/Endpoints/ConfigurationEndpoints.cs`
+- `src/PosAdminTool.Web/src/app/features/settings-page.component.ts`
+- `src/PosAdminTool.Web/src/app/features/overview-page.component.ts`
+- `src/PosAdminTool.Web/e2e/configuration.spec.ts`
+- `tests/PosAdminTool.Agent.IntegrationTests/ConfigurationEndpointTests.cs`
 
-### May Change
+## Validation
 
-- The Agent audit/operation code and integration-test fixture directly responsible for the failure
-- `docs/migration/SESSION_LOG.md`
-- Task-related `.ai/` memory files
+- `dotnet build PosAdminTool.sln -c Release`
+- `dotnet test PosAdminTool.sln -c Release`
+- `npm --prefix src/PosAdminTool.Web run test -- --run`
+- `npm --prefix src/PosAdminTool.Web run build`
+- `npm --prefix src/PosAdminTool.Web run e2e -- --grep "configuration"`
 
-### Out of Scope
+## Constraints
 
-- Session 06 endpoints, UI, or configuration flows
-- Changes to the Session 05 Angular shell
-- Weaker timing, sanitization, or audit-count assertions
-- WinUI removal, installer work, deployment, commit, push, or pull-request creation
-
-## Current Evidence
-
-- Session 05 implementation is committed at `ef7803a`.
-- The targeted test passed 1/1 on 2026-07-29.
-- The immediately following full solution run failed 1/98 because
-  `audit/operations.jsonl` did not exist when the test read it.
-- This isolation/full-suite difference indicates a deterministic ordering, lifecycle, or completion-observation issue that remains unresolved.
-
-## Next Action
-
-Reproduce the full-suite interaction with focused diagnostics, identify whether operation state is
-published before audit persistence completes or whether shared fixture cleanup races the audit
-write, implement the smallest supported fix, and rerun targeted then full validation.
+- Never return, persist, or retain submitted plaintext secrets in Angular.
+- Label TCP reachability separately from application-level health.
+- Do not edit generated Angular API files or start Session 07.

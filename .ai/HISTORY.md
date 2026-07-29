@@ -11,9 +11,8 @@ This is a concise index of completed milestones. Detailed implementation evidenc
 | 2026-07-29 | Session 02 — contracts, API conventions, auth, and host file browse | Complete | Commits `3ccfa59`, `0633433`; session log |
 | 2026-07-29 | Session 03 — secure configuration | Complete | Commits `2aab750`, `fa4de9c`; session log |
 | 2026-07-29 | Session 04 — job engine, SSE, and audit log | Complete at its recorded gate | Commits `c90cf58`, `1d230bf0`; session log |
+| 2026-07-30 | Session 05 — Angular design system and application shell | Complete | Commit `ef7803a`; full `dotnet test PosAdminTool.sln -c Release --nologo` passed 98 tests |
 
 ## Not Yet Historical
 
-- Session 05 implementation exists at `ef7803a`, but its standing regression gate remains open:
-  the audit integration test passes alone and fails in the full 98-test run.
-- Sessions 06–14 remain planned and must run in order after the Session 05 gate closes.
+- Sessions 06–14 remain planned and must run in order.

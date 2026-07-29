@@ -13,6 +13,8 @@ public sealed record ConfigurationUpdateRequestDto(
     string? SqlPassword,
     string BranchCode,
     string PosNumber,
+    string Release,
+    string ClientName,
     string ApiBaseUrl,
     string BackupFolder,
     IReadOnlyList<string> Databases,

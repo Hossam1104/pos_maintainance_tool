@@ -41,6 +41,8 @@ public sealed class AgentConfigurationUseCase(
             current.SqlUser = update.SqlUser;
             current.BranchCode = update.BranchCode;
             current.PosNumber = update.PosNumber;
+            current.Release = update.Release;
+            current.ClientName = update.ClientName;
             current.ApiBaseUrl = update.ApiBaseUrl;
             current.BackupFolder = update.BackupFolder;
             current.Databases = [.. update.Databases];
