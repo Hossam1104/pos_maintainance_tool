@@ -756,24 +756,24 @@ Every session ends with: tests added alongside the implementation, verification 
 their real output reported, `docs/migration/SESSION_LOG.md` updated, and one commit on branch
 `migration/session-NN`. WinUI is not removed before Session 14.
 
-| # | Session | Exit criterion |
-| --- | --- | --- |
-| 00 | Baseline, parity matrix, screen map, ADRs | Every current feature and command appears in the parity matrix with a target route, target API, safety class, and test level. All §13 decisions are recorded as answered. |
-| 01 | Deterministic toolchain and skeleton | Clean checkout restores from pinned versions with zero wildcards; Agent serves an empty Angular production build; WinUI still publishes and runs. |
-| 02 | Contracts, API conventions, auth, file browse | Contracts serialize with intended casing and UTC; no secret or raw path can appear in any contract; generated Angular client compiles under strict TypeScript; browse API rejects every escape attempt. |
-| 03 | Secure configuration | Fresh defaults contain no credential and no environment-specific address; both secrets round-trip in the service-owned store; non-secret legacy import is idempotent and leaves `config.json` untouched. |
-| 04 | Job engine, SSE, audit log | A fake operation survives browser refresh; SSE drop does not cancel server work and does not duplicate a command on reconnect; conflicting locks serialize or reject per policy. |
-| 05 | **Design system and shell** | Shell works at 360/768/1280/1600 px in light and dark, keyboard-only and with reduced motion; zero runtime requests leave the agent origin; the signal path is the one memorable visual. |
-| 06 | Overview, Device, Settings | Configuration behavior matches WinUI without ever returning a secret; the signal path is backed by real agent evidence; the service account can actually reach SQL Server. |
-| 07 | Windows service management | Start/stop/restart outcomes correct against fakes and one opt-in disposable-service fixture; unauthorized, invalid, conflicting, and timed-out commands all fail safely. |
-| — | **GO / NO-GO GATE** | See below. |
-| 08 | Local backup | Existing selectable components and archive compatibility preserved; cancellation and partial failure explicit; destination chosen by browse handle; Explorer affordance replaced. |
-| 09 | Restore backend and archive hardening | Traversal, absolute paths, ZIP bomb, excessive entries, checksum mismatch, ambiguous `.bak`, and wrong branch all rejected; no restore can begin without a fresh server preview. |
-| 10 | Restore UI flows | All three restore modes work end to end against fakes; confirmation focus management is correct; a stale preview fails closed in the UI as well as the API. |
-| 11 | Cleanup and branch reset safety | Drive roots, Windows, Program Files, ProgramData root, user profile root, install roots, parent traversal, unresolved variables, unapproved UNC, and junction escapes are all rejected; a forged client confirmation cannot execute anything. |
-| 12 | DB Downloader | Existing newest-created-folder and stable-size behavior still covered; branches progress independently; no RDB credential or UNC path reaches the browser; SMB proven under the real service identity. |
-| 13 | UI polish, accessibility, release hardening | Every release gate in §11 is Pass or an explicitly accepted exception; visual snapshots land here, not earlier. |
-| 14 | Installer and cutover | Offline clean install, upgrade, and rollback all evidenced; parity matrix fully run; WinUI removed only after explicit approval, in a dedicated commit. |
+| # | Status | Session | Exit criterion |
+| --- | --- | --- | --- |
+| 00 | Complete | Baseline, parity matrix, screen map, ADRs | Every current feature and command appears in the parity matrix with a target route, target API, safety class, and test level. All §13 decisions are recorded as answered. |
+| 01 | Complete | Deterministic toolchain and skeleton | Clean checkout restores from pinned versions with zero wildcards; Agent serves an empty Angular production build; WinUI still publishes and runs. |
+| 02 | Complete | Contracts, API conventions, auth, file browse | Contracts serialize with intended casing and UTC; no secret or raw path can appear in any contract; generated Angular client compiles under strict TypeScript; browse API rejects every escape attempt. |
+| 03 | Complete | Secure configuration | Fresh defaults contain no credential and no environment-specific address; both secrets round-trip in the service-owned store; non-secret legacy import is idempotent and leaves `config.json` untouched. |
+| 04 | Complete | Job engine, SSE, audit log | A fake operation survives browser refresh; SSE drop does not cancel server work and does not duplicate a command on reconnect; conflicting locks serialize or reject per policy. |
+| 05 | Gate blocked | **Design system and shell** | Shell works at 360/768/1280/1600 px in light and dark, keyboard-only and with reduced motion; zero runtime requests leave the agent origin; the signal path is the one memorable visual. |
+| 06 | Planned | Overview, Device, Settings | Configuration behavior matches WinUI without ever returning a secret; the signal path is backed by real agent evidence; the service account can actually reach SQL Server. |
+| 07 | Planned | Windows service management | Start/stop/restart outcomes correct against fakes and one opt-in disposable-service fixture; unauthorized, invalid, conflicting, and timed-out commands all fail safely. |
+| — | Planned | **GO / NO-GO GATE** | See below. |
+| 08 | Planned | Local backup | Existing selectable components and archive compatibility preserved; cancellation and partial failure explicit; destination chosen by browse handle; Explorer affordance replaced. |
+| 09 | Planned | Restore backend and archive hardening | Traversal, absolute paths, ZIP bomb, excessive entries, checksum mismatch, ambiguous `.bak`, and wrong branch all rejected; no restore can begin without a fresh server preview. |
+| 10 | Planned | Restore UI flows | All three restore modes work end to end against fakes; confirmation focus management is correct; a stale preview fails closed in the UI as well as the API. |
+| 11 | Planned | Cleanup and branch reset safety | Drive roots, Windows, Program Files, ProgramData root, user profile root, install roots, parent traversal, unresolved variables, unapproved UNC, and junction escapes are all rejected; a forged client confirmation cannot execute anything. |
+| 12 | Planned | DB Downloader | Existing newest-created-folder and stable-size behavior still covered; branches progress independently; no RDB credential or UNC path reaches the browser; SMB proven under the real service identity. |
+| 13 | Planned | UI polish, accessibility, release hardening | Every release gate in §11 is Pass or an explicitly accepted exception; visual snapshots land here, not earlier. |
+| 14 | Planned | Installer and cutover | Offline clean install, upgrade, and rollback all evidenced; parity matrix fully run; WinUI removed only after explicit approval, in a dedicated commit. |
 
 ### The gate after Session 07
 
@@ -933,23 +933,23 @@ Two decisions genuinely remain open and must be settled in Session 00:
 
 Use `NET10_ANGULAR22_SESSION_PROMPTS.md` in this order. The exit criterion for each is in §9.
 
-| # | Session |
-| --- | --- |
-| 00 | Baseline, parity matrix, screen map, ADRs |
-| 01 | Deterministic toolchain and solution skeleton |
-| 02 | Contracts, API conventions, auth, and host file browse |
-| 03 | Secure configuration *(security judgment)* |
-| 04 | Job engine, SSE, and audit log |
-| 05 | Angular design system and application shell |
-| 06 | Device overview and configuration |
-| 07 | Windows service management → **GO / NO-GO GATE** |
-| 08 | Local backup |
-| 09 | Restore backend and archive hardening *(security judgment)* |
-| 10 | Restore UI flows |
-| 11 | Cleanup and branch reset safety *(security judgment)* |
-| 12 | DB Downloader |
-| 13 | UI polish, accessibility, and release hardening |
-| 14 | Offline installer and cutover |
+| # | Status | Session |
+| --- | --- | --- |
+| 00 | Complete | Baseline, parity matrix, screen map, ADRs |
+| 01 | Complete | Deterministic toolchain and solution skeleton |
+| 02 | Complete | Contracts, API conventions, auth, and host file browse |
+| 03 | Complete | Secure configuration *(security judgment)* |
+| 04 | Complete | Job engine, SSE, and audit log |
+| 05 | Gate blocked | Angular design system and application shell |
+| 06 | Planned | Device overview and configuration |
+| 07 | Planned | Windows service management → **GO / NO-GO GATE** |
+| 08 | Planned | Local backup |
+| 09 | Planned | Restore backend and archive hardening *(security judgment)* |
+| 10 | Planned | Restore UI flows |
+| 11 | Planned | Cleanup and branch reset safety *(security judgment)* |
+| 12 | Planned | DB Downloader |
+| 13 | Planned | UI polish, accessibility, and release hardening |
+| 14 | Planned | Offline installer and cutover |
 
 Rules:
 
@@ -989,4 +989,3 @@ Local repository references an implementing agent should read before Session 01:
 - `run_app.cmd` — shows that WinUI requires `dotnet publish` plus `POS_ADMIN_SKIP_ELEVATION=true` to run. A successful `dotnet build` does **not** prove the parity baseline still works.
 - `Directory.Build.props` — current `LangVersion 13.0`, `Nullable enable`, `AnalysisLevel latest`.
 - `PosAdminTool.sln` — 4 source and 3 test projects; no `global.json` exists yet.
-

@@ -4,7 +4,7 @@ using PosAdminTool.Infrastructure.Configuration;
 namespace PosAdminTool.Infrastructure.Tests;
 
 /// <summary>
-/// Sentinel-only secret values throughout (execute_prompt.md Stop condition: never test with real
+/// Sentinel-only secret values throughout (AGENTS.md safety rules: never test with real
 /// production credentials).
 /// </summary>
 public sealed class DpapiAgentSecretStoreTests : IDisposable

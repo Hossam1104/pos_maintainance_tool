@@ -24,11 +24,11 @@ Read this file only when the task requires stable, non-obvious project knowledge
 ## Build and Validation Entry Points
 
 - Restore — discovered in CI, not run during context initialization: `dotnet restore PosAdminTool.sln --locked-mode`; from `src/PosAdminTool.Web`, `npm ci`.
-- Build — discovered and recorded passing for Session 04, not re-run here: `dotnet build PosAdminTool.sln -c Release --nologo`.
-- .NET tests — recorded passing 98/98 for Session 04, not re-run here: `dotnet test PosAdminTool.sln -c Release --nologo`.
+- Build — recorded passing for Session 05: `dotnet build PosAdminTool.sln -c Release --nologo`.
+- .NET tests — `dotnet test PosAdminTool.sln -c Release --nologo`; currently blocked at 97/98 by the audit-record integration test, although that test passes in isolation.
 - Agent targeted tests — discovered in CI: `dotnet test tests/PosAdminTool.Agent.IntegrationTests/PosAdminTool.Agent.IntegrationTests.csproj -c Release`.
-- Web checks — discovered in CI: `npm run lint`, `npm run test -- --watch=false`, and `npm run build` from `src/PosAdminTool.Web`.
-- Browser tests — configured but currently placeholder-only: `npm run e2e` from `src/PosAdminTool.Web`.
+- Web checks — recorded passing for Session 05: `npm run lint`, `npm run test -- --run`, and `npm run build` from `src/PosAdminTool.Web`.
+- Browser tests — `npm run e2e` from `src/PosAdminTool.Web`; three Session 05 accessibility, keyboard, routing, and same-origin checks are recorded passing.
 - Local Agent — discovered, not executed: `dotnet run --project src/PosAdminTool.Agent/PosAdminTool.Agent.csproj`.
 - Retained WinUI — discovered: `run_app.cmd`; runtime validation requires `dotnet publish`, not plain build.
 
@@ -48,3 +48,4 @@ Read this file only when the task requires stable, non-obvious project knowledge
 - Angular/OpenAPI CI uses Windows because the Agent has a Windows TFM. Published branch devices need neither Node nor npm.
 - WinUI unpackaged resources are staged correctly only by publish; its project contains a required Windows App SDK XAML-resource copy workaround.
 - UI status must distinguish fresh, stale, unknown, Agent-unreachable, and RMS-server-unreachable states with evidence and timestamps, not colour alone.
+- The Angular shell uses the local-only Branch Signal Desk design system, responsive navigation down to 360 px, semantic light/dark tokens, and lazy feature routes. Session 06 replaces fixture-backed overview/device/settings surfaces with Agent data.

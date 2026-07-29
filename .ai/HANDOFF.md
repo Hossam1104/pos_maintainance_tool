@@ -1,30 +1,33 @@
 # Active Handoff
 
 - **Status:** Blocked
-- **Task ID:** MIGRATION-SESSION-05
+- **Task ID:** MIGRATION-SESSION-05-GATE
 - **From:** Codex
-- **To:** Next implementation owner
-- **Checkpoint commit:** Current `migration/session-05` HEAD (inspect `git log -1`)
+- **To:** Next debug owner
+- **Checkpoint:** `migration/session-05` at `ef7803a`
 
 ## Completed
 
-- Session 05 Angular shell, local assets, primitives, routes, unit tests, and Playwright accessibility coverage are implemented.
-- Angular lint/test/build/e2e and retained WinUI publish pass.
+- Sessions 00–04 are complete and indexed in `.ai/HISTORY.md`.
+- Session 05 Angular implementation and its web/WinUI checks are complete.
+- Obsolete standalone Session 05 prompts were retired; `TASK.md` now contains only the open gate.
 
 ## Exact Next Action
 
-- Diagnose `OperationEndpointTests.DestructiveDiagnostic_WritesExactlyOneSanitizedAuditRecord`, then rerun `dotnet test PosAdminTool.sln -c Release --nologo` and clear this handoff if it passes.
+- Diagnose why the audit-record test observes operation success before `audit/operations.jsonl` is available only during the full solution run; fix the underlying ordering or fixture-lifecycle defect, then rerun targeted and full tests.
 
-## Changed Files
+## Relevant Files
 
-- `src/PosAdminTool.Web/`, `docs/migration/SESSION_LOG.md`, and this handoff.
+- `tests/PosAdminTool.Agent.IntegrationTests/OperationEndpointTests.cs`
+- `tests/PosAdminTool.Agent.IntegrationTests/AgentWebApplicationFactory.cs`
+- `src/PosAdminTool.Agent/Audit/OperationAuditWriter.cs`
+- `src/PosAdminTool.Agent/Operations/OperationWorker.cs`
 
 ## Validation
 
-- .NET build: passed (0 warnings/errors); full .NET test: 97/98 passed, one repeatable audit-file failure.
-- Angular lint, 5 unit tests, production build, local-asset audit, and 3 Playwright checks: passed.
-- WinUI publish: passed.
+- Targeted audit test: passed 1/1.
+- Immediate full solution test: failed 1/98; audit file was missing when read.
 
 ## Blocker or Risk
 
-- The Agent audit integration test looks for a missing temp `audit/operations.jsonl`; it fails both isolated and full runs. Session 05 did not touch Agent audit code.
+- Session 06 is not unblocked. Do not weaken the audit assertion or mask the race with an arbitrary delay.

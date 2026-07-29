@@ -30,7 +30,7 @@ public sealed class AgentWebApplicationFactory : WebApplicationFactory<Program>
 
     // Isolated stand-ins for %ProgramData%\DBS\PosAdminTool and the legacy
     // %USERPROFILE%\.pos_admin_tool\config.json so integration tests never touch the real machine
-    // state (excute_prompt.md Stop condition: never test against real production paths/credentials).
+    // state (AGENTS.md safety rules: never test against real production paths/credentials).
     public string FakeConfigRootPath { get; } =
         Directory.CreateTempSubdirectory("pos-admin-agent-config-root-").FullName;
 

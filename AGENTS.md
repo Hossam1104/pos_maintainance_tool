@@ -6,6 +6,7 @@ Claude loads it through `CLAUDE.md`. Do not duplicate these instructions elsewhe
 ## Shared-brain principle
 
 The shared brain is the repository, Git, `TASK.md`, and the concise files under `.ai/`.
+`.ai/HISTORY.md` indexes completed milestones; it is not an active task queue.
 Chat transcripts and hidden model reasoning are not project records.
 Never ask another model to reconstruct the project from previous conversations.
 
@@ -20,6 +21,7 @@ For any task:
 5. Read only the source, tests, and documentation named in `TASK.md`, plus task-related changed files.
 6. Read `.ai/PROJECT.md` only when non-obvious stable context is required.
 7. Read `.ai/DECISIONS.md` only when the task may affect an existing decision; open a detailed ADR only when its affected area matches the task.
+8. Read `.ai/HISTORY.md` only when reconciling milestone status or auditing completed work.
 
 Do not automatically read:
 
@@ -29,6 +31,7 @@ Do not automatically read:
 - full Git history
 - full diffs unrelated to the task
 - old model transcripts or exported sessions
+- completed milestone history during ordinary implementation startup
 
 ## One active owner
 
@@ -89,6 +92,9 @@ After completed work:
 
 - Update `.ai/STATE.md` only with durable current facts; replace outdated text rather than appending history.
 - Set `.ai/HANDOFF.md` to `Empty`.
+- Add one concise evidence-linked milestone entry to `.ai/HISTORY.md` when a session or project milestone is fully complete.
+- Replace `TASK.md` with the next active or blocked item; do not leave a completed task marked ready.
+- Remove standalone execution-prompt copies after their task is complete. Keep future prompts in the canonical runbook.
 - Update `.ai/PROJECT.md` only when stable architecture, commands, integrations, or non-obvious conventions changed.
 - Update `.ai/DECISIONS.md` only for a lasting decision. Put detailed rationale in one ADR under `.ai/decisions/`.
 - Move a large completed plan to `.ai/archive/` only when it has audit value; otherwise delete it.
@@ -98,6 +104,7 @@ When stopping before completion:
 - Update `.ai/HANDOFF.md` with only the delta: completed work, exact next action, changed files, validation, blocker, and risks.
 - Keep the handoff below 40 lines.
 - Do not rewrite the full project state or implementation history.
+- Keep incomplete work out of `.ai/HISTORY.md`; record it in `TASK.md` and `.ai/HANDOFF.md`.
 
 ## Completion response
 

@@ -1,7 +1,9 @@
 # DBS POS Admin Tool — Session-by-Session Implementation Prompts
 
-> Implementation instructions for controlled coding sessions. Nothing in this document has been
-> executed. Revised 2026-07-26 after review; see §14.1 of the migration plan for what changed.
+> Canonical implementation instructions for controlled coding sessions. Sessions 00–04 are
+> complete; Session 05 implementation is committed but its full regression gate is blocked.
+> Completed evidence is indexed in `.ai/HISTORY.md` and detailed in
+> `docs/migration/SESSION_LOG.md`. Do not rerun completed prompts.
 >
 > Authority: `docs/NET10_ANGULAR22_MIGRATION_PLAN.md`. Where this runbook and the plan disagree,
 > the plan wins — stop and reconcile them rather than guessing.
@@ -9,6 +11,7 @@
 ## How to use this runbook
 
 1. Complete sessions **in order**, one per working session. There are 15 (00–14).
+   The current executable work is the Session 05 gate in `TASK.md`; Session 06 is next only after it passes.
 2. Start each session in a clean, current workspace with no uncommitted changes.
 3. Give the coding agent the **shared preamble plus exactly one session prompt**. Nothing else.
 4. Never ask a session to "continue as far as possible." Stop at its stated boundary.
@@ -34,8 +37,8 @@
 
 ## Shared preamble for every session
 
-Copy this block verbatim before the selected session prompt. It is mirrored in
-`excute_prompt.md`; if you edit one, edit both.
+Copy this block before the selected future-session prompt. Standalone prompt copies are temporary
+execution artifacts and must be removed when their task completes.
 
 ```text
 You are implementing one controlled session of the DBS POS Admin Tool migration.
@@ -123,6 +126,8 @@ Stop conditions:
 
 ## Session 00 — Baseline, parity matrix, screen map, and ADRs
 
+> Historical prompt — completed. Do not execute. See `.ai/HISTORY.md` and the session log.
+
 ```text
 Goal:
 Create the decision and parity baseline. Do NOT add the Agent project or the Angular workspace in
@@ -174,6 +179,8 @@ Documentation and ADRs only. No code, no dependencies, no project files.
 ---
 
 ## Session 01 — Deterministic toolchain and solution skeleton
+
+> Historical prompt — completed. Do not execute. See `.ai/HISTORY.md` and the session log.
 
 ```text
 Goal:
@@ -256,6 +263,8 @@ Toolchain, project skeleton, health endpoints, and CI. No business logic, no des
 
 ## Session 02 — Contracts, API conventions, auth, and host file browse
 
+> Historical prompt — completed. Do not execute. See `.ai/HISTORY.md` and the session log.
+
 ```text
 Goal:
 Stable public contracts and cross-cutting API behavior, before any feature endpoint exists.
@@ -328,6 +337,8 @@ Do not:
 
 ## Session 03 — Secure configuration *(security judgment)*
 
+> Historical prompt — completed. Do not execute. See `.ai/HISTORY.md` and the session log.
+
 ```text
 Goal:
 Replace unsafe user-bound JSON secret handling with a service-owned, redacted configuration system.
@@ -392,6 +403,8 @@ Never test with real production credentials. Use sentinel values only.
 
 ## Session 04 — Job engine, SSE, and audit log
 
+> Historical prompt — completed. Do not execute. See `.ai/HISTORY.md` and the session log.
+
 ```text
 Goal:
 Make long operations independent of the HTTP request so they survive a browser refresh.
@@ -448,6 +461,9 @@ Do not:
 ---
 
 ## Session 05 — Angular design system and application shell
+
+> Implementation is complete at `ef7803a`; only the blocked regression gate in `TASK.md` remains.
+> Do not rerun this implementation prompt.
 
 ```text
 Goal:

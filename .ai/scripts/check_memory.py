@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Warn when always-used AI context files grow beyond the agreed budget."""
+"""Warn when repository AI context files grow beyond the agreed budget."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ LIMITS = {
     "CLAUDE.md": (10, 1_000),
     "TASK.md": (120, 10_000),
     ".ai/STATE.md": (120, 10_000),
+    ".ai/HISTORY.md": (120, 10_000),
     ".ai/PROJECT.md": (160, 14_000),
     ".ai/DECISIONS.md": (160, 14_000),
     ".ai/HANDOFF.md": (40, 5_000),

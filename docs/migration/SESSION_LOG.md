@@ -606,6 +606,7 @@ Date: 2026-07-29
 - `dotnet build PosAdminTool.sln -c Release --nologo`: passed, 0 warnings / 0 errors.
 - `dotnet publish src/PosAdminTool.WinUI/PosAdminTool.WinUI.csproj -c Release --nologo -o .artifacts/session-05-winui`: passed.
 - `dotnet test PosAdminTool.sln -c Release --nologo`: failed 1/98: existing `OperationEndpointTests.DestructiveDiagnostic_WritesExactlyOneSanitizedAuditRecord` could not find its temporary `audit/operations.jsonl`; isolated rerun also failed. No Session 05 change touches Agent audit code.
+- Gate reconciliation on 2026-07-29: the targeted audit test passed 1/1, but the immediately following full solution run again failed 1/98 at the same missing audit-file read. This narrows the defect to full-suite ordering/lifecycle or completion-observation behavior; the gate remains open.
 
 ### Blocker and next action
 

@@ -8,7 +8,7 @@ using PosAdminTool.Contracts.V1.Session;
 namespace PosAdminTool.Agent.IntegrationTests;
 
 /// <summary>
-/// Sentinel-only secret values throughout (execute_prompt.md Stop condition: never test with real
+/// Sentinel-only secret values throughout (AGENTS.md safety rules: never test with real
 /// production credentials). Each test resets the isolated config/secret directory in
 /// <see cref="Dispose"/> so tests in this class do not observe each other's state, matching
 /// <see cref="FileEndpointTests"/>'s convention for its shared browse root.
