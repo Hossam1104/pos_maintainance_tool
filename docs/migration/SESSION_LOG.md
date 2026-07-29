@@ -428,3 +428,130 @@ netstat: TCP 127.0.0.1:5001 ... LISTENING   (no 0.0.0.0 or :: entry)
 ### Next session
 
 Session 03 (Secure configuration) is unblocked.
+
+## Session 03 — Secure configuration
+
+Date: 2026-07-28
+Scope: Security judgment session. Remove the retained hard-coded SQL credential default and
+environment-specific endpoint, separate secret from non-secret Agent configuration, and store both
+the SQL and RDB passwords in service-owned, ACL-restricted, DPAPI-encrypted storage. No other
+business endpoint or Angular feature work.
+
+### Decisions and changes
+
+- Removed the hard-coded `P@ssw0rd`-shaped default and the `10.10.9.181`-shaped hard-coded endpoint
+  from the Domain configuration model; a fresh configuration now starts fully blank (`string.Empty`
+  fields, no credential, no environment-specific address).
+- Introduced a new Domain model pair — `AgentConfiguration` (non-secret, persisted as JSON) and a
+  separate `AgentSecretKind`/`IAgentSecretStore` (`SqlPassword`, `RdbPassword`) — replacing the
+  legacy single blob that mixed both. This also **fixes a pre-existing bug**: the legacy
+  `ConfigurationService` encrypted the SQL password but left the RDB password in plain text; both
+  now go through the same DPAPI path.
+- `DpapiAgentSecretStore` (`src/PosAdminTool.Infrastructure/Configuration`): both secrets encrypted
+  independently via `ProtectedData`/`DataProtectionScope.LocalMachine`, written to a single
+  `secrets.dat` under the service-owned root. Verified the backing file never contains either
+  plaintext sentinel value.
+- `JsonAgentConfigurationStore`: persists only non-secret fields to `configuration.json` under the
+  same root, via `AtomicFileWriter` (temp file → flush-to-disk → `File.Move(overwrite:true)`), so a
+  crash mid-write can never leave a partially-written or corrupt file in place.
+- `ServiceOwnedDirectoryProvisioner`: creates `%ProgramData%\DBS\PosAdminTool` (or an
+  injectable root for tests) with inherited ACLs disabled and explicit ACEs for
+  `BuiltinAdministratorsSid` and the current `WindowsIdentity` only — a stand-in for the not-yet-
+  provisioned service account per ADR-012 until Session 14 installs it. Idempotent: calling it twice
+  leaves the same restricted ACL, does not throw, and does not accumulate duplicate ACEs.
+- `LegacyConfigurationImporter`: one-time, idempotent import of only non-secret fields from the
+  legacy `%USERPROFILE%\.pos_admin_tool\config.json` (branch code, SQL instance/user, backup folder,
+  databases/services, downloader non-secret fields). **Never reads either password field** — verified
+  by a test that supplies both legacy password fields and asserts neither secret store kind becomes
+  set and `FieldsImported` never contains "password". Read-only against the legacy file (byte-for-byte
+  comparison before/after); a second call returns the persisted first-run marker rather than
+  re-importing. Runs once at Agent startup; a failure is logged as a warning and never blocks the
+  Agent from serving requests with whatever configuration already exists.
+- `AgentConfigurationUseCase` (Application layer): `GetAsync` returns a redacted snapshot
+  (`hasSqlPassword`/`hasRdbPassword` flags only, never the values); `UpdateAsync` implements optimistic
+  concurrency via `AgentConfiguration.Version` (starts at `1` for a fresh/never-persisted
+  configuration, increments on every successful `UpdateAsync`/`ClearSecretAsync`) and
+  keep-if-blank/omitted semantics for both secret fields; a stale `ExpectedVersion` throws
+  `ConfigurationVersionConflictException` and never mutates stored state.
+- Agent endpoints (`ConfigurationEndpoints.cs`): `GET /api/v1/configuration`,
+  `PUT /api/v1/configuration`, `POST /api/v1/configuration/secrets/clear`. PUT/clear require the
+  admin policy and the antiforgery token (mutations); a version conflict maps to `409 Conflict` with
+  `ErrorCodes.ConfigurationVersionConflict` in the Problem Details `extensions.errorCode`. Wired into
+  DI and startup import in `Program.cs`.
+- `AgentWebApplicationFactory` (test fixture): each test run gets an isolated temp directory standing
+  in for `%ProgramData%\DBS\PosAdminTool`, and an isolated temp file standing in for the legacy
+  `config.json`, so integration tests never touch real machine state (Stop condition: never test
+  against real production paths/credentials).
+- Fixed one incidental doc-comment match against the standing secret/endpoint grep: `SmbPathResolver`'s
+  XML-doc UNC-path example used an address shaped like the removed hard-coded endpoint; replaced with
+  an RFC 5737 documentation-reserved example address (`192.0.2.10`).
+- **Sentinel-only secrets throughout all new tests** (Stop condition): every secret-bearing test uses
+  literal sentinel strings (e.g. `sentinel-sql-pw`, `sentinel-endpoint-rdb-pw`,
+  `sentinel-legacy-sql-pw`) — never anything resembling a real credential.
+
+### Verification (exact output)
+
+`dotnet build PosAdminTool.sln -c Release`:
+
+```text
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+```
+
+`dotnet test PosAdminTool.sln -c Release`:
+
+```text
+Passed!  - Failed:     0, Passed:     7, Skipped:     0, Total:     7 - PosAdminTool.Domain.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:    25, Skipped:     0, Total:    25 - PosAdminTool.Infrastructure.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:    46, Skipped:     0, Total:    46 - PosAdminTool.Agent.IntegrationTests.dll (net10.0)
+Passed!  - Failed:     0, Passed:    15, Skipped:     0, Total:    15 - PosAdminTool.Application.Tests.dll (net10.0)
+```
+
+(93 total, 0 failed. Domain grew from 4 to 7 — `AgentConfigurationTests` — no credential/address in a
+fresh instance, no password-shaped property anywhere on the configuration models, `Clone` independence.
+Infrastructure grew from 5 to 25 — `JsonAgentConfigurationStoreTests`, `DpapiAgentSecretStoreTests`,
+`ServiceOwnedDirectoryProvisionerTests` (the ACL Windows integration coverage), and
+`LegacyConfigurationImporterTests`. Agent.IntegrationTests grew from 37 to 46 —
+`ConfigurationEndpointTests`. Application grew from 8 to 15 — `AgentConfigurationUseCaseTests`.)
+
+`Select-String`-equivalent secret/endpoint grep across `src/` (PowerShell 5.1's `Select-String` does
+not accept `-Recurse` directly with `-Include`; ran as `Get-ChildItem -Recurse -Include *.cs |
+Select-String` instead, same effective pattern the plan specifies):
+
+```text
+Get-ChildItem -Path src -Include *.cs -Recurse | Select-String -Pattern 'P@ssw0rd|10\.10\.9\.181'
+```
+
+Zero matches (one doc-comment false positive found and fixed — see above — before this final run).
+
+### Standing regression gate
+
+- **Secret-scan tests: introduced this session** — `DpapiAgentSecretStoreTests.BackingFileOnDisk_NeverContainsThePlaintextSecret`
+  plus `ConfigurationEndpointTests` response, persisted-file, and captured-log sentinel-absence
+  assertions. No configuration audit writer exists yet (the JSONL destructive audit is Session 04
+  work); configuration code writes no audit record. Join the standing gate from here on. Pass.
+- Path-policy tests (`FileEndpointTests`, carried from Session 02): pass.
+- Loopback test (`LoopbackBindingTests`, carried from Session 01) + manual `netstat` check: pass
+  (unaffected this session; not re-run manually since no host-binding code changed).
+- Full existing .NET and Angular suites: 93/93 .NET cases and 2/2 Angular cases pass; Angular
+  typed-client generation, strict production build, and lint all pass.
+
+### Risks and prerequisites for Session 04
+
+- The ACL test (`ServiceOwnedDirectoryProvisionerTests`) grants access to the current `WindowsIdentity`
+  running the test process, standing in for the real service account per ADR-012; Session 14's
+  installer must re-verify the ACL against the actual provisioned service identity, not just
+  Administrators.
+- `%ProgramData%\DBS\PosAdminTool` is provisioned lazily on first write via the same store/secret
+  classes used in production; it has not yet been exercised against the real (non-test) path on this
+  development machine — only via isolated temp-directory overrides in tests.
+- The legacy importer only reads `%USERPROFILE%\.pos_admin_tool\config.json`; if the real retained
+  tool's config path differs on a given machine, first-run detection will simply find nothing and
+  proceed with a blank fresh configuration (safe default, not a hard failure).
+- `.ai/CURRENT_STATE.md` updated alongside this entry; `docs/migration/CURRENT_STATE.md` remains the
+  historical Session 00 baseline only, as previously noted.
+
+### Next session
+
+Session 04 is unblocked.
