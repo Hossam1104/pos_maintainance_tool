@@ -1,4 +1,9 @@
-# Current-state baseline
+# Historical Session 00 baseline
+
+> This file is a historical pre-Agent/pre-Angular audit dated 2026-07-26. It is retained as
+> migration evidence and must not be read as the current post-Session-08 architecture. The active
+> current-state and future-execution authority is
+> `docs/POS_SUPPORT_HUB_MERGE_PREPARATION_PLAN.md`.
 
 Audit date: 2026-07-26. This is an evidence-backed snapshot taken before any Agent or Angular project exists. Source citations use the repository state audited in Session 00.
 

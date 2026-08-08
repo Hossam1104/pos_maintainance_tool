@@ -1,50 +1,84 @@
 # Current Task
 
-- **Task ID:** MIGRATION-SESSION-09
-- **Status:** Ready
+- **Task ID:** POS-M01
+- **Status:** Ready for owner authorization; not executed in the reconciliation session
 - **Role:** Implement
-- **Source:** `docs/NET10_ANGULAR22_SESSION_PROMPTS.md` (the requested `docs/POS_SUPPORT_HUB_PREPARATION_SESSION_PROMPTS.md` is absent)
+- **Source:** `docs/POS_SUPPORT_HUB_PREPARATION_SESSION_PROMPTS.md`
 
 ## Authorized Session Prompt
 
-## Session 09 — Restore backend and archive hardening *(security judgment)*
-
 ```text
-Goal:
-Server-side restore capability with full archive defenses and a mandatory preview. Backend only —
-the UI is Session 10.
+Role:
+Implement one owner-authorized backend correction session. Do not add a new frontend feature.
 
-Tasks:
-1. Add two source mechanisms and keep them clearly distinct: a streamed bounded upload, and
-   selection of a file already on the device via a browse handle (plan section 5.7). The second is
-   the correct path for a multi-gigabyte .bak; uploading one through the browser to the machine it
-   already sits on is not acceptable.
-2. Validate archives before extracting anything: entry paths, entry count, total expanded bytes,
-   compression ratio, permitted extensions, duplicate names, manifest and checksums, branch
-   mismatch, and destination mappings. Reject absolute paths, parent traversal, and reparse points.
-3. Build the restore preview: target database, logical SQL files, MOVE destinations, config
-   overwrites, services affected, required free space, and warnings.
-4. Require a short-lived one-use server challenge plus typed confirmation for overwrite execution.
-   Recompute all policy at execute time. A stale, reused, or expired challenge fails closed.
-5. Add resource locks, durable stages within the operation registry, a cancellation policy, audit
-   records, and post-restore verification.
-6. Support full, database-only, and config-only modes at the API level.
+Objective:
+Close architecture issues discovered after Session 08 before adding more privileged workflows.
+The current OperationRegistry queue is bounded at Capacity = 32, but the queue capacity is not a
+retention policy. Make runtime state genuinely bounded while preserving the ADR-approved in-memory
+architecture.
 
-Verification commands:
-  dotnet build PosAdminTool.sln -c Release
-  dotnet test PosAdminTool.sln -c Release
+Entry conditions:
+- Sessions 00-08 are accepted and preserved.
+- Read the current OperationRegistry, OperationWorker, ArtifactCatalog, file-handle store, audit
+  writer, relevant Agent tests, and the current plan before editing.
+- POS-M01 is the only implementation session in scope.
 
-Required tests:
-- Valid old-format and new-format archives both restore.
-- Every abuse case is rejected: path traversal, absolute paths, junction/symlink escape, ZIP bomb by
-  ratio, excessive entry count, excessive expanded size, checksum mismatch, duplicate entry names,
-  multiple ambiguous .bak files, wrong branch, and unknown JSON files.
-- SQL logical file mapping is correct; restore failure, config-copy failure, mid-operation
-  interruption, and post-check failure are all handled.
-- A stale, reused, or expired preview challenge fails closed.
-- Upload size limits are enforced and a rejected upload does not leave staging files behind.
+Required work:
+1. Verify and correct bounded retention for OperationRegistry `_entries`.
+2. Verify and correct idempotency retention for `_idempotency`. Define behavior when an old
+   completed operation has been evicted and ensure active duplicate detection remains correct.
+3. Evict completed operation records deterministically by an explicit, injectable/testable policy
+   (age, count, or a documented combination). Never evict active queued/running operations.
+4. Bound each operation's event list without losing the state transition and required error/audit
+   evidence. Keep browser messages sanitized, length-bounded, newline-safe, and free of secrets,
+   absolute host paths, and raw exception text.
+5. Bound activity/list output through the same explicit policy rather than allowing an unbounded
+   derived view.
+6. Inspect and correct ArtifactCatalog retention. Do not delete an artifact while it is legitimately
+   downloadable. Define the metadata/file lifecycle, expiry or retention rule, principal scoping,
+   and not-found behavior after safe expiry.
+7. Verify cancellation cleanup and resource disposal on queued cancellation, running cancellation,
+   success, failure, worker shutdown, lock acquisition cancellation, and backup staging cleanup.
+8. Preserve REST-as-state-truth, SSE-as-transport, principal-scoped idempotency, resource locks,
+   destructive audit behavior, operation state transitions, and active operation visibility.
+9. Reconcile stale Session 08 documentation and validation statements. The current recorded
+   Session 08 result is 125 .NET tests, 8 Angular tests in 6 files, the backup E2E gate, and WinUI
+   publish; old 97/98 claims must not be presented as current.
+
+Implementation constraints:
+- No SQLite, durable operation database, SignalR, browser storage, or unrelated refactor.
+- Keep behavior compatible for active callers and existing contracts unless a not-found/retention
+  consequence must be documented.
+- Prefer a single deterministic retention policy with TimeProvider or another test clock.
+- Do not hide memory growth by changing only the queue capacity.
+- Add focused tests for retention, idempotency, active-operation preservation, event bounds,
+  artifact download/expiry, cancellation cleanup, and sanitized messages.
+
+Required focused tests:
+- Completed entries are evicted at the deterministic limit/clock boundary.
+- Queued/running entries are never evicted by completed retention.
+- Eviction removes or expires the corresponding idempotency record safely.
+- Reusing a retained idempotency key returns the existing operation; an evicted operation follows
+  the documented safe behavior.
+- Event and activity retention remain bounded while final state and required evidence survive.
+- An artifact remains downloadable while within its legitimate retention window and is never deleted
+  before the operation/catalog contract permits it.
+- Expired/missing artifacts fail closed without revealing a host path.
+- Cancellation releases resources and removes temporary/staging state on every relevant exit path.
+- Operation messages remain sanitized and bounded.
+
+Verification:
+  dotnet build PosAdminTool.sln -c Release --no-restore
+  dotnet test PosAdminTool.sln -c Release --no-restore
+  git diff --check
+
+Review checklist:
+- Inspect the task-scoped diff for source changes only in POS-M01 areas.
+- Confirm no generated Angular files, real RMS targets, secrets, or absolute host paths changed.
+- Update the canonical plan and `.ai/STATE.md` with durable facts only.
+- Copy the complete POS-M02 prompt into TASK.md for the next owner-authorized session.
 
 Stop:
-Never restore a real database or overwrite real RMS files. Use disposable fakes and temporary
-directories only.
+Do not implement Restore, Cleanup, DB Downloader, or any Angular feature in this session. Do not
+execute POS-M02 automatically.
 ```
