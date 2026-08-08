@@ -14,7 +14,8 @@ This is a concise index of completed milestones. Detailed implementation evidenc
 | 2026-07-30 | Session 05 - Angular design system and application shell | Complete | Commit `ef7803a`; full `dotnet test PosAdminTool.sln -c Release --nologo` passed 98 tests |
 | 2026-07-30 | Session 06 - Agent-backed Overview, Device, and Settings | Complete | `dotnet test PosAdminTool.sln -c Release` passed 112 tests; Angular unit, production build, and configuration E2E gates passed |
 | 2026-07-30 | Session 07 - Agent-backed service control | Complete with accepted live-SCM risk | [Gate record](../docs/migration/GATE_07.md); .NET build/tests, Angular unit, and Services E2E passed |
+| 2026-08-09 | Session 08 - Agent-backed local backup workflow | Complete with no real SQL execution | [Session log](../docs/migration/SESSION_LOG.md); solution .NET tests, Angular unit, backup E2E, and WinUI publish passed |
 
 ## Not Yet Historical
 
-- Sessions 08-14 remain planned and must run in order.
+- Sessions 09-14 remain planned and must run in order.

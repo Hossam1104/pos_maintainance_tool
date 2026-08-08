@@ -763,11 +763,11 @@ their real output reported, `docs/migration/SESSION_LOG.md` updated, and one com
 | 02 | Complete | Contracts, API conventions, auth, file browse | Contracts serialize with intended casing and UTC; no secret or raw path can appear in any contract; generated Angular client compiles under strict TypeScript; browse API rejects every escape attempt. |
 | 03 | Complete | Secure configuration | Fresh defaults contain no credential and no environment-specific address; both secrets round-trip in the service-owned store; non-secret legacy import is idempotent and leaves `config.json` untouched. |
 | 04 | Complete | Job engine, SSE, audit log | A fake operation survives browser refresh; SSE drop does not cancel server work and does not duplicate a command on reconnect; conflicting locks serialize or reject per policy. |
-| 05 | Gate blocked | **Design system and shell** | Shell works at 360/768/1280/1600 px in light and dark, keyboard-only and with reduced motion; zero runtime requests leave the agent origin; the signal path is the one memorable visual. |
-| 06 | Planned | Overview, Device, Settings | Configuration behavior matches WinUI without ever returning a secret; the signal path is backed by real agent evidence; the service account can actually reach SQL Server. |
-| 07 | Planned | Windows service management | Start/stop/restart outcomes correct against fakes and one opt-in disposable-service fixture; unauthorized, invalid, conflicting, and timed-out commands all fail safely. |
+| 05 | Complete | **Design system and shell** | Shell works at 360/768/1280/1600 px in light and dark, keyboard-only and with reduced motion; zero runtime requests leave the agent origin; the signal path is the one memorable visual. |
+| 06 | Complete | Overview, Device, Settings | Configuration behavior matches WinUI without ever returning a secret; the signal path is backed by real agent evidence; the service account can actually reach SQL Server. |
+| 07 | Complete | Windows service management | Start/stop/restart outcomes correct against fakes and one opt-in disposable-service fixture; unauthorized, invalid, conflicting, and timed-out commands all fail safely. |
 | — | Planned | **GO / NO-GO GATE** | See below. |
-| 08 | Planned | Local backup | Existing selectable components and archive compatibility preserved; cancellation and partial failure explicit; destination chosen by browse handle; Explorer affordance replaced. |
+| 08 | Complete | Local backup | Existing selectable components and archive compatibility preserved; cancellation and partial failure explicit; destination chosen by browse handle; Explorer affordance replaced. |
 | 09 | Planned | Restore backend and archive hardening | Traversal, absolute paths, ZIP bomb, excessive entries, checksum mismatch, ambiguous `.bak`, and wrong branch all rejected; no restore can begin without a fresh server preview. |
 | 10 | Planned | Restore UI flows | All three restore modes work end to end against fakes; confirmation focus management is correct; a stale preview fails closed in the UI as well as the API. |
 | 11 | Planned | Cleanup and branch reset safety | Drive roots, Windows, Program Files, ProgramData root, user profile root, install roots, parent traversal, unresolved variables, unapproved UNC, and junction escapes are all rejected; a forged client confirmation cannot execute anything. |
@@ -940,10 +940,10 @@ Use `NET10_ANGULAR22_SESSION_PROMPTS.md` in this order. The exit criterion for e
 | 02 | Complete | Contracts, API conventions, auth, and host file browse |
 | 03 | Complete | Secure configuration *(security judgment)* |
 | 04 | Complete | Job engine, SSE, and audit log |
-| 05 | Gate blocked | Angular design system and application shell |
-| 06 | Planned | Device overview and configuration |
-| 07 | Planned | Windows service management → **GO / NO-GO GATE** |
-| 08 | Planned | Local backup |
+| 05 | Complete | Angular design system and application shell |
+| 06 | Complete | Device overview and configuration |
+| 07 | Complete | Windows service management → **GO / NO-GO GATE** |
+| 08 | Complete | Local backup |
 | 09 | Planned | Restore backend and archive hardening *(security judgment)* |
 | 10 | Planned | Restore UI flows |
 | 11 | Planned | Cleanup and branch reset safety *(security judgment)* |

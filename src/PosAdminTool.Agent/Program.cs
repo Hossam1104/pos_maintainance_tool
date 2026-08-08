@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.AspNetCore.Authorization;
 using PosAdminTool.Agent;
+using PosAdminTool.Agent.Artifacts;
 using PosAdminTool.Agent.Authorization;
 using PosAdminTool.Agent.Correlation;
 using PosAdminTool.Agent.Endpoints;
@@ -17,6 +18,7 @@ using PosAdminTool.Application.UseCases;
 using PosAdminTool.Contracts.V1.Common;
 using PosAdminTool.Domain.Interfaces;
 using PosAdminTool.Infrastructure.Configuration;
+using PosAdminTool.Infrastructure.Backups;
 using PosAdminTool.Infrastructure.Windows;
 
 // A Windows Service is launched by the Service Control Manager with an unpredictable current
@@ -73,6 +75,9 @@ builder.Services.Configure<FileBrowseOptions>(builder.Configuration.GetSection(F
 builder.Services.AddSingleton<IFileBrowseService, FileBrowseService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IFileHandleStore, InMemoryFileHandleStore>();
+builder.Services.AddSingleton<IBackupFileSystem, PhysicalBackupFileSystem>();
+builder.Services.AddSingleton<BackupService>();
+builder.Services.AddSingleton<ArtifactCatalog>();
 builder.Services.AddSingleton<OperationRegistry>();
 builder.Services.AddSingleton<ResourceLockSet>();
 builder.Services.AddSingleton<OperationAuditWriter>();
@@ -182,6 +187,8 @@ var api = app.MapGroup("/api/v1");
 api.MapSessionEndpoints();
 api.MapAntiforgeryEndpoints();
 api.MapFileEndpoints();
+api.MapBackupEndpoints();
+api.MapArtifactEndpoints();
 api.MapConfigurationEndpoints();
 api.MapDeviceEndpoints();
 api.MapServiceEndpoints();

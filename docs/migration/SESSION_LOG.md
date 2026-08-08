@@ -611,3 +611,44 @@ Date: 2026-07-29
 ### Blocker and next action
 
 - Session 05 UI implementation is complete, but the standing full-.NET regression gate is blocked by the repeatable Agent audit integration test failure above. Diagnose/fix that test or its Session 04 audit fixture, then rerun the full suite before clearing the Session 05 gate.
+
+## Session 08 — Local backup workflow
+
+Date: 2026-08-09
+
+### Decisions and changes
+
+- Reworked `BackupService` so filesystem operations are behind `IBackupFileSystem`; the server no
+  longer launches Explorer, creates SQL backups in the final destination, or exposes host paths to
+  the browser. The retained WinUI compatibility entry point remains available.
+- Added server-owned backup component options and preflight validation for destination directory,
+  free space, branch identity, safe database identifiers, and appsettings sources. Existing database
+  selection labels remain mapped to the same branch/cashier databases and three appsettings archive
+  entries; primary database backup failures retry in compatibility mode.
+- Added versioned manifest/checksum archives with staging cleanup and explicit success, partial,
+  failure, and cancellation outcomes. The Agent operation registry carries internal backup work,
+  safe destination references, progress, artifact IDs, idempotency, cancellation, and audit records.
+- Added principal-scoped artifact metadata/catalog and streamed artifact downloads with safe display
+  names. Added the Angular select/review/run/progress/result/catalog flow, including refresh recovery,
+  destination-reference copy, and direct artifact download. The e2e flow uses fake SQL and file
+  adapters only.
+- The repository path named by the execution request, `docs/POS_SUPPORT_HUB_PREPARATION_SESSION_PROMPTS.md`,
+  does not exist. The next prompt was taken from the repository's canonical
+  `docs/NET10_ANGULAR22_SESSION_PROMPTS.md` runbook and copied to `TASK.md`.
+
+### Verification
+
+- `dotnet build PosAdminTool.sln -c Release --no-restore`: passed, 0 warnings / 0 errors.
+- `dotnet test PosAdminTool.sln -c Release --no-restore`: passed, 125 tests across Domain, Application,
+  Infrastructure, and Agent integration projects.
+- `npm --prefix src/PosAdminTool.Web run test -- --run`: passed, 8 tests in 6 files.
+- `npm --prefix src/PosAdminTool.Web run e2e -- --grep "backup"`: passed, 1 backup workflow test.
+- `dotnet publish src/PosAdminTool.WinUI/PosAdminTool.WinUI.csproj -c Release -r win-x64
+  --self-contained false --no-restore`: passed.
+
+### Risks and next session
+
+- No real `BACKUP DATABASE` command was authorized or executed. Representative-device service
+  identity, managed-root ACL, and SMB risks remain as documented for later sessions.
+- Session 09 is the next authorized session: restore backend and archive hardening. Do not execute it
+  in the Session 08 context.

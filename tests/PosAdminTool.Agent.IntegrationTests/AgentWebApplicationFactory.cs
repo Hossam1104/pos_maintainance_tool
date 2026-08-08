@@ -80,6 +80,8 @@ public sealed class AgentWebApplicationFactory : WebApplicationFactory<Program>
 
             services.AddSingleton(new AgentConfigurationStoreOptions { RootDirectory = FakeConfigRootPath });
             services.AddSingleton(new LegacyConfigurationImporterOptions { SourceFilePath = FakeLegacyConfigPath });
+            services.RemoveAll<IDatabaseService>();
+            services.AddSingleton<IDatabaseService, FakeDatabaseService>();
             services.RemoveAll<IServiceManager>();
             services.AddSingleton<IServiceManager>(ServiceManager);
             services.AddSingleton(LogSink);

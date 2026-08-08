@@ -24,4 +24,14 @@ public static class ErrorCodes
     public const string OperationQueueFull = "operation.queue_full";
     public const string OperationInvalidStateTransition = "operation.invalid_state_transition";
     public const string OperationUnsupported = "operation.unsupported";
+    public const string BackupValidationFailed = "backup.validation_failed";
+    public const string BackupDestinationInvalid = "backup.destination_invalid";
+    public const string BackupDestinationHandleInvalid = "backup.destination_handle_invalid";
+    public const string BackupNoComponents = "backup.no_components";
+    public const string BackupUnknownComponent = "backup.unknown_component";
+    public const string BackupBranchInvalid = "backup.branch_invalid";
+    public const string BackupDatabaseInvalid = "backup.database_invalid";
+    public const string BackupConfigurationSourceMissing = "backup.configuration_source_missing";
+    public const string BackupInsufficientSpace = "backup.insufficient_space";
+    public const string BackupArtifactNotFound = "backup.artifact_not_found";
 }

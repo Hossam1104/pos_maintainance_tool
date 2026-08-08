@@ -20,4 +20,5 @@ public sealed record OperationDetailDto(
     IReadOnlyList<OperationEventDto> Events,
     IReadOnlyList<string> ResultArtifactIds,
     string? ErrorCode,
-    string? CorrelationId);
+    string? CorrelationId,
+    string? ResolvedDestinationReference = null);

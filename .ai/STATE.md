@@ -1,16 +1,15 @@
 # Current Project State
 
-- **Updated:** 2026-07-30
-- **Branch:** `migration/session-05`
-- **HEAD:** `17a478b` (`feat: Implement service management endpoints and UI integration`)
-- **Release or milestone:** .NET 10 + Angular 22 migration; Sessions 00-07 complete, Session 08 active
+- **Updated:** 2026-08-09
+- **Branch:** `main` after the Session 08 merge
+- **Release or milestone:** .NET 10 + Angular 22 migration; Sessions 00-08 complete, Session 09 ready
 
 ## Working State
 
 - The retained WinUI application remains the functional parity baseline for configuration, service control, backup/restore, maintenance, downloader, and activity workflows.
 - The migration solution includes Domain, Application, Infrastructure, retained WinUI, Contracts, Agent, Web, and four xUnit test projects.
-- The Agent implements loopback hosting, Negotiate/admin authorization, antiforgery, safe Problem Details/correlation IDs, session discovery, allowlisted file browsing with opaque handles, secure configuration/DPAPI secrets, device diagnostics, redacted configuration endpoints, and the in-memory operation engine with SSE and destructive JSONL audit.
-- The Angular Branch Signal Desk includes Agent-backed Overview, Device, Settings, and Services screens; Settings keeps secrets write-only and exposes managed browse roots without host paths.
+- The Agent implements loopback hosting, Negotiate/admin authorization, antiforgery, safe Problem Details/correlation IDs, session discovery, allowlisted file browsing with opaque handles, secure configuration/DPAPI secrets, device diagnostics, redacted configuration endpoints, the in-memory operation engine with SSE and destructive JSONL audit, and the local backup operation with safe artifact streaming.
+- The Angular Branch Signal Desk includes Agent-backed Overview, Device, Settings, Services, and Backups screens; Settings and Backups keep secrets and host paths out of browser contracts.
 - Session 07 adds opaque configured-service IDs, Agent-side status polling/SSE recovery, authorized and audited start/stop/restart commands, and accessible command state feedback. Automated SCM behavior uses a fake manager only.
 
 ## Active Blocker
@@ -26,9 +25,9 @@
 
 ## Recently Completed
 
-- Sessions 00-07 are indexed in `.ai/HISTORY.md`.
-- Session 06 completed the Agent-backed Overview, Device, and Settings parity flow with redacted configuration and safe browse roots.
+- Sessions 00-08 are indexed in `.ai/HISTORY.md`.
+- Session 08 completed the Agent-backed local backup flow with preflight validation, compatibility retry, manifest/checksum artifacts, safe catalog/download contracts, operation recovery, and the select/review/run/result UI. Real SQL backup execution was not authorized or performed.
 
 ## Next Recommended Task
 
-- Execute `MIGRATION-SESSION-08` local backup workflow from `TASK.md`.
+- Execute `MIGRATION-SESSION-09` restore backend and archive hardening from `TASK.md`.

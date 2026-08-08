@@ -1,0 +1,140 @@
+<section class="route-heading">
+  <span class="eyebrow">LOCAL BACKUP WORKFLOW</span>
+  <h1>Backups</h1>
+  <p>Select the payload, review the branch and destination evidence, then run a cancellable Agent operation.</p>
+</section>
+
+<nav class="backup-stepper" aria-label="Backup steps">
+  @for (item of steps; track item.number) {
+    <span [class.active]="step() === item.number" [class.complete]="step() > item.number">
+      <strong>{{ item.number }}</strong>{{ item.label }}
+    </span>
+  }
+</nav>
+
+@if (message(); as notice) { <p class="status-message" role="status">{{ notice }}</p> }
+
+@if (step() === 1) {
+  <section class="backup-grid">
+    <article class="instrument-panel">
+      <div class="panel-heading">
+        <div><span class="eyebrow">PAYLOAD</span><h2>Choose components</h2></div>
+        <button type="button" (click)="selectAll()" [disabled]="!options()">Select all</button>
+      </div>
+      <p class="muted-copy">The Agent keeps the existing five-item set: branch and cashier databases plus three appsettings files.</p>
+      @if (options(); as available) {
+        <div class="component-list">
+          @for (component of available.components; track component.componentId) {
+            <label class="component-option">
+              <input type="checkbox" [checked]="isSelected(component.componentId)" (change)="toggle(component.componentId)">
+              <span><strong>{{ component.displayName }}</strong><small>{{ component.componentId }}</small></span>
+            </label>
+          }
+        </div>
+        <p class="selection-count mono">{{ selectedIds().length }} of {{ available.components.length }} selected</p>
+      } @else if (loading()) {
+        <p class="mono">LOADING AGENT OPTIONS</p>
+      } @else {
+        <p>No backup options are available from the Agent.</p>
+      }
+    </article>
+
+    <article class="instrument-panel">
+      <div class="panel-heading">
+        <div><span class="eyebrow">DESTINATION</span><h2>Choose a managed folder</h2></div>
+        <span class="mono">HANDLE ONLY</span>
+      </div>
+      <p class="muted-copy">Browse roots are allowlisted by the Agent. The browser never submits a host path.</p>
+      @if (capability(); as capabilities) {
+        @if (capabilities.browseRoots.length) {
+          <div class="browse-roots">
+            @for (root of capabilities.browseRoots; track root.rootId) {
+              <button type="button" (click)="openFolder(root.rootId, '')">{{ root.displayName }}</button>
+            }
+          </div>
+        } @else {
+          <p>No managed browse roots are configured.</p>
+        }
+      }
+      @if (browseResult(); as browser) {
+        <div class="destination-browser">
+          <div class="destination-location">
+            <span class="mono">{{ destinationReference(browser) }}</span>
+            <button type="button" (click)="chooseFolder(browser)">Use this folder</button>
+          </div>
+          @if (browser.relativeSubPath) {
+            <button type="button" class="text-button" (click)="openFolder(browser.rootId, parent(browser.relativeSubPath))">Up one level</button>
+          }
+          <ul>
+            @for (entry of browser.entries; track entry.relativeSubPath) {
+              @if (entry.isDirectory) {
+                <li><button type="button" class="folder-button" (click)="openFolder(browser.rootId, entry.relativeSubPath)">{{ entry.name }}</button><small>Folder</small></li>
+              }
+            }
+          </ul>
+        </div>
+      }
+      @if (destinationReferenceValue(); as selectedDestination) {
+        <p class="selected-destination" role="status"><span class="eyebrow">SELECTED</span><span class="mono">{{ selectedDestination }}</span></p>
+      }
+    </article>
+  </section>
+
+  <div class="backup-actions">
+    <button class="primary-action" type="button" (click)="review()" [disabled]="!canReview()">Review backup</button>
+  </div>
+}
+
+@if (step() === 2) {
+  <section class="instrument-panel backup-review">
+    <div class="panel-heading"><div><span class="eyebrow">REVIEW BEFORE RUN</span><h2>Confirm the backup package</h2></div><span class="mono">NO SQL WORK HAS STARTED</span></div>
+    @if (options(); as available) {
+      <dl class="review-facts">
+        <div><dt>Branch</dt><dd class="mono">{{ available.branchCode || 'Not configured' }}</dd></div>
+        <div><dt>Target database</dt><dd class="mono">{{ available.targetDatabase }}</dd></div>
+        <div><dt>Destination reference</dt><dd class="mono">{{ destinationReferenceValue() }}</dd></div>
+      </dl>
+      <h3>Selected components</h3>
+      <ul class="review-list">
+        @for (component of selectedComponents(); track component.componentId) { <li><strong>{{ component.displayName }}</strong><span class="mono">{{ component.componentId }}</span></li> }
+      </ul>
+    }
+    <div class="backup-actions"><button type="button" (click)="step.set(1)">Back</button><button class="primary-action" type="button" (click)="run()">Start backup</button></div>
+  </section>
+}
+
+@if (step() === 3) {
+  @if (operation(); as current) {
+    <section class="instrument-panel backup-progress">
+      <div class="panel-heading"><div><span class="eyebrow">AGENT OPERATION</span><h2>{{ statusLabel(current.state) }}</h2></div><span class="mono">{{ current.progressPercent }}%</span></div>
+      <div class="progress-track" role="progressbar" [attr.aria-valuenow]="current.progressPercent" aria-valuemin="0" aria-valuemax="100"><span [style.width.%]="current.progressPercent"></span></div>
+      <p class="operation-stage mono">{{ current.currentStage }}</p>
+      @if (current.events.length) { <ol class="operation-events">@for (event of current.events.slice(-5); track event.atUtc + event.stage) { <li><span class="mono">{{ event.stage }}</span><span>{{ event.message }}</span></li> }</ol> }
+      @if (isActive(current.state)) { <button type="button" (click)="cancel()">Cancel operation</button> }
+    </section>
+  }
+}
+
+@if (step() === 4) {
+  <section class="instrument-panel backup-result">
+    <div class="panel-heading"><div><span class="eyebrow">RESULT</span><h2>{{ operation() ? statusLabel(operation()!.state) : 'Backup result' }}</h2></div><span class="mono">{{ operation()?.currentStage }}</span></div>
+    @if (operation()?.resolvedDestinationReference; as destination) {
+      <div class="result-location"><div><span class="eyebrow">DESTINATION REFERENCE</span><span class="mono">{{ destination }}</span></div><button type="button" (click)="copyDestination(destination)">Copy reference</button></div>
+    }
+    @if (artifacts().length) {
+      <div class="artifact-list">
+        @for (artifact of artifacts(); track artifact.artifactId) {
+          <article class="artifact-card"><div><strong>{{ artifact.displayName }}</strong><small class="mono">{{ formatBytes(artifact.sizeBytes) }} · {{ artifact.sha256Checksum }}</small></div><a class="primary-action" [href]="api.downloadUrl(artifact.artifactId)" download>Download archive</a></article>
+        }
+      </div>
+    } @else { <p>No artifact was produced. Review the operation events for the safe failure reason.</p> }
+    <div class="backup-actions"><button type="button" (click)="reset()">Create another backup</button></div>
+  </section>
+}
+
+<section class="instrument-panel backup-catalog">
+  <div class="panel-heading"><div><span class="eyebrow">ARTIFACT CATALOG</span><h2>Recent backups</h2></div><button type="button" (click)="loadCatalog()">Refresh catalog</button></div>
+  @if (catalog().length) {
+    <ul class="catalog-list">@for (artifact of catalog(); track artifact.artifactId) { <li><div><strong>{{ artifact.displayName }}</strong><small class="mono">{{ formatBytes(artifact.sizeBytes) }} · {{ artifact.createdAtUtc }}</small></div><a [href]="api.downloadUrl(artifact.artifactId)" download>Download</a></li>}</ul>
+  } @else { <p>No backups have been produced in this Agent session.</p> }
+</section>

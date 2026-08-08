@@ -1,7 +1,7 @@
 # DBS POS Admin Tool — Session-by-Session Implementation Prompts
 
-> Canonical implementation instructions for controlled coding sessions. Sessions 00–04 are
-> complete; Session 05 implementation is committed but its full regression gate is blocked.
+> Canonical implementation instructions for controlled coding sessions. Sessions 00–08 are
+> complete; Session 09 is the next authorized session.
 > Completed evidence is indexed in `.ai/HISTORY.md` and detailed in
 > `docs/migration/SESSION_LOG.md`. Do not rerun completed prompts.
 >
@@ -11,7 +11,7 @@
 ## How to use this runbook
 
 1. Complete sessions **in order**, one per working session. There are 15 (00–14).
-   The current executable work is the Session 05 gate in `TASK.md`; Session 06 is next only after it passes.
+   The current executable work is the Session 09 prompt in `TASK.md`; do not execute it in the Session 08 context.
 2. Start each session in a clean, current workspace with no uncommitted changes.
 3. Give the coding agent the **shared preamble plus exactly one session prompt**. Nothing else.
 4. Never ask a session to "continue as far as possible." Stop at its stated boundary.
