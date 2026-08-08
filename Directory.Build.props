@@ -1,9 +1,11 @@
 <Project>
   <PropertyGroup>
+    <!-- Deliberately retained per docs/adr/013-csharp-14-versus-13.md; do not bump opportunistically. -->
     <LangVersion>13.0</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AnalysisLevel>latest</AnalysisLevel>
     <NoWarn>$(NoWarn);NETSDK1206</NoWarn>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
   </PropertyGroup>
 </Project>

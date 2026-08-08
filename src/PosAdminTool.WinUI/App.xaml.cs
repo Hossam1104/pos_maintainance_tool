@@ -4,6 +4,7 @@ using PosAdminTool.Application.Services;
 using PosAdminTool.Application.UseCases;
 using PosAdminTool.Domain.Interfaces;
 using PosAdminTool.Infrastructure.Configuration;
+using PosAdminTool.Infrastructure.Backups;
 using PosAdminTool.Infrastructure.Http;
 using PosAdminTool.Infrastructure.Smb;
 using PosAdminTool.Infrastructure.Windows;
@@ -89,6 +90,7 @@ public partial class App : Microsoft.UI.Xaml.Application
         services.AddSingleton<IServiceManager, WindowsServiceManager>();
         services.AddSingleton<IConnectivityMonitor, ConnectivityMonitor>();
         services.AddSingleton<IDatabaseService, SqlCmdExecutor>();
+        services.AddSingleton<IBackupFileSystem, PhysicalBackupFileSystem>();
         services.AddSingleton<AdminPrivilegeManager>();
         services.AddSingleton(new HttpClient());
         services.AddSingleton<IBackupApiClient, BackupApiClient>();

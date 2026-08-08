@@ -2,7 +2,7 @@ namespace PosAdminTool.Domain.Models;
 
 public sealed class DbDownloaderSettings
 {
-    public string ApiUrl { get; set; } = "http://10.10.9.181:8080/rmsmainserverApi/api/Updates/CreateDbBackupUpdate";
+    public string ApiUrl { get; set; } = string.Empty;
 
     public string RdbServerIp { get; set; } = string.Empty;
 

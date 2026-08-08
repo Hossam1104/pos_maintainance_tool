@@ -1,0 +1,39 @@
+<div class="app-shell">
+  <a class="skip-link" href="#main-content">Skip to route content</a>
+  <aside class="desktop-rail" aria-label="Primary navigation">
+    <a class="brand" routerLink="/" aria-label="DBS POS Admin overview">
+      <span>DBS</span><strong>POS ADMIN</strong><small>Branch Signal Desk</small>
+    </a>
+    <nav>
+      @for (item of navItems; track item.path) {
+        <a [routerLink]="item.path" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: item.path === '/' }">
+          <span class="nav-glyph" aria-hidden="true">{{ item.glyph }}</span><span>{{ item.label }}</span>
+        </a>
+      }
+    </nav>
+    <div class="rail-foot mono">AGENT · LOOPBACK ONLY</div>
+  </aside>
+
+  <section class="shell-workspace">
+    <header class="device-strip">
+      <div><span class="eyebrow">THIS DEVICE</span><strong class="device-name">P087 <span>/</span> POS 03</strong><span class="device-meta">RMS 10.4 · Branch 087</span></div>
+      <div class="device-actions"><span class="status-inline"><span class="marker marker-fault"></span> Agent unreachable</span><button class="icon-button" type="button" (click)="toggleTheme()" [attr.aria-label]="'Switch from ' + activeThemeLabel()">◐</button></div>
+    </header>
+    <div class="unreachable-banner" role="status"><strong>Agent unreachable.</strong> Diagnostic and host actions are unavailable. <a routerLink="/device">View connection evidence</a>.</div>
+    @if (errors.message(); as message) { <div class="global-error" role="alert"><span>{{ message }}</span><button type="button" (click)="errors.dismiss()">Dismiss</button></div> }
+    <div class="compact-signal"><app-signal-path [nodes]="signalNodes" [compact]="true" /></div>
+    <main id="main-content" tabindex="-1"><router-outlet /></main>
+  </section>
+
+  @if (activityOpen()) {
+    <aside class="activity-rail" aria-label="Recent activity">
+      <div class="section-heading"><div><span class="eyebrow">ACTIVITY</span><h2>Recent work</h2></div><button class="close-button" type="button" (click)="activityOpen.set(false)" aria-label="Close activity rail">×</button></div>
+      <ol class="activity-list"><li><span class="marker marker-fault"></span><div><strong>Connection check stopped</strong><small class="mono">14:32:08 · AG-7X2</small></div></li><li><span class="marker marker-ready"></span><div><strong>Backup archive verified</strong><small class="mono">13:48:22 · OP-9Q4</small></div></li></ol>
+      <a routerLink="/activity" class="text-link">Open activity timeline</a>
+    </aside>
+  }
+
+  <nav class="phone-nav" aria-label="Primary navigation">
+    @for (item of navItems.slice(0, 4); track item.path) { <a [routerLink]="item.path" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: item.path === '/' }"><span aria-hidden="true">{{ item.glyph }}</span><small>{{ item.shortLabel }}</small></a> }
+  </nav>
+</div>

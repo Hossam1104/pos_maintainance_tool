@@ -1,0 +1,66 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <!-- Windows-only per docs/adr/001-platform-win-x64-only.md; needed here specifically for
+         WindowsIdentity/WindowsPrincipal group-membership checks in authorization (Session 02). -->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <UserSecretsId>pos-admin-tool-agent</UserSecretsId>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <AngularWorkspaceDir>$(MSBuildThisFileDirectory)..\PosAdminTool.Web\</AngularWorkspaceDir>
+    <AngularDistDir>$(AngularWorkspaceDir)dist\web\browser\</AngularDistDir>
+    <!-- Regenerated on every build; consumed by the Angular workspace's `generate-api-client` script
+         (task 7). Not committed — see src/PosAdminTool.Web/.gitignore. -->
+    <OpenApiGenerateDocumentsOnBuild>true</OpenApiGenerateDocumentsOnBuild>
+    <OpenApiDocumentsDirectory>$(AngularWorkspaceDir)openapi\</OpenApiDocumentsDirectory>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="10.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
+    <!-- Microsoft.AspNetCore.OpenApi 10.0.10 pulls Microsoft.OpenApi 2.0.0, which has a known high
+         severity stack-overflow-via-circular-$ref advisory (GHSA-v5pm-xwqc-g5wc) in its document
+         reader. We only generate our own document (writer path), never parse an untrusted one, but
+         the fix is a free, drop-in patched version, so pin it explicitly rather than accept the risk. -->
+    <PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
+    <PackageReference Include="Microsoft.Extensions.ApiDescription.Server" Version="10.0.10">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PosAdminTool.Contracts\PosAdminTool.Contracts.csproj" />
+    <ProjectReference Include="..\PosAdminTool.Domain\PosAdminTool.Domain.csproj" />
+    <ProjectReference Include="..\PosAdminTool.Application\PosAdminTool.Application.csproj" />
+    <ProjectReference Include="..\PosAdminTool.Infrastructure\PosAdminTool.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <!--
+    The published agent must run on a target machine with no Node installed (plan section 5.1,
+    task 9). Node/npm are only used here, on the machine running `dotnet publish`, to produce the
+    Angular production build, which is then injected directly into the publish file list below.
+    Nothing is written back into this project's own wwwroot/ on disk.
+  -->
+  <Target Name="RestoreAngularWorkspace" BeforeTargets="Publish"
+          Condition="!Exists('$(AngularWorkspaceDir)node_modules')">
+    <Exec Command="npm ci" WorkingDirectory="$(AngularWorkspaceDir)" />
+  </Target>
+
+  <Target Name="BuildAngularWorkspace" AfterTargets="RestoreAngularWorkspace" BeforeTargets="Publish">
+    <Exec Command="npm run build" WorkingDirectory="$(AngularWorkspaceDir)" />
+  </Target>
+
+  <Target Name="PublishAngularDist" AfterTargets="BuildAngularWorkspace" BeforeTargets="ComputeFilesToPublish">
+    <ItemGroup>
+      <_AngularDistFiles Include="$(AngularDistDir)**" />
+      <ResolvedFileToPublish Include="@(_AngularDistFiles)">
+        <RelativePath>wwwroot\%(RecursiveDir)%(Filename)%(Extension)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+
+</Project>

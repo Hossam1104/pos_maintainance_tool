@@ -10,7 +10,7 @@ public sealed class AppSettings
 
     public string SqlUser { get; set; } = "sa";
 
-    public string SqlPassword { get; set; } = "P@ssw0rd";
+    public string SqlPassword { get; set; } = string.Empty;
 
     public string ClientName { get; set; } = "UPC";
 
