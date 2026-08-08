@@ -7,6 +7,8 @@ Read this file only when the task requires stable, non-obvious project knowledge
 - DBS POS Admin Tool administers RMS+ point-of-sale installations on one Windows branch device for a local technician/administrator.
 - The retained WinUI tool configures RMS+, controls Windows services, backs up/restores SQL and files, performs guarded maintenance, and retrieves branch backup archives. A strangler migration is replacing its UI with same-origin Angular served by a privileged local Agent.
 - V1 is Windows 10/11 x64, per-device, English-first, and local-only. Cloud, a central server, remote/LAN management, mobile, `win-arm64`, and role matrices are out of scope.
+- Sessions 00-08 are accepted baseline architecture. Standalone Angular expansion is frozen while POS is prepared for a possible RMS+ Support Hub integration; the repositories remain separate until explicit cross-project approval.
+- POS owns backend/domain/privileged Windows/SQL/SMB, contracts, Agent security, operation/audit, configuration/secrets, and portability. RMS+ Support Hub owns the final Angular shell, global navigation, shared components, visual system, branding, themes, and integrated POS route UX.
 - Preserve readable legacy backup ZIPs. Import legacy non-secret settings once without modifying the legacy file; SQL and RDB passwords must be re-entered.
 - The repository owns no application database or migrations. It operates on configured external RMS SQL Server databases and host files.
 
@@ -24,13 +26,13 @@ Read this file only when the task requires stable, non-obvious project knowledge
 ## Build and Validation Entry Points
 
 - Restore — discovered in CI, not run during context initialization: `dotnet restore PosAdminTool.sln --locked-mode`; from `src/PosAdminTool.Web`, `npm ci`.
-- Build — recorded passing for Session 05: `dotnet build PosAdminTool.sln -c Release --nologo`.
-- .NET tests — `dotnet test PosAdminTool.sln -c Release --nologo`; currently blocked at 97/98 by the audit-record integration test, although that test passes in isolation.
+- Build — Session 08 recorded passing: `dotnet build PosAdminTool.sln -c Release --no-restore` with 0 warnings / 0 errors.
+- .NET tests — Session 08 recorded passing: `dotnet test PosAdminTool.sln -c Release --no-restore`, 125 tests across Domain, Application, Infrastructure, and Agent integration projects. The old Session 05 97/98 statement is historical, not current.
 - Agent targeted tests — discovered in CI: `dotnet test tests/PosAdminTool.Agent.IntegrationTests/PosAdminTool.Agent.IntegrationTests.csproj -c Release`.
-- Web checks — recorded passing for Session 05: `npm run lint`, `npm run test -- --run`, and `npm run build` from `src/PosAdminTool.Web`.
+- Web checks — Session 08 recorded `npm --prefix src/PosAdminTool.Web run test -- --run` passing 8 tests in 6 files and a backup E2E pass; use the current session log for the exact gate scope.
 - Browser tests — `npm run e2e` from `src/PosAdminTool.Web`; three Session 05 accessibility, keyboard, routing, and same-origin checks are recorded passing.
 - Local Agent — discovered, not executed: `dotnet run --project src/PosAdminTool.Agent/PosAdminTool.Agent.csproj`.
-- Retained WinUI — discovered: `run_app.cmd`; runtime validation requires `dotnet publish`, not plain build.
+- Retained WinUI — Session 08 recorded `dotnet publish src/PosAdminTool.WinUI/PosAdminTool.WinUI.csproj -c Release -r win-x64 --self-contained false --no-restore` passing; runtime validation still requires publish, not plain build.
 
 ## Integrations
 
@@ -48,4 +50,4 @@ Read this file only when the task requires stable, non-obvious project knowledge
 - Angular/OpenAPI CI uses Windows because the Agent has a Windows TFM. Published branch devices need neither Node nor npm.
 - WinUI unpackaged resources are staged correctly only by publish; its project contains a required Windows App SDK XAML-resource copy workaround.
 - UI status must distinguish fresh, stale, unknown, Agent-unreachable, and RMS-server-unreachable states with evidence and timestamps, not colour alone.
-- The Angular shell uses the local-only Branch Signal Desk design system, responsive navigation down to 360 px, semantic light/dark tokens, and lazy feature routes. Session 06 replaces fixture-backed overview/device/settings surfaces with Agent data.
+- The existing Angular shell uses the local-only Branch Signal Desk design system, responsive navigation down to 360 px, semantic light/dark tokens, and lazy feature routes. Session 06 replaces fixture-backed overview/device/settings surfaces with Agent data; Session 08 adds the Agent-backed backup flow. The shell and placeholder routes are retained as migration/reference material, not as a standalone feature backlog.

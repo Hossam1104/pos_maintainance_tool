@@ -18,3 +18,4 @@ Detailed rationale remains in the canonical `docs/adr/` records; do not duplicat
 | ADR-0011 | Accepted | Authorize one Windows local-administrator principal; no role matrix | Authentication/authorization | `docs/adr/011-single-local-administrator-principal.md` |
 | ADR-0012 | Accepted | Run the Agent as LocalSystem; SQL identity proof passed, with managed-root and SMB proof still required | Installer and external access | `docs/adr/012-windows-service-identity.md` |
 | ADR-0013 | Proposed | Retain C# 13 until a measured benefit justifies a deliberate change | All .NET projects | `docs/adr/013-csharp-14-versus-13.md` |
+| ADR-0014 | Accepted | Freeze standalone Angular expansion and prepare POS for an owner-approved RMS+ Support Hub integration | Programme scope, merge boundaries, WinUI retention | `docs/adr/014-support-hub-merge-preparation.md` |

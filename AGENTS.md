@@ -23,15 +23,26 @@ For any task:
 7. Read `.ai/DECISIONS.md` only when the task may affect an existing decision; open a detailed ADR only when its affected area matches the task.
 8. Read `.ai/HISTORY.md` only when reconciling milestone status or auditing completed work.
 
-Do not automatically read:
+## Authorized session workflow
 
-- `.ai/archive/`
-- every requirement or design document
-- the full repository
-- full Git history
-- full diffs unrelated to the task
-- old model transcripts or exported sessions
-- completed milestone history during ordinary implementation startup
+The presence of a ready `TASK.md` is not owner authorization. For every owner-authorized Luna session, follow this exact repository workflow:
+
+1. Read `TASK.md`; 2. read `.ai/STATE.md`; 3. load only task-relevant context; 4. confirm review
+   and entry gates.
+5. Require a clean, synchronized `main`; 6. create the task branch; 7. execute exactly one
+   task/session; 8. run targeted validation.
+9. Review the task-scoped diff; 10. update the canonical plan; 11. update `.ai/STATE.md`;
+   12. update `.ai/HANDOFF.md` only when needed.
+13. Copy the complete next session from `docs/POS_SUPPORT_HUB_PREPARATION_SESSION_PROMPTS.md`
+    into `TASK.md`; 14. commit task-scoped work; 15. push the session branch.
+16. Merge safely to `main`; 17. push `main`; 18. verify `origin/main...main == 0 0`; 19. delete
+    the completed local and remote session branch when safe; 20. stop without executing the next task automatically.
+
+For this repository, the active programme files are `docs/POS_SUPPORT_HUB_MERGE_PREPARATION_PLAN.md` and `docs/POS_SUPPORT_HUB_PREPARATION_SESSION_PROMPTS.md`; old migration files are historical evidence only after Session 08 and must not authorize Sessions 09-14.
+
+Do not automatically read `.ai/archive/`, every requirement or design document, the full
+repository, full Git history, full unrelated diffs, old model transcripts/exported sessions, or
+completed milestone history during ordinary implementation startup.
 
 ## One active owner
 
@@ -74,7 +85,9 @@ Small, well-scoped tasks should use one model only. Use multiple models only whe
 - Use Windows for Agent/OpenAPI generation. Validate the retained WinUI runtime with `dotnet publish`, because plain build does not stage all unpackaged WinUI resources.
 - Do not paste large files into project-memory documents.
 - Do not store raw logs, complete diffs, test output, credentials, URLs with secrets, connection strings, or personal data in `.ai/`.
-- Do not commit, push, deploy, or run destructive commands unless explicitly requested.
+- Do not commit, push, deploy, or run destructive commands unless explicitly requested. The
+  authorized session workflow above is the explicit repository workflow when the owner has
+  authorized that session.
 - For minor uncertainty, make the safest reversible assumption and record it in the handoff only if another model needs it.
 - Ask the user only for a material business decision, unavailable access, or unsafe/destructive action.
 
@@ -118,6 +131,9 @@ Concise task-related changes.
 
 ### Validation
 Commands executed and results.
+
+### Git
+Branch, commit, merge, push, synchronization, and branch-deletion results when authorized.
 
 ### Remaining
 Only unresolved work, blockers, or risks.

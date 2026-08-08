@@ -1,6 +1,13 @@
 # DBS POS Admin Tool — .NET 10 + Angular 22 Migration and UI Refactoring Plan
 
 > Planning document only. No migration implementation is included.
+
+> **Historical record / superseded execution direction (2026-08-09):** Sessions 00-08 are
+> completed and remain valid historical implementation evidence. The standalone-product direction
+> after Session 08 is superseded by the POS -> RMS+ Support Hub merge-preparation programme.
+> Do **not** execute Sessions 09-14 from this plan directly. The authoritative active documents are
+> [`docs/POS_SUPPORT_HUB_MERGE_PREPARATION_PLAN.md`](POS_SUPPORT_HUB_MERGE_PREPARATION_PLAN.md)
+> and [`docs/POS_SUPPORT_HUB_PREPARATION_SESSION_PROMPTS.md`](POS_SUPPORT_HUB_PREPARATION_SESSION_PROMPTS.md).
 >
 > Audit date: 2026-07-26  
 > Scope revision: 2026-07-26 (post-review)  
@@ -929,9 +936,14 @@ Two decisions genuinely remain open and must be settled in Session 00:
 - **C# 14 versus staying on C# 13** — the SDK supports 14 and `Directory.Build.props` currently
   pins 13. Choose deliberately and record why.
 
-## 14. Session sequence
+## 14. Historical session sequence (superseded after Session 08)
 
-Use `NET10_ANGULAR22_SESSION_PROMPTS.md` in this order. The exit criterion for each is in §9.
+The following table preserves the original implementation history. It is not an authorization
+queue. Use the POS -> RMS+ preparation plan and prompts for all work after Session 08.
+
+The original sequence below is historical evidence. Do not use `NET10_ANGULAR22_SESSION_PROMPTS.md`
+as an executable queue; the exit criteria and future work are superseded by the POS -> RMS+
+preparation programme.
 
 | # | Status | Session |
 | --- | --- | --- |
@@ -944,16 +956,17 @@ Use `NET10_ANGULAR22_SESSION_PROMPTS.md` in this order. The exit criterion for e
 | 06 | Complete | Device overview and configuration |
 | 07 | Complete | Windows service management → **GO / NO-GO GATE** |
 | 08 | Complete | Local backup |
-| 09 | Planned | Restore backend and archive hardening *(security judgment)* |
-| 10 | Planned | Restore UI flows |
-| 11 | Planned | Cleanup and branch reset safety *(security judgment)* |
-| 12 | Planned | DB Downloader |
-| 13 | Planned | UI polish, accessibility, and release hardening |
-| 14 | Planned | Offline installer and cutover |
+| 09 | Superseded | Restore backend and archive hardening; retained as POS-M02 backend preparation |
+| 10 | Deferred | Restore UI flows; preserve requirements for future Support Hub integration |
+| 11 | Superseded/split | Cleanup and branch reset backend safety becomes POS-M03; standalone UI deferred |
+| 12 | Superseded/split | DB Downloader backend portability becomes POS-M04; standalone UI deferred |
+| 13 | Deferred | Backend/security criteria retained; broad standalone Angular polish is frozen |
+| 14 | Deferred completely | Installer and cutover await cross-project review and explicit approval |
 
 Rules:
 
-- One session at a time, in order. Never ask an agent to "continue as far as possible."
+- One historical session at a time was the original rule. It does not authorize new work now.
+  Never execute Sessions 09-14 from this historical plan.
 - Do not combine destructive-operation sessions (09, 11) with installer or cutover work.
 - Review the diff, the verification output, and the session log before starting the next session.
 - Stop at the Session 07 gate and make an explicit decision.

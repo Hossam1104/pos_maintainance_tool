@@ -1,19 +1,37 @@
 # DBS POS Admin Tool — Session-by-Session Implementation Prompts
 
-> Canonical implementation instructions for controlled coding sessions. Sessions 00–08 are
-> complete; Session 09 is the next authorized session.
+> **Historical implementation record only (2026-08-09).** Sessions 00-08 are complete and remain
+> valid evidence. The standalone-product execution direction after Session 08 is superseded.
+> Sessions 09-14 in this file must **not** be executed directly. Current authority is
+> `docs/POS_SUPPORT_HUB_MERGE_PREPARATION_PLAN.md` and
+> `docs/POS_SUPPORT_HUB_PREPARATION_SESSION_PROMPTS.md`.
+
+> Historical implementation instructions for completed Sessions 00-08 and superseded standalone
+> Sessions 09-14. No session after 08 is authorized by this file.
 > Completed evidence is indexed in `.ai/HISTORY.md` and detailed in
 > `docs/migration/SESSION_LOG.md`. Do not rerun completed prompts.
 >
-> Authority: `docs/NET10_ANGULAR22_MIGRATION_PLAN.md`. Where this runbook and the plan disagree,
-> the plan wins — stop and reconcile them rather than guessing.
+> Historical authority: `docs/NET10_ANGULAR22_MIGRATION_PLAN.md`. Current authority is the POS ->
+> RMS+ Support Hub preparation plan and prompt file. Where records disagree, follow current
+> canonical documents and stop rather than guessing.
 
 ## How to use this runbook
 
-1. Complete sessions **in order**, one per working session. There are 15 (00–14).
-   The current executable work is the Session 09 prompt in `TASK.md`; do not execute it in the Session 08 context.
-2. Start each session in a clean, current workspace with no uncommitted changes.
-3. Give the coding agent the **shared preamble plus exactly one session prompt**. Nothing else.
+Historical disposition of the remaining blocks:
+
+- Session 09 backend/security requirements are retained as POS-M02; do not execute this block.
+- Session 10 standalone Restore UI is deferred until Support Hub integration approval.
+- Session 11 backend safety requirements are retained as POS-M03; its standalone UI is deferred.
+- Session 12 backend portability requirements are retained as POS-M04; its standalone UI is deferred.
+- Session 13 standalone UI polish/release work is frozen; useful backend criteria are retained.
+- Session 14 installer and cutover work is deferred completely until cross-project approval.
+
+Use only the two canonical POS -> RMS+ preparation documents for current work.
+
+1. This file is historical evidence only. It contains no executable work after completed Session
+   08. Do not copy Sessions 09-14 into `TASK.md`.
+2. Current work uses exactly one owner-authorized POS-M prompt from the canonical preparation file.
+3. Do not give the coding agent a Session 09-14 block from this file.
 4. Never ask a session to "continue as far as possible." Stop at its stated boundary.
 5. Review the diff, the verification output, the risks, and the session log before starting the next.
 6. If a session needs to change an approved decision, update the ADR and the migration plan **in
@@ -688,6 +706,8 @@ Do not execute BACKUP DATABASE against a real database without explicit authoriz
 
 ## Session 09 — Restore backend and archive hardening *(security judgment)*
 
+> Historical source only. Superseded by POS-M02. Do not execute this prompt directly.
+
 ```text
 Goal:
 Server-side restore capability with full archive defenses and a mandatory preview. Backend only —
@@ -732,6 +752,8 @@ directories only.
 
 ## Session 10 — Restore UI flows
 
+> Historical source only. Deferred until Support Hub integration is approved. Do not execute this prompt directly.
+
 ```text
 Goal:
 The browser-side restore experience for all three modes.
@@ -770,6 +792,8 @@ Required tests:
 ---
 
 ## Session 11 — Cleanup and branch reset safety *(security judgment)*
+
+> Historical source only. Superseded/split into POS-M03. Do not execute this prompt directly.
 
 ```text
 Goal:
@@ -825,6 +849,8 @@ throwaway directory tree for every deletion test and assert it was the only thin
 
 ## Session 12 — DB Downloader
 
+> Historical source only. Superseded/split into POS-M04. Do not execute this prompt directly.
+
 ```text
 Goal:
 Main-server backup triggering, durable observation, and safe result download, without exposing SMB
@@ -874,6 +900,8 @@ authorization for that exact environment.
 
 ## Session 13 — UI polish, accessibility, and release hardening
 
+> Historical source only. Deferred because Support Hub owns final integrated frontend quality. Do not execute this prompt directly.
+
 ```text
 Goal:
 Close the quality, accessibility, and observability gaps before packaging.
@@ -922,6 +950,8 @@ Do not:
 ---
 
 ## Session 14 — Offline installer and cutover
+
+> Historical source only. Deferred until cross-project review and explicit approval. Do not execute this prompt directly.
 
 ```text
 Goal:

@@ -2,6 +2,15 @@
 
 DBS POS Admin Tool is a .NET 10 **WinUI 3** desktop application for administering RMS+ Point-of-Sale installations at retail branches. It uses a Windows Store–style Fluent UI (Mica backdrop, `NavigationView` rail, light/dark runtime theming) on top of a clean-architecture C# codebase.
 
+> **Programme status (2026-08-09):** Sessions 00-08 of the .NET 10 + Angular 22 migration are
+> complete and preserved. The existing Angular/Agent architecture is retained, but standalone
+> Angular expansion is frozen while POS is prepared for a possible RMS+ Support Hub integration.
+> The retained WinUI application remains the compatibility/parity baseline. The repositories stay
+> separate; no merge or integrated frontend is authorized yet.
+>
+> Active preparation documents: [`docs/POS_SUPPORT_HUB_MERGE_PREPARATION_PLAN.md`](docs/POS_SUPPORT_HUB_MERGE_PREPARATION_PLAN.md)
+> and [`docs/POS_SUPPORT_HUB_PREPARATION_SESSION_PROMPTS.md`](docs/POS_SUPPORT_HUB_PREPARATION_SESSION_PROMPTS.md).
+
 ## Tech Stack
 
 - .NET 10
@@ -20,6 +29,9 @@ src/
   PosAdminTool.Application/     Backup, restore, cleanup, DB downloader, and use-case orchestration
   PosAdminTool.Infrastructure/  Encrypted config, SQL Server access, Windows services, connectivity,
                                  SMB backup repository, backup-trigger HTTP client
+  PosAdminTool.Contracts/        Versioned Agent/Web DTOs and error/evidence contracts
+  PosAdminTool.Agent/            Loopback ASP.NET Core host, authorization, operations, audit, and APIs
+  PosAdminTool.Web/              Existing Angular 22 Branch Signal Desk implementation/reference
   PosAdminTool.WinUI/           NavigationView shell, XAML pages, controls, converters,
                                  design-token resource dictionaries, and view models
 
@@ -31,7 +43,7 @@ tests/
 
 The UI is a `NavigationView` rail with five sections: Configuration, Services, Operations, DB Downloader, and Log. Long-running work is async and reports progress back to the UI via a shared `LogHub` activity console.
 
-## Features
+## Features and retained baseline
 
 - Load and save RMS+ configuration at `~/.pos_admin_tool/config.json`
 - Encrypt the SQL and RDB passwords at rest with PBKDF2-derived AES keys
@@ -106,4 +118,9 @@ The app keeps the previous config location for compatibility:
 
 Secrets (SQL password, RDB password) are written encrypted. The DB Downloader's known branch list and server settings are also persisted here, editable from the DB Downloader page.
 
-The in-progress Angular/Agent replacement (`PosAdminTool.Agent`) does not use this file or its encryption scheme. It owns a separate, service-scoped configuration store under `%ProgramData%\DBS\PosAdminTool`, imports this file's non-secret settings once, and requires the SQL and RDB passwords to be re-entered rather than migrated — the legacy encryption key is bound to the interactive user and a Windows Service cannot reproduce it.
+The existing Angular/Agent replacement (`PosAdminTool.Agent`) does not use this file or its encryption scheme. It owns a separate, service-scoped configuration store under `%ProgramData%\DBS\PosAdminTool`, imports this file's non-secret settings once, and requires the SQL and RDB passwords to be re-entered rather than migrated — the legacy encryption key is bound to the interactive user and a Windows Service cannot reproduce it.
+
+The Agent/Web implementation is now the accepted Sessions 00-08 baseline. POS preparation continues
+only on backend, security, privileged-operation, portability, and merge-readiness concerns. The
+final Angular shell, navigation, design system, branding, themes, and integrated POS routes belong
+to RMS+ Support Hub and must not be duplicated here.
