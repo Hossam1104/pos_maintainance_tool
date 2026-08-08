@@ -77,7 +77,7 @@ Small, well-scoped tasks should use one model only. Use multiple models only whe
 - Work only within the requested scope.
 - Prefer existing patterns and utilities.
 - Avoid unrelated refactoring, formatting, and dependency changes.
-- Preserve `PosAdminTool.WinUI` until the explicit Session 14 parity approval and cutover.
+- Preserve `PosAdminTool.WinUI` until the cross-project RMS+ Support Hub review and an explicit owner-approved dedicated cutover.
 - Keep C# 13, exact dependency versions, and committed lockfiles unless the active task explicitly changes the toolchain decision.
 - Keep the Agent Windows x64, per-device, same-origin, and loopback-only; never add LAN/public binding or expose secrets or absolute host paths through browser contracts.
 - Do not add SQLite, SignalR, a PWA, a service worker, or IndexedDB without an approved decision change.

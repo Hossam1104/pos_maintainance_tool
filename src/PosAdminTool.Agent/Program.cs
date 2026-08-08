@@ -74,6 +74,7 @@ builder.Services.AddAntiforgery(options =>
 builder.Services.Configure<FileBrowseOptions>(builder.Configuration.GetSection(FileBrowseOptions.SectionName));
 builder.Services.AddSingleton<IFileBrowseService, FileBrowseService>();
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton(RuntimeRetentionPolicy.Default);
 builder.Services.AddSingleton<IFileHandleStore, InMemoryFileHandleStore>();
 builder.Services.AddSingleton<IBackupFileSystem, PhysicalBackupFileSystem>();
 builder.Services.AddSingleton<BackupService>();

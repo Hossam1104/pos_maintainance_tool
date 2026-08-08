@@ -9,4 +9,5 @@ public sealed record ArtifactMetadataDto(
     string DisplayName,
     long SizeBytes,
     string Sha256Checksum,
-    DateTimeOffset CreatedAtUtc);
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset? ExpiresAtUtc = null);

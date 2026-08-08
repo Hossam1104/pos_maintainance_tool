@@ -21,7 +21,7 @@ Read this file only when the task requires stable, non-obvious project knowledge
 - Agent configuration is service-owned under `%ProgramData%\DBS\PosAdminTool`; secrets are separate and protected with machine-scope Windows DPAPI. The retained WinUI profile configuration remains separate.
 - Long work belongs to a bounded in-memory Agent operation registry, outside request lifetime. REST is state truth, SSE is transport only, idempotency is principal-scoped, named locks serialize conflicts, and only destructive completions are appended to JSONL audit.
 - Agent restart intentionally loses in-flight jobs and file handles. Do not add SQLite, SignalR, PWA/service-worker behavior, IndexedDB, or queued browser mutations.
-- Keep WinUI buildable/runnable until explicit Session 14 parity approval. Its removal must be a dedicated cutover change.
+- Keep WinUI buildable/runnable until the cross-project RMS+ Support Hub review and explicit owner-approved dedicated cutover. Its removal must be a dedicated change.
 
 ## Build and Validation Entry Points
 

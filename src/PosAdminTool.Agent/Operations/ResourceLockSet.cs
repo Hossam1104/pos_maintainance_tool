@@ -9,8 +9,28 @@ public sealed class ResourceLockSet
     public async Task<IDisposable> AcquireAsync(IEnumerable<string> names, CancellationToken cancellationToken)
     {
         var acquired = new List<SemaphoreSlim>();
-        try { foreach (var name in names.OrderBy(x => x, StringComparer.Ordinal)) { var gate = _locks[name]; await gate.WaitAsync(cancellationToken).ConfigureAwait(false); acquired.Add(gate); } return new Releaser(acquired); }
+        try
+        {
+            foreach (var name in names.Distinct(StringComparer.Ordinal).OrderBy(x => x, StringComparer.Ordinal))
+            {
+                if (!_locks.TryGetValue(name, out var gate)) throw new InvalidOperationException("Unknown operation resource lock.");
+                await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+                acquired.Add(gate);
+            }
+
+            return new Releaser(acquired);
+        }
         catch { foreach (var gate in acquired) gate.Release(); throw; }
     }
-    private sealed class Releaser(List<SemaphoreSlim> gates) : IDisposable { public void Dispose() { foreach (var gate in gates.AsEnumerable().Reverse()) gate.Release(); } }
+
+    private sealed class Releaser(List<SemaphoreSlim> gates) : IDisposable
+    {
+        private int _disposed;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+            foreach (var gate in gates.AsEnumerable().Reverse()) gate.Release();
+        }
+    }
 }

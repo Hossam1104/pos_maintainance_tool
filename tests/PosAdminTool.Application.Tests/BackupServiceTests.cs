@@ -118,6 +118,29 @@ public sealed class BackupServiceTests : IDisposable
         Assert.DoesNotContain(Directory.EnumerateFileSystemEntries(destination), path => Path.GetFileName(path).StartsWith(".pos_backup_", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public async Task ExecuteAsync_WhenCancellationArrivesAfterArchiveMove_RemovesTheUnpublishedArchive()
+    {
+        var destination = CreateDirectory("post-move-cancel-destination");
+        var settings = CreateSettings();
+        var cancellation = new CancellationTokenSource();
+        var fileSystem = new TestBackupFileSystem
+        {
+            BeforeComputeHash = path =>
+            {
+                if (Path.GetExtension(path).Equals(".zip", StringComparison.OrdinalIgnoreCase)) cancellation.Cancel();
+            },
+        };
+        var service = new BackupService(new FakeDatabaseService(), fileSystem);
+
+        var result = await service.ExecuteAsync(settings, ["branch-database"], destination, cancellationToken: cancellation.Token);
+
+        Assert.Equal(OperationStatus.Cancelled, result.Operation.Status);
+        Assert.Null(result.Artifact);
+        Assert.Empty(Directory.EnumerateFiles(destination, "*.zip"));
+        Assert.DoesNotContain(Directory.EnumerateFileSystemEntries(destination), path => Path.GetFileName(path).StartsWith(".pos_backup_", StringComparison.Ordinal));
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
@@ -193,6 +216,8 @@ public sealed class BackupServiceTests : IDisposable
     {
         public long AvailableFreeSpaceBytes { get; init; } = long.MaxValue;
 
+        public Action<string>? BeforeComputeHash { get; init; }
+
         public BackupDestinationInfo InspectDestination(string path) =>
             new(Directory.Exists(path), Directory.Exists(path), AvailableFreeSpaceBytes);
 
@@ -253,6 +278,7 @@ public sealed class BackupServiceTests : IDisposable
 
         public async Task<string> ComputeSha256Async(string path, CancellationToken cancellationToken = default)
         {
+            BeforeComputeHash?.Invoke(path);
             await using var stream = File.OpenRead(path);
             return Convert.ToHexString(await SHA256.HashDataAsync(stream, cancellationToken)).ToLowerInvariant();
         }

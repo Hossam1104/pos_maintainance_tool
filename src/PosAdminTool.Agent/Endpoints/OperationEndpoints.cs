@@ -17,6 +17,13 @@ public static class OperationEndpoints
             var principal = context.User.Identity?.Name ?? string.Empty;
             var correlation = CorrelationIdContext.TryGet(context) ?? string.Empty;
             var key = context.Request.Headers["Idempotency-Key"].ToString();
+            if (key.Length > 128)
+            {
+                return Results.ValidationProblem(
+                    new Dictionary<string, string[]> { ["Idempotency-Key"] = ["The idempotency key must be 128 characters or fewer."] },
+                    extensions: new Dictionary<string, object?> { [ProblemDetailsExtensionKeys.ErrorCode] = ErrorCodes.ValidationFailed });
+            }
+
             return registry.TrySubmit(request.OperationType, request.BranchCodeSnapshot, principal, correlation, key, out var detail, out var duplicate) ? (duplicate ? Results.Ok(detail) : Results.Accepted($"/api/v1/operations/{detail!.OperationId}", detail)) : Results.Problem(statusCode: 429, extensions: new Dictionary<string, object?> { [ProblemDetailsExtensionKeys.ErrorCode] = ErrorCodes.OperationQueueFull });
         }).AddEndpointFilter<AntiforgeryEndpointFilter>().WithName("SubmitOperation").Produces<OperationDetailDto>(202).ProducesProblem(400).ProducesProblem(429);
         operations.MapGet(string.Empty, (OperationRegistry registry) => Results.Ok(registry.List())).WithName("ListOperations").Produces<IReadOnlyList<OperationSummaryDto>>();

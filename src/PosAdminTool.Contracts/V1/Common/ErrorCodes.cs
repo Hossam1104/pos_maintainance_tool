@@ -19,6 +19,7 @@ public static class ErrorCodes
     public const string HandleAlreadyUsed = "file_handle.already_used";
     public const string HandleWrongPrincipal = "file_handle.wrong_principal";
     public const string HandleWrongPurpose = "file_handle.wrong_purpose";
+    public const string HandleCapacity = "file_handle.capacity";
     public const string ConfigurationVersionConflict = "configuration.version_conflict";
     public const string OperationNotFound = "operation.not_found";
     public const string OperationQueueFull = "operation.queue_full";
@@ -34,4 +35,5 @@ public static class ErrorCodes
     public const string BackupConfigurationSourceMissing = "backup.configuration_source_missing";
     public const string BackupInsufficientSpace = "backup.insufficient_space";
     public const string BackupArtifactNotFound = "backup.artifact_not_found";
+    public const string BackupArtifactCatalogFull = "backup.artifact_catalog_full";
 }

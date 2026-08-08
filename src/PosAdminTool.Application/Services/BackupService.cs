@@ -157,6 +157,7 @@ public sealed partial class BackupService(
         var staged = new List<StagedBackupFile>();
         var errors = new List<string>();
         BackupArtifactResult? artifact = null;
+        var archiveCreatedByThisExecution = false;
 
         try
         {
@@ -273,6 +274,7 @@ public sealed partial class BackupService(
             }
 
             await fileSystem.MoveFileAsync(temporaryArchive, archivePath, overwrite: false, cancellationToken).ConfigureAwait(false);
+            archiveCreatedByThisExecution = true;
             var archiveSize = fileSystem.GetFileLength(archivePath);
             var archiveChecksum = await fileSystem.ComputeSha256Async(archivePath, cancellationToken).ConfigureAwait(false);
             artifact = new BackupArtifactResult(archivePath, archiveName, archiveSize, archiveChecksum, createdAtUtc);
@@ -299,6 +301,11 @@ public sealed partial class BackupService(
         finally
         {
             try { await fileSystem.DeleteFileAsync(temporaryArchive).ConfigureAwait(false); } catch { }
+            if (archiveCreatedByThisExecution && artifact is null)
+            {
+                try { await fileSystem.DeleteFileAsync(archivePath).ConfigureAwait(false); } catch { }
+            }
+
             try { await fileSystem.DeleteDirectoryAsync(stagingDirectory).ConfigureAwait(false); } catch { }
         }
     }

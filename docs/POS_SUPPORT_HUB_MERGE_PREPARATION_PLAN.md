@@ -243,23 +243,27 @@ The current `OperationRegistry` is an in-memory registry with a bounded Channel 
 cancellation, result artifact IDs, and state transitions. `OperationWorker` holds resource locks,
 executes backup work, registers artifacts, writes required audit records, and publishes changes.
 
-The queue capacity is **not** a retention policy. Source inspection confirmed the following
-merge-readiness correction:
+POS-M01 closes the queue-versus-retention gap with the injectable `RuntimeRetentionPolicy`. The
+default policy retains at most 64 completed operations for one hour, at most 32 events per
+operation, at most 64 activity records while preserving active visibility, at most 64 artifacts
+for 24 hours, and at most 256 five-minute file handles. The clock boundary is inclusive. Active
+queued/running operations and active artifact download leases are never evicted.
 
-| State | Verified current behavior | Required correction |
+The verified POS-M01 correction is:
+
+| State | Verified POS-M01 behavior | Retention consequence |
 | --- | --- | --- |
-| `_entries` | Concurrent dictionary grows for every operation; no eviction | Deterministic bounded completed-entry retention while preserving active operations |
-| `_idempotency` | Principal/key map has no independent retention/eviction | Define retention and cleanup that preserves valid duplicate behavior without stale unbounded keys |
-| Completed operation records | Completed entries remain available indefinitely | Retain a bounded, testable completed window and document not-found behavior after eviction |
-| Entry event lists | Each `Entry` appends to an unbounded `_events` list | Bound per-operation events while preserving required state/audit evidence |
-| Activity records | Derived from all retained entries, so it is unbounded with `_entries` | Make activity retention bounded and deterministic |
-| Artifact catalog | `ArtifactCatalog._entries` has no eviction or lifecycle policy | Add bounded metadata retention and safe artifact lifecycle rules; do not delete a legitimately downloadable artifact |
-| Cancellation cleanup | Worker releases locks through disposal and backup staging has cleanup, but retention/resource cleanup is not a single bounded policy | Test cancellation, disposal, abandoned work, and artifact cleanup paths |
-| Messages/audit | Operation messages are length/newline sanitized; audit is JSONL and destructive-operation oriented | Recheck all new workflows for safe, stable, non-sensitive messages and audit consistency |
+| `_entries` | Completed records are retained by count and inclusive age boundary; active records remain visible | The dictionary is bounded by active queue/worker capacity plus the explicit completed policy |
+| `_idempotency` | Principal/key mappings are removed with their evicted operation and stale mappings are pruned | A retained key returns the existing operation; an evicted key safely creates a new operation |
+| Completed operation records | Completed entries are available only during the one-hour/64-record retention window | Eviction returns the documented operation not-found result and never removes queued/running work |
+| Entry event lists | Required queued/running/terminal events and bounded warning evidence are retained | Progress/evidence storage is bounded to 32 events and messages are sanitized, newline-safe, and path/secret/exception-redacted |
+| Activity records | Activity is derived only from bounded operation state | The list is capped at 64 records while all active operations remain visible |
+| Artifact catalog | Metadata expires after 24 hours; valid entries are not evicted to make room; full admission fails closed | Active download leases defer expiry deletion until the response stream is disposed; missing/expired artifacts return not-found |
+| File-handle store | One-use handles are removed from active use, expired handles are pruned, and valid handles are never evicted for capacity | The five-minute/256-handle policy rejects new issuance when no safe slot exists |
+| Cancellation cleanup | Worker tokens link operation and shutdown cancellation; locks release on every acquisition failure; completed entries release work items | Backup temporary, staging, and unpublished post-move archives are cleaned with cancellation-independent cleanup |
+| Messages/audit | Operation messages and error codes are bounded/sanitized; audit remains destructive-operation-oriented JSONL | Audit writes use a non-cancelled completion token and never expose raw exception details |
 
-This is confirmed scope for POS-M01. It is documented here and intentionally **not implemented**
-by this reconciliation task. The ADR-approved in-memory architecture remains; no durable database
-or SQLite is to be introduced.
+The ADR-approved in-memory architecture remains; no durable database or SQLite was introduced.
 
 ## 12. Backup architecture
 
@@ -289,7 +293,7 @@ directly.
 
 | Risk | Current status and preparation response |
 | --- | --- |
-| Runtime state grows without bound | Confirmed in `OperationRegistry`, `Entry`, and `ArtifactCatalog`; POS-M01 |
+| Runtime state grows without bound | POS-M01 closed the confirmed gap with injectable operation, event, activity, artifact, and file-handle retention; full Release validation passed 141 .NET tests |
 | Restore archive validation is weak | Legacy `RestoreService` extracts without the required archive defenses; POS-M02 backend only |
 | Cleanup/reset safety is client/legacy driven | Legacy `CleanupService` expands and recursively deletes configured paths without the future policy boundary; POS-M03 backend only |
 | Downloader lacks Agent security/operation boundary | Legacy service has direct endpoint/SMB/credential behavior; POS-M04 |
@@ -301,17 +305,20 @@ directly.
 
 ## 14. Known architecture corrections
 
-The preparation programme must address these verified corrections or documentation reconciliations:
+POS-M01 verified and closed the following corrections while preserving the ADR-approved in-memory
+architecture:
 
-1. Make operation, idempotency, completed-record, event, activity, and artifact retention genuinely
-   bounded without changing the in-memory/no-SQLite decision.
-2. Preserve active-running operations and valid artifact downloads while evicting completed state by
-   a deterministic, injectable/testable policy.
-3. Keep cancellation and lock disposal correct on success, failure, cancellation, and worker exit.
-4. Keep all operation/audit messages sanitized and stable; never return paths, credentials, or raw
-   exception details.
-5. Replace stale Session 05 project-memory validation claims with the verified Session 08 result of
-   125 .NET tests plus the recorded Angular and WinUI publish gates.
+1. Operation, idempotency, completed-record, event, activity, artifact, and file-handle retention
+   are genuinely bounded without adding durable storage or SQLite.
+2. Active queued/running operations and valid artifact downloads are preserved while completed state
+   expires through a deterministic, injectable clock/count policy.
+3. Cancellation and lock disposal are covered on success, failure, cancellation, worker shutdown,
+   lock wait, and backup staging/post-move cleanup paths.
+4. Operation/audit messages remain sanitized and stable; no paths, credentials, or raw exception
+   details enter browser-facing operation evidence.
+5. Stale Session 05 claims remain historical; the recorded Session 08 baseline is 125 .NET tests,
+   8 Angular tests in 6 files, the backup E2E gate, and WinUI publish, while POS-M01 full Release
+   validation passed 141 .NET tests and retained WinUI publish.
 6. Keep the historical pre-Agent `docs/migration/CURRENT_STATE.md` and old migration runbooks
    clearly labeled as historical, not current execution authority.
 7. Treat existing Restore/Cleanup/Downloader DTOs and legacy application services as seams to
@@ -497,7 +504,7 @@ Support Hub frontend integration.
 
 | Item | Status | Gate / outcome |
 | --- | --- | --- |
-| POS-M01 | Prepared in `TASK.md`; intentionally not executed in this reconciliation | Owner authorization required |
+| POS-M01 | Complete | Runtime boundedness, cleanup, artifact lifecycle, focused tests, full Release validation, and retained WinUI publish passed |
 | POS-M02 | Pending POS-M01 | Backend restore/archive hardening only |
 | POS-M03 | Pending POS-M01 | Cleanup/reset backend safety only |
 | POS-M04 | Pending POS-M01 | Downloader backend/SMB portability only |

@@ -40,6 +40,16 @@ public static class FileEndpoints
                 var handle = handleStore.Issue(principalName, target.RootId, target.RelativeSubPath, request.Purpose);
                 return Results.Ok(handle);
             }
+            catch (FileHandleStoreCapacityException)
+            {
+                return Results.Problem(
+                    title: "File handle capacity reached",
+                    statusCode: StatusCodes.Status429TooManyRequests,
+                    extensions: new Dictionary<string, object?>
+                    {
+                        [ProblemDetailsExtensionKeys.ErrorCode] = ErrorCodes.HandleCapacity,
+                    });
+            }
             catch (FileBrowseValidationException ex)
             {
                 return ToProblem(ex);

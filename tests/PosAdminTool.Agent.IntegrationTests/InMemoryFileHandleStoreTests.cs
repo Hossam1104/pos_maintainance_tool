@@ -1,4 +1,5 @@
 using PosAdminTool.Agent.Files;
+using PosAdminTool.Agent;
 using PosAdminTool.Agent.IntegrationTests.TestSupport;
 using PosAdminTool.Contracts.V1.Common;
 using PosAdminTool.Contracts.V1.Files;
@@ -49,6 +50,25 @@ public class InMemoryFileHandleStoreTests
     }
 
     [Fact]
+    public void Redeem_AtExactExpiryBoundary_FailsAndPrunesTheHandle()
+    {
+        var clock = new ManualTimeProvider(Start);
+        var store = new InMemoryFileHandleStore(clock, new RuntimeRetentionPolicy
+        {
+            FileHandleLifetime = TimeSpan.FromMinutes(5),
+        });
+        var handle = store.Issue("DOMAIN\\alice", "root-1", "sub/path", FileHandlePurpose.RestoreSource);
+
+        clock.Advance(TimeSpan.FromMinutes(5));
+
+        var result = store.Redeem(handle.HandleId, "DOMAIN\\alice", FileHandlePurpose.RestoreSource);
+
+        Assert.False(result.Success);
+        Assert.Equal(ErrorCodes.HandleExpired, result.FailureErrorCode);
+        Assert.Equal(0, store.Count);
+    }
+
+    [Fact]
     public void Redeem_WrongPrincipal_FailsAndDoesNotConsumeTheHandle()
     {
         var store = new InMemoryFileHandleStore(new ManualTimeProvider(Start));
@@ -86,5 +106,17 @@ public class InMemoryFileHandleStoreTests
         Assert.True(first.Success);
         Assert.False(second.Success);
         Assert.Equal(ErrorCodes.HandleAlreadyUsed, second.FailureErrorCode);
+    }
+
+    [Fact]
+    public void Issue_WhenAtCapacity_FailsWithoutEvictingAValidHandle()
+    {
+        var clock = new ManualTimeProvider(Start);
+        var store = new InMemoryFileHandleStore(clock, new RuntimeRetentionPolicy { MaxFileHandles = 1 });
+        var first = store.Issue("DOMAIN\\alice", "root-1", "one", FileHandlePurpose.RestoreSource);
+
+        Assert.Throws<FileHandleStoreCapacityException>(() => store.Issue("DOMAIN\\alice", "root-1", "two", FileHandlePurpose.RestoreSource));
+        Assert.Equal(1, store.Count);
+        Assert.True(store.Redeem(first.HandleId, "DOMAIN\\alice", FileHandlePurpose.RestoreSource).Success);
     }
 }

@@ -16,9 +16,10 @@ This is a concise index of completed milestones. Detailed implementation evidenc
 | 2026-07-30 | Session 07 - Agent-backed service control | Complete with accepted live-SCM risk | [Gate record](../docs/migration/GATE_07.md); .NET build/tests, Angular unit, and Services E2E passed |
 | 2026-08-09 | Session 08 - Agent-backed local backup workflow | Complete with no real SQL execution | [Session log](../docs/migration/SESSION_LOG.md); solution .NET tests, Angular unit, backup E2E, and WinUI publish passed |
 | 2026-08-09 | POS -> RMS+ Support Hub roadmap reconciliation | Complete; planning/governance only, POS-M01 intentionally not executed | [Canonical preparation plan](../docs/POS_SUPPORT_HUB_MERGE_PREPARATION_PLAN.md); [canonical prompts](../docs/POS_SUPPORT_HUB_PREPARATION_SESSION_PROMPTS.md) |
+| 2026-08-09 | POS-M01 - runtime state boundedness and Session 08 architecture corrections | Complete; 141 .NET tests and retained WinUI publish passed | [Canonical preparation plan](../docs/POS_SUPPORT_HUB_MERGE_PREPARATION_PLAN.md); focused retention/cleanup tests |
 
 ## Active Programme
 
-- POS-M01 is prepared in `TASK.md` and requires owner authorization.
+- POS-M01 is complete; `TASK.md` contains the complete POS-M02 prompt for the next owner authorization.
 - POS-M02 through POS-M06 are defined in the canonical preparation prompts; POS-M05 requires Claude Opus 5 R1 review and POS-M06/R2 gate final merge-readiness.
 - The historical standalone Sessions 09-14 are superseded/deferred and must not be executed directly.
