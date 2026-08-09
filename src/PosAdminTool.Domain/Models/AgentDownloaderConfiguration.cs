@@ -12,11 +12,21 @@ public sealed class AgentDownloaderConfiguration
 
     public string RdbUsername { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Server-owned local path on the configured RDB host. It is intentionally omitted from browser
+    /// configuration DTOs and is never accepted from a batch request.
+    /// </summary>
+    public string BackupRootFolder { get; set; } = @"D:\DbBackups";
+
     public List<string> KnownBranchCodes { get; set; } = [];
 
     public int PollIntervalSeconds { get; set; } = 5;
 
     public int TimeoutSeconds { get; set; } = 1800;
+
+    public int StableSizeObservationAttempts { get; set; } = 3;
+
+    public int StableSizeObservationIntervalSeconds { get; set; } = 2;
 
     public AgentDownloaderConfiguration Clone()
     {
@@ -25,9 +35,12 @@ public sealed class AgentDownloaderConfiguration
             ApiUrl = ApiUrl,
             RdbServerIp = RdbServerIp,
             RdbUsername = RdbUsername,
+            BackupRootFolder = BackupRootFolder,
             KnownBranchCodes = [.. KnownBranchCodes],
             PollIntervalSeconds = PollIntervalSeconds,
-            TimeoutSeconds = TimeoutSeconds
+            TimeoutSeconds = TimeoutSeconds,
+            StableSizeObservationAttempts = StableSizeObservationAttempts,
+            StableSizeObservationIntervalSeconds = StableSizeObservationIntervalSeconds
         };
     }
 }

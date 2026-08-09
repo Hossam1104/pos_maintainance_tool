@@ -5,10 +5,15 @@ using PosAdminTool.Application.Maintenance;
 using PosAdminTool.Application.Restore;
 using PosAdminTool.Application.Services;
 using PosAdminTool.Contracts.V1.Common;
+using PosAdminTool.Contracts.V1.Downloader;
 using PosAdminTool.Contracts.V1.Maintenance;
 using PosAdminTool.Contracts.V1.Operations;
 using PosAdminTool.Domain.Enums;
 using PosAdminTool.Domain.Interfaces;
+using PosAdminTool.Domain.Models;
+using PosAdminTool.Infrastructure.Configuration;
+using PosAdminTool.Infrastructure.Http;
+using System.Security.Cryptography;
 
 namespace PosAdminTool.Agent.Operations;
 
@@ -18,11 +23,15 @@ public sealed class OperationWorker(
     ResourceLockSet locks,
     OperationAuditWriter audit,
     BackupService backupService,
+    DbDownloadService downloadService,
     RestoreService restoreService,
     MaintenanceService maintenanceService,
     RestoreSourceResolver restoreSourceResolver,
     ArtifactCatalog artifacts,
     IConfigurationService configuration,
+    IAgentSecretStore secrets,
+    AgentConfigurationStoreOptions configurationOptions,
+    TimeProvider timeProvider,
     IHostEnvironment environment,
     ILogger<OperationWorker> logger) : BackgroundService
 {
@@ -149,6 +158,26 @@ public sealed class OperationWorker(
                         _ => OperationState.Failed,
                     };
                 entry.Complete(state, state == OperationState.Failed ? "backup.failed" : state == OperationState.PartiallySucceeded ? "backup.partial_failure" : null);
+                await WriteAuditAsync().ConfigureAwait(false);
+                registry.Publish(entry);
+                return;
+            }
+
+            if (entry.Type == "downloader" && entry.WorkItem is DownloaderOperationWorkItem downloaderWorkItem)
+            {
+                var execution = await ExecuteDownloaderAsync(
+                    entry,
+                    downloaderWorkItem,
+                    downloadService,
+                    artifacts,
+                    secrets,
+                    configurationOptions,
+                    timeProvider,
+                    operationToken,
+                    stoppingToken).ConfigureAwait(false);
+                entry.SetDownloaderOutcome(execution.Outcome);
+                entry.SetResultArtifacts(execution.ArtifactIds);
+                entry.Complete(execution.State, execution.ErrorCode, preserveOutcomeOnCancellation: true);
                 await WriteAuditAsync().ConfigureAwait(false);
                 registry.Publish(entry);
                 return;
@@ -382,4 +411,430 @@ public sealed class OperationWorker(
             new MaintenanceExecutionEvidence(false, false, [], [], []),
             errorCode);
     }
+
+    private async Task<DownloaderWorkerResult> ExecuteDownloaderAsync(
+        OperationRegistry.Entry entry,
+        DownloaderOperationWorkItem workItem,
+        DbDownloadService downloadService,
+        ArtifactCatalog artifacts,
+        IAgentSecretStore secrets,
+        AgentConfigurationStoreOptions configurationOptions,
+        TimeProvider timeProvider,
+        CancellationToken operationToken,
+        CancellationToken stoppingToken)
+    {
+        var branches = workItem.BranchCodes
+            .Select(branch => new BranchBackupItem(branch))
+            .ToList();
+        var fallback = FailureOutcome(branches, DownloaderFailureCodes.InvalidConfiguration, triggerAccepted: false);
+
+        string? password;
+        try
+        {
+            password = await secrets.TryGetSecretAsync(AgentSecretKind.RdbPassword, operationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (operationToken.IsCancellationRequested || stoppingToken.IsCancellationRequested)
+        {
+            MarkCancelled(branches);
+            return BuildDownloaderResult(branches, null, triggerAccepted: false, operationToken, stoppingToken);
+        }
+
+        // A configured username requires the matching service-owned secret. When neither is
+        // configured, the SMB adapter may use the Agent's service identity and reports the
+        // explicit NoCredentialRequired outcome; an orphaned password is never surfaced or sent.
+        if (!string.IsNullOrWhiteSpace(workItem.Configuration.RdbUsername)
+            && string.IsNullOrWhiteSpace(password))
+        {
+            foreach (var item in branches)
+            {
+                item.Status = BranchBackupStatus.Failed;
+                item.FailureCode = DownloaderFailureCodes.CredentialMissing;
+                item.ErrorMessage = "The RDB credential is not configured.";
+            }
+
+            return BuildDownloaderResult(branches, null, triggerAccepted: false, operationToken, stoppingToken);
+        }
+
+        var settings = new DbDownloaderSettings
+        {
+            ApiUrl = workItem.Configuration.ApiUrl,
+            RdbServerIp = workItem.Configuration.RdbServerIp,
+            RdbUsername = workItem.Configuration.RdbUsername,
+            RdbPassword = password ?? string.Empty,
+            BackupRootFolder = workItem.Configuration.BackupRootFolder,
+            KnownBranchCodes = [.. workItem.Configuration.KnownBranchCodes],
+            PollIntervalSeconds = workItem.Configuration.PollIntervalSeconds,
+            TimeoutSeconds = workItem.Configuration.TimeoutSeconds,
+            StableSizeObservationAttempts = workItem.Configuration.StableSizeObservationAttempts,
+            StableSizeObservationIntervalSeconds = workItem.Configuration.StableSizeObservationIntervalSeconds
+        };
+
+        BackupJob? job = null;
+        try
+        {
+            job = await downloadService.RunAsync(
+                settings,
+                workItem.BranchCodes,
+                item => PublishDownloaderMirrorProgress(entry, branches, item),
+                progress: null,
+                operationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (operationToken.IsCancellationRequested || stoppingToken.IsCancellationRequested)
+        {
+            if (job is not null) MarkCancelled(job.Items);
+            else MarkCancelled(branches);
+            return BuildDownloaderResult(job?.Items ?? branches, job?.Serial, triggerAccepted: job is not null, operationToken, stoppingToken);
+        }
+        catch (Exception exception) when (exception is BackupApiPolicyException or BackupApiRequestException)
+        {
+            var code = exception is BackupApiPolicyException policyException
+                ? policyException.Code
+                : DownloaderFailureCodes.TriggerFailed;
+            foreach (var item in branches)
+            {
+                item.Status = BranchBackupStatus.Failed;
+                item.FailureCode = code;
+                item.ErrorMessage = "The backup trigger was rejected.";
+            }
+
+            return BuildDownloaderResult(branches, null, triggerAccepted: false, operationToken, stoppingToken);
+        }
+        catch
+        {
+            foreach (var item in branches)
+            {
+                item.Status = BranchBackupStatus.Failed;
+                item.FailureCode = DownloaderFailureCodes.TriggerFailed;
+                item.ErrorMessage = "The backup trigger could not be completed.";
+            }
+
+            return BuildDownloaderResult(branches, null, triggerAccepted: false, operationToken, stoppingToken);
+        }
+
+        if (job is null)
+        {
+            return new DownloaderWorkerResult(fallback, OperationState.Failed, DownloaderFailureCodes.InvalidConfiguration, []);
+        }
+
+        PublishDownloaderProgress(entry, job, null, triggerAccepted: true);
+        var stagingRoot = Path.Combine(configurationOptions.RootDirectory, "artifacts", "downloader", entry.Id);
+        try
+        {
+            Directory.CreateDirectory(stagingRoot);
+        }
+        catch
+        {
+            foreach (var item in job.Items.Where(item => item.Status == BranchBackupStatus.Ready))
+            {
+                item.Status = BranchBackupStatus.Failed;
+                item.FailureCode = DownloaderFailureCodes.InvalidConfiguration;
+                item.ErrorMessage = "The Agent staging area is unavailable.";
+            }
+
+            return BuildDownloaderResult(job.Items, job.Serial, triggerAccepted: true, operationToken, stoppingToken);
+        }
+
+        foreach (var item in job.Items.Where(item => item.Status == BranchBackupStatus.Ready).ToList())
+        {
+            if (operationToken.IsCancellationRequested || stoppingToken.IsCancellationRequested)
+            {
+                MarkCancelled(job.Items.Where(candidate => !IsTerminal(candidate)));
+                break;
+            }
+
+            var branchFolder = Path.Combine(stagingRoot, item.BranchCode);
+            using var downloadTimeout = CancellationTokenSource.CreateLinkedTokenSource(operationToken);
+            using var downloadTimeoutTimer = timeProvider.CreateTimer(
+                static state => ((CancellationTokenSource)state!).Cancel(),
+                downloadTimeout,
+                TimeSpan.FromSeconds(settings.TimeoutSeconds),
+                Timeout.InfiniteTimeSpan);
+            try
+            {
+                Directory.CreateDirectory(branchFolder);
+                var progress = new Progress<double>(value =>
+                {
+                    entry.Report(
+                        CalculateOverallProgress(job.Items, item, value),
+                        "downloader",
+                        $"{item.BranchCode}: downloading archive.");
+                    entry.SetDownloaderOutcome(BuildOutcome(job.Items, job.Serial, triggerAccepted: true));
+                    registry.Publish(entry);
+                });
+                await downloadService.DownloadAsync(
+                    settings,
+                    item,
+                    branchFolder,
+                    progress,
+                    downloadTimeout.Token,
+                    changed => PublishDownloaderProgress(entry, job, changed, triggerAccepted: true)).ConfigureAwait(false);
+
+                if (string.IsNullOrWhiteSpace(item.LocalDownloadPath) || !File.Exists(item.LocalDownloadPath))
+                {
+                    DeleteUnpublishedArchive(item);
+                    item.Status = BranchBackupStatus.Failed;
+                    item.FailureCode = DownloaderFailureCodes.ArtifactPublicationFailed;
+                    item.ErrorMessage = "The downloaded archive was not available for publication.";
+                    continue;
+                }
+
+                var metadata = artifacts.Register(
+                    entry.Principal,
+                    Path.GetFileName(item.LocalDownloadPath),
+                    item.LocalDownloadPath,
+                    new FileInfo(item.LocalDownloadPath).Length,
+                    Convert.ToHexString(await ComputeSha256Async(item.LocalDownloadPath, downloadTimeout.Token).ConfigureAwait(false)),
+                    timeProvider.GetUtcNow());
+                item.ArtifactId = metadata.ArtifactId;
+                PublishDownloaderProgress(entry, job, item, triggerAccepted: true);
+            }
+            catch (OperationCanceledException) when (downloadTimeout.IsCancellationRequested
+                && !operationToken.IsCancellationRequested
+                && !stoppingToken.IsCancellationRequested)
+            {
+                DeleteUnpublishedArchive(item);
+                item.Status = BranchBackupStatus.TimedOut;
+                item.FailureCode = DownloaderFailureCodes.Timeout;
+                item.ErrorMessage = "The branch download timed out.";
+                PublishDownloaderProgress(entry, job, item, triggerAccepted: true);
+            }
+            catch (OperationCanceledException) when (operationToken.IsCancellationRequested || stoppingToken.IsCancellationRequested)
+            {
+                DeleteUnpublishedArchive(item);
+                item.Status = BranchBackupStatus.Cancelled;
+                item.FailureCode = DownloaderFailureCodes.DownloadCancelled;
+                item.ErrorMessage = "The branch download was cancelled.";
+                MarkCancelled(job.Items.Where(candidate => !IsTerminal(candidate)));
+                break;
+            }
+            catch (ArtifactCatalogCapacityException)
+            {
+                DeleteUnpublishedArchive(item);
+                item.Status = BranchBackupStatus.Failed;
+                item.FailureCode = DownloaderFailureCodes.ArtifactCatalogFull;
+                item.ErrorMessage = "The Agent artifact retention limit was reached.";
+                PublishDownloaderProgress(entry, job, item, triggerAccepted: true);
+            }
+            catch
+            {
+                DeleteUnpublishedArchive(item);
+                item.Status = BranchBackupStatus.Failed;
+                item.FailureCode = item.FailureCode ?? DownloaderFailureCodes.ArtifactPublicationFailed;
+                item.ErrorMessage = "The branch archive could not be published.";
+                PublishDownloaderProgress(entry, job, item, triggerAccepted: true);
+            }
+        }
+
+        return BuildDownloaderResult(job.Items, job.Serial, triggerAccepted: true, operationToken, stoppingToken);
+    }
+
+    private void PublishDownloaderProgress(
+        OperationRegistry.Entry entry,
+        BackupJob? job,
+        BranchBackupItem? changed,
+        bool triggerAccepted)
+    {
+        if (job is null)
+        {
+            return;
+        }
+
+        var outcome = BuildOutcome(job.Items, job.Serial, triggerAccepted);
+        entry.SetDownloaderOutcome(outcome);
+        if (changed is not null)
+        {
+            entry.Report(
+                CalculateOverallProgress(job.Items, changed),
+                "downloader",
+                $"{changed.BranchCode}: {ToSafeState(changed.Status)}.");
+        }
+
+        registry.Publish(entry);
+    }
+
+    private void PublishDownloaderMirrorProgress(
+        OperationRegistry.Entry entry,
+        IReadOnlyList<BranchBackupItem> mirror,
+        BranchBackupItem changed)
+    {
+        var current = mirror.FirstOrDefault(item =>
+            string.Equals(item.BranchCode, changed.BranchCode, StringComparison.OrdinalIgnoreCase));
+        if (current is null) return;
+
+        current.Status = changed.Status;
+        current.FailureCode = changed.FailureCode;
+        current.ArtifactId = changed.ArtifactId;
+        current.LastObservedSizeBytes = changed.LastObservedSizeBytes;
+        entry.SetDownloaderOutcome(BuildOutcome(mirror, null, triggerAccepted: true));
+        entry.Report(
+            CalculateOverallProgress(mirror, current),
+            "downloader",
+            $"{current.BranchCode}: {ToSafeState(current.Status)}.");
+        registry.Publish(entry);
+    }
+
+    private static DownloaderWorkerResult BuildDownloaderResult(
+        IReadOnlyList<BranchBackupItem> items,
+        string? serial,
+        bool triggerAccepted,
+        CancellationToken operationToken,
+        CancellationToken stoppingToken)
+    {
+        var completed = items.Count(item => item.Status == BranchBackupStatus.Downloaded);
+        var cancelled = items.Count(item => item.Status == BranchBackupStatus.Cancelled);
+        var failed = items.Count(item => item.Status == BranchBackupStatus.Failed);
+        var timedOut = items.Count(item => item.Status == BranchBackupStatus.TimedOut);
+        var allTerminal = items.All(IsTerminal);
+        var cancellationRequested = operationToken.IsCancellationRequested || stoppingToken.IsCancellationRequested;
+
+        OperationState state;
+        string? errorCode;
+        if (completed == items.Count && items.Count > 0)
+        {
+            state = OperationState.Succeeded;
+            errorCode = null;
+        }
+        else if (completed > 0)
+        {
+            state = OperationState.PartiallySucceeded;
+            errorCode = cancellationRequested ? DownloaderFailureCodes.CancelledAfterPartial : DownloaderFailureCodes.PartialFailure;
+        }
+        else if (cancellationRequested || cancelled == items.Count)
+        {
+            state = OperationState.Cancelled;
+            errorCode = null;
+        }
+        else if (timedOut > 0 && failed == 0)
+        {
+            state = OperationState.Failed;
+            errorCode = DownloaderFailureCodes.Timeout;
+        }
+        else
+        {
+            state = OperationState.Failed;
+            errorCode = allTerminal && failed + timedOut == items.Count
+                ? DownloaderFailureCodes.PartialFailure
+                : DownloaderFailureCodes.TriggerFailed;
+        }
+
+        return new DownloaderWorkerResult(BuildOutcome(items, serial, triggerAccepted), state, errorCode, items.Where(item => item.ArtifactId is not null).Select(item => item.ArtifactId!).ToList());
+    }
+
+    private static DownloaderOperationOutcomeDto FailureOutcome(
+        IReadOnlyList<BranchBackupItem> items,
+        string failureCode,
+        bool triggerAccepted) =>
+        new(
+            items.Select(item => new DownloaderBranchOutcomeDto(item.BranchCode, DownloaderBranchState.Failed, 100, failureCode)).ToList(),
+            null,
+            triggerAccepted);
+
+    private static DownloaderOperationOutcomeDto BuildOutcome(
+        IReadOnlyList<BranchBackupItem> items,
+        string? serial,
+        bool triggerAccepted) =>
+        new(
+            items.Select(item => new DownloaderBranchOutcomeDto(
+                item.BranchCode,
+                MapBranchState(item.Status),
+                BranchProgress(item.Status),
+                item.FailureCode,
+                item.ArtifactId)).ToList(),
+            serial,
+            triggerAccepted);
+
+    private static DownloaderBranchState MapBranchState(BranchBackupStatus status) => status switch
+    {
+        BranchBackupStatus.Triggered => DownloaderBranchState.Triggered,
+        BranchBackupStatus.Waiting => DownloaderBranchState.Waiting,
+        BranchBackupStatus.ZipDetected => DownloaderBranchState.Detected,
+        BranchBackupStatus.Validating => DownloaderBranchState.Validating,
+        BranchBackupStatus.Ready => DownloaderBranchState.Ready,
+        BranchBackupStatus.Downloading => DownloaderBranchState.Downloading,
+        BranchBackupStatus.Downloaded => DownloaderBranchState.Completed,
+        BranchBackupStatus.TimedOut => DownloaderBranchState.TimedOut,
+        BranchBackupStatus.Cancelled => DownloaderBranchState.Cancelled,
+        BranchBackupStatus.Failed => DownloaderBranchState.Failed,
+        _ => DownloaderBranchState.Pending
+    };
+
+    private static int BranchProgress(BranchBackupStatus status) => status switch
+    {
+        BranchBackupStatus.Triggered => 10,
+        BranchBackupStatus.Waiting => 20,
+        BranchBackupStatus.ZipDetected => 35,
+        BranchBackupStatus.Validating => 45,
+        BranchBackupStatus.Ready => 55,
+        BranchBackupStatus.Downloading => 65,
+        BranchBackupStatus.Downloaded or BranchBackupStatus.TimedOut or BranchBackupStatus.Cancelled or BranchBackupStatus.Failed => 100,
+        _ => 0
+    };
+
+    private static int CalculateOverallProgress(IReadOnlyList<BranchBackupItem> items, BranchBackupItem changed, double? downloadProgress = null)
+    {
+        if (items.Count == 0) return 0;
+        var total = items.Sum(item =>
+        {
+            if (ReferenceEquals(item, changed) && downloadProgress is { } value && item.Status == BranchBackupStatus.Downloading)
+            {
+                return 60 + (int)Math.Round(Math.Clamp(value, 0, 1) * 40);
+            }
+
+            return BranchProgress(item.Status);
+        });
+        return Math.Clamp(total / items.Count, 0, 100);
+    }
+
+    private static string ToSafeState(BranchBackupStatus status) => status switch
+    {
+        BranchBackupStatus.Downloaded => "completed",
+        BranchBackupStatus.TimedOut => "timed out",
+        BranchBackupStatus.Cancelled => "cancelled",
+        BranchBackupStatus.Failed => "failed",
+        _ => status.ToString().ToLowerInvariant()
+    };
+
+    private static void MarkCancelled(IEnumerable<BranchBackupItem> items)
+    {
+        foreach (var item in items)
+        {
+            if (IsTerminal(item)) continue;
+            item.Status = BranchBackupStatus.Cancelled;
+            item.FailureCode = DownloaderFailureCodes.DownloadCancelled;
+            item.ErrorMessage = "The downloader operation was cancelled.";
+        }
+    }
+
+    private static bool IsTerminal(BranchBackupItem item) => item.Status is
+        BranchBackupStatus.Downloaded
+        or BranchBackupStatus.Failed
+        or BranchBackupStatus.TimedOut
+        or BranchBackupStatus.Cancelled;
+
+    private static void DeleteUnpublishedArchive(BranchBackupItem item)
+    {
+        if (item.ArtifactId is not null || string.IsNullOrWhiteSpace(item.LocalDownloadPath)) return;
+
+        try
+        {
+            if (File.Exists(item.LocalDownloadPath)) File.Delete(item.LocalDownloadPath);
+        }
+        catch
+        {
+            // An unpublished cleanup failure never enters the Agent contract. A later service-owned
+            // staging sweep can remove the orphan without deleting a published artifact.
+        }
+    }
+
+    private static async Task<byte[]> ComputeSha256Async(string path, CancellationToken cancellationToken)
+    {
+        await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        return await SHA256.HashDataAsync(stream, cancellationToken).ConfigureAwait(false);
+    }
+
+    private sealed record DownloaderWorkerResult(
+        DownloaderOperationOutcomeDto Outcome,
+        OperationState State,
+        string? ErrorCode,
+        IReadOnlyList<string> ArtifactIds);
 }

@@ -1,19 +1,124 @@
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using PosAdminTool.Domain.Interfaces;
+using PosAdminTool.Domain.Models;
 
 namespace PosAdminTool.Infrastructure.Http;
 
-public sealed class BackupApiClient(HttpClient httpClient) : IBackupApiClient
+/// <summary>
+/// Triggers only the server-configured RMS endpoint. Automatic redirects are intentionally not
+/// trusted; every redirect is inspected by the same endpoint policy before another request is sent.
+/// </summary>
+public sealed class BackupApiClient : IBackupApiClient
 {
-    public async Task TriggerBackupAsync(string apiUrl, IReadOnlyList<string> branchCodes, CancellationToken cancellationToken = default)
-    {
-        using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl)
-        {
-            Content = JsonContent.Create(branchCodes)
-        };
-        request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("text/plain"));
+    private readonly HttpClient _httpClient;
+    private readonly IHostAddressResolver _addressResolver;
 
-        using var response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
+    public BackupApiClient(HttpClient httpClient, IHostAddressResolver? addressResolver = null)
+    {
+        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        _addressResolver = addressResolver ?? new SystemHostAddressResolver();
     }
+
+    public async Task TriggerBackupAsync(
+        string apiUrl,
+        IReadOnlyList<string> branchCodes,
+        CancellationToken cancellationToken = default)
+    {
+        IReadOnlyList<string> normalizedBranches;
+        try
+        {
+            normalizedBranches = DownloaderInputPolicy.NormalizeBranchCodes(branchCodes);
+        }
+        catch (ArgumentException)
+        {
+            throw new BackupApiPolicyException(DownloaderFailureCodes.InvalidBranch);
+        }
+
+        BackupApiEndpointPolicy policy;
+        Uri current;
+        try
+        {
+            policy = BackupApiEndpointPolicy.FromConfiguredEndpoint(apiUrl);
+            current = policy.ValidateInitial(apiUrl);
+            await policy.ValidateResolvedAddressesAsync(current, _addressResolver, cancellationToken).ConfigureAwait(false);
+        }
+        catch (BackupApiPolicyException)
+        {
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            throw new BackupApiPolicyException(DownloaderFailureCodes.EndpointRejected);
+        }
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(policy.RequestTimeout);
+
+        for (var redirect = 0; ; redirect++)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, current)
+            {
+                Content = JsonContent.Create(normalizedBranches)
+            };
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/plain"));
+
+            HttpResponseMessage response;
+            try
+            {
+                response = await _httpClient.SendAsync(
+                    request,
+                    HttpCompletionOption.ResponseHeadersRead,
+                    timeout.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                throw new BackupApiRequestException(DownloaderFailureCodes.TriggerFailed);
+            }
+
+            using (response)
+            {
+                // This also detects a client configured with an unsafe automatic redirect handler
+                // after the fact; production registration disables automatic redirects entirely.
+                if (response.RequestMessage?.RequestUri is { } actualUri
+                    && !string.Equals(actualUri.AbsoluteUri, current.AbsoluteUri, StringComparison.Ordinal))
+                {
+                    throw new BackupApiPolicyException("downloader.redirect_rejected");
+                }
+
+                if ((int)response.StatusCode is >= 300 and < 400)
+                {
+                    if (redirect >= policy.MaxRedirects || response.Headers.Location is not { } location)
+                    {
+                        throw new BackupApiPolicyException("downloader.redirect_rejected");
+                    }
+
+                    current = policy.ValidateRedirect(current, location);
+                    await policy.ValidateResolvedAddressesAsync(current, _addressResolver, timeout.Token).ConfigureAwait(false);
+                    continue;
+                }
+
+                if (!response.IsSuccessStatusCode
+                    || response.Content.Headers.ContentLength is > 64 * 1024)
+                {
+                    throw new BackupApiRequestException(DownloaderFailureCodes.TriggerFailed);
+                }
+
+                return;
+            }
+        }
+    }
+}
+
+public sealed class BackupApiRequestException(string code) : InvalidOperationException("The backup request failed.")
+{
+    public string Code { get; } = code;
 }

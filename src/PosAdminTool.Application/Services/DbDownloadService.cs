@@ -5,8 +5,29 @@ using PosAdminTool.Domain.Models;
 
 namespace PosAdminTool.Application.Services;
 
-public sealed partial class DbDownloadService(IBackupApiClient apiClient, IBackupRepository backupRepository)
+/// <summary>
+/// Reusable downloader orchestration. It deliberately keeps remote/local paths in the internal
+/// adapter model only; Agent callers project branch-safe state and opaque artifact capabilities.
+/// </summary>
+public sealed partial class DbDownloadService
 {
+    private readonly IBackupApiClient _apiClient;
+    private readonly IBackupRepository _backupRepository;
+    private readonly TimeProvider _timeProvider;
+    private readonly IDownloaderDelay _delay;
+
+    public DbDownloadService(
+        IBackupApiClient apiClient,
+        IBackupRepository backupRepository,
+        TimeProvider? timeProvider = null,
+        IDownloaderDelay? delay = null)
+    {
+        _apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
+        _backupRepository = backupRepository ?? throw new ArgumentNullException(nameof(backupRepository));
+        _timeProvider = timeProvider ?? TimeProvider.System;
+        _delay = delay ?? new SystemDownloaderDelay();
+    }
+
     public async Task<BackupJob> RunAsync(
         DbDownloaderSettings settings,
         IReadOnlyList<string> branchCodes,
@@ -14,81 +35,148 @@ public sealed partial class DbDownloadService(IBackupApiClient apiClient, IBacku
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        var job = new BackupJob(branchCodes);
-        var connection = new RemoteConnectionInfo(settings.RdbServerIp, settings.RdbUsername, settings.RdbPassword);
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(settings.TimeoutSeconds);
+        DownloaderInputPolicy.ValidateSettings(settings);
+        var normalizedBranches = DownloaderInputPolicy.NormalizeBranchCodes(branchCodes);
+        var job = new BackupJob(normalizedBranches, _timeProvider);
+        var connection = new RemoteConnectionInfo(
+            settings.RdbServerIp,
+            settings.RdbUsername,
+            settings.RdbPassword,
+            settings.BackupRootFolder);
+        var deadline = job.TriggeredAtUtc.AddSeconds(settings.TimeoutSeconds);
 
-        var triggeredAtUtc = DateTimeOffset.UtcNow;
-        progress?.Report($"Triggering backup job for {branchCodes.Count} branch(es)...");
-        await apiClient.TriggerBackupAsync(settings.ApiUrl, branchCodes, cancellationToken).ConfigureAwait(false);
-
-        var batchFolder = await DiscoverBatchFolderAsync(connection, settings.BackupRootFolder, triggeredAtUtc, deadline, progress, cancellationToken)
-            .ConfigureAwait(false);
-        if (batchFolder is null)
+        try
         {
-            progress?.Report("Batch folder was not found within the timeout.");
+            progress?.Report($"Triggering backup job for {job.Items.Count} branch(es)...");
+            await _apiClient.TriggerBackupAsync(settings.ApiUrl, normalizedBranches, cancellationToken).ConfigureAwait(false);
+
             foreach (var item in job.Items)
             {
+                item.Status = BranchBackupStatus.Triggered;
+                Notify(item, onItemChanged);
+            }
+
+            var batchFolder = await DiscoverBatchFolderAsync(
+                connection,
+                settings.BackupRootFolder,
+                job.TriggeredAtUtc,
+                deadline,
+                progress,
+                cancellationToken).ConfigureAwait(false);
+
+            if (batchFolder is null)
+            {
+                foreach (var item in job.Items.Where(item => !IsTerminal(item.Status)))
+                {
+                    item.Status = BranchBackupStatus.TimedOut;
+                    item.FailureCode = DownloaderFailureCodes.BatchFolderTimeout;
+                    item.ErrorMessage = "The backup batch did not appear before the timeout.";
+                    Notify(item, onItemChanged);
+                }
+
+                progress?.Report("The backup batch did not appear before the timeout.");
+                return job;
+            }
+
+            job.BatchFolderPath = batchFolder.FullPath;
+            progress?.Report("A backup batch was detected.");
+            foreach (var item in job.Items.Where(item => item.Status == BranchBackupStatus.Triggered))
+            {
+                item.Status = BranchBackupStatus.Waiting;
+                Notify(item, onItemChanged);
+            }
+
+            var pending = job.Items
+                .Where(item => item.Status is BranchBackupStatus.Waiting or BranchBackupStatus.Pending)
+                .ToList();
+            while (pending.Count > 0 && _timeProvider.GetUtcNow() < deadline && !cancellationToken.IsCancellationRequested)
+            {
+                var files = await _backupRepository.ListFilesAsync(connection, batchFolder.FullPath, cancellationToken).ConfigureAwait(false);
+
+                foreach (var item in pending.ToList())
+                {
+                    var match = files
+                        .Where(file => IsZipForBranch(file.Name, item.BranchCode))
+                        .OrderByDescending(file => file.CreatedAtUtc)
+                        .ThenBy(file => file.Name, StringComparer.OrdinalIgnoreCase)
+                        .FirstOrDefault();
+                    if (match is null)
+                    {
+                        continue;
+                    }
+
+                    job.Serial ??= ExtractSerial(match.Name);
+                    item.RemoteZipPath = match.FullPath;
+                    item.Status = BranchBackupStatus.ZipDetected;
+                    item.FailureCode = null;
+                    item.ErrorMessage = null;
+                    Notify(item, onItemChanged);
+                    progress?.Report($"{item.BranchCode}: backup archive detected.");
+
+                    item.Status = BranchBackupStatus.Validating;
+                    Notify(item, onItemChanged);
+                    var stableSize = await IsFileStableAsync(
+                        connection,
+                        match,
+                        settings,
+                        deadline,
+                        cancellationToken).ConfigureAwait(false);
+
+                    if (stableSize is null)
+                    {
+                        item.Status = BranchBackupStatus.Waiting;
+                        item.RemoteZipPath = null;
+                        item.FailureCode = _timeProvider.GetUtcNow() >= deadline
+                            ? DownloaderFailureCodes.StableSizeTimeout
+                            : null;
+                        item.ErrorMessage = null;
+                        Notify(item, onItemChanged);
+                        continue;
+                    }
+
+                    item.Status = BranchBackupStatus.Ready;
+                    item.LastObservedSizeBytes = stableSize.Value;
+                    item.FailureCode = null;
+                    item.ErrorMessage = null;
+                    Notify(item, onItemChanged);
+                    progress?.Report($"{item.BranchCode}: backup archive is ready.");
+                    pending.Remove(item);
+                }
+
+                if (pending.Count > 0)
+                {
+                    await DelayBeforeDeadlineAsync(
+                        TimeSpan.FromSeconds(settings.PollIntervalSeconds),
+                        deadline,
+                        cancellationToken).ConfigureAwait(false);
+                }
+            }
+
+            foreach (var item in pending)
+            {
                 item.Status = BranchBackupStatus.TimedOut;
-                item.ErrorMessage = "Batch folder never appeared.";
-                onItemChanged?.Invoke(item);
+                item.FailureCode = item.FailureCode == DownloaderFailureCodes.StableSizeTimeout
+                    ? DownloaderFailureCodes.StableSizeTimeout
+                    : DownloaderFailureCodes.ZipTimeout;
+                item.ErrorMessage = "The branch archive did not become ready before the timeout.";
+                Notify(item, onItemChanged);
+                progress?.Report($"{item.BranchCode}: timed out waiting for a ready archive.");
             }
 
             return job;
         }
-
-        job.BatchFolderPath = batchFolder.FullPath;
-        progress?.Report($"Watching batch folder: {batchFolder.FullPath}");
-
-        var pollInterval = TimeSpan.FromSeconds(settings.PollIntervalSeconds);
-
-        var pending = job.Items.Where(i => i.Status == BranchBackupStatus.Pending).ToList();
-        while (pending.Count > 0 && DateTimeOffset.UtcNow < deadline && !cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            var files = await backupRepository.ListFilesAsync(connection, batchFolder.FullPath, cancellationToken).ConfigureAwait(false);
-
-            foreach (var item in pending.ToList())
+            foreach (var item in job.Items.Where(item => !IsTerminal(item.Status)))
             {
-                var match = files.FirstOrDefault(f => IsZipForBranch(f.Name, item.BranchCode));
-                if (match is null)
-                {
-                    continue;
-                }
-
-                job.Serial ??= ExtractSerial(match.Name);
-                item.RemoteZipPath = match.FullPath;
-                item.Status = BranchBackupStatus.ZipDetected;
-                onItemChanged?.Invoke(item);
-                progress?.Report($"{item.BranchCode}: zip detected ({match.Name})");
-
-                var isStable = await IsFileStableAsync(connection, match, cancellationToken).ConfigureAwait(false);
-                item.Status = BranchBackupStatus.Validating;
-                onItemChanged?.Invoke(item);
-
-                if (isStable)
-                {
-                    item.Status = BranchBackupStatus.Ready;
-                    onItemChanged?.Invoke(item);
-                    progress?.Report($"{item.BranchCode}: ready for download");
-                    pending.Remove(item);
-                }
+                item.Status = BranchBackupStatus.Cancelled;
+                item.FailureCode = DownloaderFailureCodes.DownloadCancelled;
+                item.ErrorMessage = "The downloader operation was cancelled.";
+                Notify(item, onItemChanged);
             }
 
-            if (pending.Count > 0)
-            {
-                await Task.Delay(pollInterval, CancellationToken.None).ConfigureAwait(false);
-            }
+            return job;
         }
-
-        foreach (var item in pending)
-        {
-            item.Status = BranchBackupStatus.TimedOut;
-            item.ErrorMessage = "Zip file did not appear before the timeout.";
-            onItemChanged?.Invoke(item);
-            progress?.Report($"{item.BranchCode}: timed out waiting for zip");
-        }
-
-        return job;
     }
 
     public async Task DownloadAsync(
@@ -96,29 +184,65 @@ public sealed partial class DbDownloadService(IBackupApiClient apiClient, IBacku
         BranchBackupItem item,
         string localFolder,
         IProgress<double>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Action<BranchBackupItem>? onItemChanged = null)
     {
-        if (item.RemoteZipPath is null)
-        {
-            throw new InvalidOperationException($"Branch {item.BranchCode} has no remote zip path yet.");
-        }
+        ArgumentNullException.ThrowIfNull(item);
+        DownloaderInputPolicy.ValidateSettings(settings);
+        _ = DownloaderInputPolicy.NormalizeBranchCodes([item.BranchCode]);
 
-        var connection = new RemoteConnectionInfo(settings.RdbServerIp, settings.RdbUsername, settings.RdbPassword);
-        Directory.CreateDirectory(localFolder);
-        var localPath = Path.Combine(localFolder, Path.GetFileName(item.RemoteZipPath));
-
-        item.Status = BranchBackupStatus.Downloading;
-        try
-        {
-            await backupRepository.DownloadFileAsync(connection, item.RemoteZipPath, localPath, progress, cancellationToken).ConfigureAwait(false);
-            item.LocalDownloadPath = localPath;
-            item.Status = BranchBackupStatus.Downloaded;
-        }
-        catch (Exception ex)
+        if (string.IsNullOrWhiteSpace(item.RemoteZipPath)
+            || !DownloaderInputPolicy.IsSafeArchiveFileName(Path.GetFileName(item.RemoteZipPath)))
         {
             item.Status = BranchBackupStatus.Failed;
-            item.ErrorMessage = ex.Message;
+            item.FailureCode = DownloaderFailureCodes.InvalidConfiguration;
+            item.ErrorMessage = "The branch archive is not ready for download.";
+            Notify(item, onItemChanged);
+            throw new InvalidOperationException("The branch archive is not ready for download.");
+        }
+
+        var fileName = Path.GetFileName(item.RemoteZipPath);
+        Directory.CreateDirectory(localFolder);
+        var localPath = Path.Combine(localFolder, fileName);
+        var connection = new RemoteConnectionInfo(
+            settings.RdbServerIp,
+            settings.RdbUsername,
+            settings.RdbPassword,
+            settings.BackupRootFolder);
+
+        item.Status = BranchBackupStatus.Downloading;
+        item.FailureCode = null;
+        item.ErrorMessage = null;
+        Notify(item, onItemChanged);
+        try
+        {
+            await _backupRepository.DownloadFileAsync(
+                connection,
+                item.RemoteZipPath,
+                localPath,
+                progress,
+                cancellationToken).ConfigureAwait(false);
+            item.LocalDownloadPath = localPath;
+            item.Status = BranchBackupStatus.Downloaded;
+            item.FailureCode = null;
+            item.ErrorMessage = null;
+            Notify(item, onItemChanged);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            item.Status = BranchBackupStatus.Cancelled;
+            item.FailureCode = DownloaderFailureCodes.DownloadCancelled;
+            item.ErrorMessage = "The branch download was cancelled.";
+            Notify(item, onItemChanged);
             throw;
+        }
+        catch
+        {
+            item.Status = BranchBackupStatus.Failed;
+            item.FailureCode = DownloaderFailureCodes.DownloadFailed;
+            item.ErrorMessage = "The branch archive could not be downloaded.";
+            Notify(item, onItemChanged);
+            throw new InvalidOperationException("The branch archive could not be downloaded.");
         }
     }
 
@@ -130,17 +254,18 @@ public sealed partial class DbDownloadService(IBackupApiClient apiClient, IBacku
         IProgress<string>? progress,
         CancellationToken cancellationToken)
     {
-        while (DateTimeOffset.UtcNow < deadline && !cancellationToken.IsCancellationRequested)
+        while (_timeProvider.GetUtcNow() < deadline && !cancellationToken.IsCancellationRequested)
         {
-            var directories = await backupRepository.ListDirectoriesAsync(connection, rootFolder, cancellationToken).ConfigureAwait(false);
+            var directories = await _backupRepository.ListDirectoriesAsync(connection, rootFolder, cancellationToken).ConfigureAwait(false);
             var candidates = directories
-                .Where(d => d.CreatedAtUtc >= triggeredAtUtc.AddSeconds(-5))
-                .OrderByDescending(d => d.CreatedAtUtc)
+                .Where(directory => directory.CreatedAtUtc >= triggeredAtUtc.AddSeconds(-5))
+                .OrderByDescending(directory => directory.CreatedAtUtc)
+                .ThenBy(directory => directory.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
             if (candidates.Count > 1)
             {
-                progress?.Report($"Warning: {candidates.Count} new folders appeared since the job was triggered; using the most recent.");
+                progress?.Report($"{candidates.Count} new backup batches were found; using the newest.");
             }
 
             if (candidates.Count > 0)
@@ -148,27 +273,74 @@ public sealed partial class DbDownloadService(IBackupApiClient apiClient, IBacku
                 return candidates[0];
             }
 
-            await Task.Delay(TimeSpan.FromSeconds(2), CancellationToken.None).ConfigureAwait(false);
+            await DelayBeforeDeadlineAsync(TimeSpan.FromSeconds(2), deadline, cancellationToken).ConfigureAwait(false);
         }
 
         return null;
     }
 
-    private async Task<bool> IsFileStableAsync(RemoteConnectionInfo connection, RemoteEntryInfo file, CancellationToken cancellationToken)
+    private async Task<long?> IsFileStableAsync(
+        RemoteConnectionInfo connection,
+        RemoteEntryInfo file,
+        DbDownloaderSettings settings,
+        DateTimeOffset deadline,
+        CancellationToken cancellationToken)
     {
-        var firstSize = file.SizeBytes;
-        await Task.Delay(TimeSpan.FromSeconds(2), CancellationToken.None).ConfigureAwait(false);
-        var refreshed = await backupRepository.ListFilesAsync(connection, Path.GetDirectoryName(file.FullPath) ?? string.Empty, cancellationToken)
-            .ConfigureAwait(false);
-        var current = refreshed.FirstOrDefault(f => f.FullPath == file.FullPath);
-        return current is not null && current.SizeBytes == firstSize && current.SizeBytes > 0;
+        // Once a concrete archive has been detected, finish the bounded stability proof even if
+        // the outer discovery deadline has elapsed. This preserves the legacy behavior where an
+        // already-present archive can become Ready while other branches still time out; the
+        // stability window itself is bounded by attempts and remains cancellation-aware.
+        var lastSize = file.SizeBytes;
+        var stableObservations = 0;
+        for (var attempt = 0; attempt < settings.StableSizeObservationAttempts; attempt++)
+        {
+            await _delay.DelayAsync(
+                TimeSpan.FromSeconds(settings.StableSizeObservationIntervalSeconds),
+                cancellationToken).ConfigureAwait(false);
+            var parent = Path.GetDirectoryName(file.FullPath) ?? string.Empty;
+            var refreshed = await _backupRepository.ListFilesAsync(connection, parent, cancellationToken).ConfigureAwait(false);
+            var current = refreshed.FirstOrDefault(candidate =>
+                string.Equals(candidate.FullPath, file.FullPath, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(candidate.Name, file.Name, StringComparison.OrdinalIgnoreCase));
+            if (current is null || current.SizeBytes <= 0)
+            {
+                stableObservations = 0;
+                continue;
+            }
+
+            if (current.SizeBytes == lastSize && lastSize > 0)
+            {
+                stableObservations++;
+                if (stableObservations >= 1) return current.SizeBytes;
+            }
+            else
+            {
+                lastSize = current.SizeBytes;
+                stableObservations = 0;
+            }
+        }
+
+        return null;
     }
 
-    private static bool IsZipForBranch(string fileName, string branchCode)
+    private async Task DelayBeforeDeadlineAsync(TimeSpan requested, DateTimeOffset deadline, CancellationToken cancellationToken)
     {
-        return fileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
-            && fileName.StartsWith(branchCode + "_", StringComparison.OrdinalIgnoreCase);
+        var remaining = deadline - _timeProvider.GetUtcNow();
+        if (remaining <= TimeSpan.Zero) return;
+        await _delay.DelayAsync(requested <= remaining ? requested : remaining, cancellationToken).ConfigureAwait(false);
     }
+
+    private static bool IsTerminal(BranchBackupStatus status) => status is
+        BranchBackupStatus.Downloaded
+        or BranchBackupStatus.Failed
+        or BranchBackupStatus.TimedOut
+        or BranchBackupStatus.Cancelled;
+
+    private static bool IsZipForBranch(string fileName, string branchCode) =>
+        DownloaderInputPolicy.IsSafeArchiveFileName(fileName)
+        && fileName.StartsWith(branchCode + "_", StringComparison.OrdinalIgnoreCase);
+
+    private static void Notify(BranchBackupItem item, Action<BranchBackupItem>? onItemChanged) => onItemChanged?.Invoke(item);
 
     private static string? ExtractSerial(string fileName)
     {
@@ -176,6 +348,12 @@ public sealed partial class DbDownloadService(IBackupApiClient apiClient, IBacku
         return match.Success ? match.Groups[1].Value : null;
     }
 
-    [GeneratedRegex(@"_(\d+)\.zip$", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"_(\d+)\.zip$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex SerialRegex();
+}
+
+public sealed class SystemDownloaderDelay : IDownloaderDelay
+{
+    public Task DelayAsync(TimeSpan delay, CancellationToken cancellationToken = default) =>
+        Task.Delay(delay, cancellationToken);
 }

@@ -27,6 +27,12 @@ Read this file only when the task requires stable, non-obvious project knowledge
   verification. Browser requests carry only logical IDs and fresh one-use challenge evidence, and
   per-target attempted/completed/residue truth is retained in operation details and sanitized audit
   records. Filesystem, SCM, and SQL seams remain injectable for fake-only safety tests.
+- Agent downloader batches are server-owned: requests carry only validated logical branch codes and
+  idempotency, while the Agent snapshots non-secret configuration, loads RDB credentials from the
+  DPAPI-backed secret store, and publishes completed archives only through principal-scoped opaque
+  artifact IDs. The trigger HTTP adapter uses an approved endpoint/manual-redirect/DNS policy; the
+  SMB adapter enforces canonical roots, scoped connection ownership, safe filenames, and partial
+  file cleanup. Downloader operation and audit evidence is logical and path/credential-free.
 - Agent restart intentionally loses in-flight jobs and file handles. Do not add SQLite, SignalR, PWA/service-worker behavior, IndexedDB, or queued browser mutations.
 - Keep WinUI buildable/runnable until the cross-project RMS+ Support Hub review and explicit owner-approved dedicated cutover. Its removal must be a dedicated change.
 
@@ -46,7 +52,10 @@ Read this file only when the task requires stable, non-obvious project knowledge
 - SQL Server — RMS checks, backup, restore, verification, and reset; interfaces in `src/PosAdminTool.Domain/Interfaces`, adapter in `src/PosAdminTool.Infrastructure/Windows/SqlCmdExecutor.cs`. Live service-identity access is unverified.
 - Windows Service Control Manager — RMS service status/control; `src/PosAdminTool.Infrastructure/Windows/WindowsServiceManager.cs`. Future Agent operations must own privilege and report confirmed outcomes.
 - RMS backup API — triggers multi-branch backup work; `src/PosAdminTool.Infrastructure/Http/BackupApiClient.cs`. Endpoint and credentials remain configuration, never shared memory.
-- SMB/UNC — discovers/downloads produced archives using explicit configured credentials; `src/PosAdminTool.Infrastructure/Smb/`. Session 0 behavior under the proposed service identity is unverified.
+- SMB/UNC — discovers/downloads produced archives using the server-owned configured scope and
+  explicit credentials when required; `src/PosAdminTool.Infrastructure/Smb/`. Connection ownership
+  and partial cleanup are fake-tested, but Session 0 behavior under the proposed service identity is
+  unverified.
 - RMS local files — legacy import and backup sources; `src/PosAdminTool.Infrastructure/Configuration/LegacyConfigurationImporter.cs` and Application services. Import excludes secrets.
 - Angular browser — same-origin UI/API client; OpenAPI is generated from Agent build using `src/PosAdminTool.Web/ng-openapi-gen.json`.
 

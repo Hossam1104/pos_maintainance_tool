@@ -93,7 +93,7 @@ public partial class App : Microsoft.UI.Xaml.Application
         services.AddSingleton<IBackupFileSystem, PhysicalBackupFileSystem>();
         services.AddSingleton<IMaintenanceFileSystem, PhysicalMaintenanceFileSystem>();
         services.AddSingleton<AdminPrivilegeManager>();
-        services.AddSingleton(new HttpClient());
+        services.AddSingleton(new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }));
         services.AddSingleton<IBackupApiClient, BackupApiClient>();
         services.AddSingleton<IBackupRepository, SmbBackupRepository>();
 

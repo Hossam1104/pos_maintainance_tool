@@ -37,6 +37,16 @@ public static class ErrorCodes
     public const string BackupArtifactNotFound = "backup.artifact_not_found";
     public const string BackupArtifactCatalogFull = "backup.artifact_catalog_full";
 
+    public const string DownloaderInvalidConfiguration = "downloader.invalid_configuration";
+    public const string DownloaderInvalidBranch = "downloader.branch_invalid";
+    public const string DownloaderNoBranches = "downloader.no_branches";
+    public const string DownloaderCredentialMissing = "downloader.credential_missing";
+    public const string DownloaderEndpointRejected = "downloader.endpoint_rejected";
+    public const string DownloaderTriggerFailed = "downloader.trigger_failed";
+    public const string DownloaderRedirectRejected = "downloader.redirect_rejected";
+    public const string DownloaderSmbRootRejected = "downloader.smb_root_rejected";
+    public const string DownloaderArtifactCatalogFull = "downloader.artifact_catalog_full";
+
     public const string RestoreSourceInvalid = "restore.source_invalid";
     public const string RestoreUploadInvalid = "restore.upload_invalid";
     public const string RestoreUploadTooLarge = "restore.upload_too_large";

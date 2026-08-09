@@ -90,9 +90,9 @@ is not returned through browser configuration DTOs.
   and MOVE planning stay behind testable seams, and configuration overwrites use rollback-capable
   atomic copies. POS-M03 adds the server-owned `MaintenanceService` cleanup/reset policy,
   preview, challenge, recomputation, and explicit partial-outcome workflow; the retained
-  `CleanupService` is only a compatibility facade over that boundary. `DbDownloadService` remains
-  a legacy capability awaiting POS-M04 hardening; none of these changes authorizes standalone
-  Angular UI.
+  `CleanupService` is only a compatibility facade over that boundary. POS-M04 now hardens
+  `DbDownloadService` as a reusable Agent operation path; none of these changes authorizes
+  standalone Angular UI.
 - Configuration, branch verification, import, connection testing, and operation use cases remain
   application-level orchestration rather than browser logic.
 
@@ -146,9 +146,12 @@ endpoint groups include:
 - service-owned configuration and DPAPI secret stores;
 - allowlisted file browsing and principal/purpose-bound single-use handles;
 - device/session/diagnostic, configuration, service-control, operation, activity, event, backup,
-  and maintenance endpoints;
+  maintenance, and downloader endpoints;
 - `OperationRegistry`, `OperationWorker`, `ResourceLockSet`, `OperationAuditWriter`, and
-  `ArtifactCatalog`, including bounded maintenance challenges and logical cleanup/reset outcomes;
+  `ArtifactCatalog`, including bounded maintenance challenges, logical cleanup/reset outcomes, and
+  principal-scoped downloader artifact capabilities;
+- the server-owned downloader trigger policy, manual redirect/DNS validation, SMB repository,
+  scoped connection ownership, and sanitized per-branch operation outcomes;
 - service polling and service command workers;
 - `BackupService`, `RestoreService`, the physical backup/restore filesystem adapters, bounded
   restore uploads/challenges, and restore endpoint modules.
@@ -156,11 +159,13 @@ endpoint groups include:
 The Agent owns the request-to-privileged-operation boundary. Angular calls the Agent; Angular never
 executes SQL, Windows service, SMB, cleanup, restore, or privileged filesystem operations directly.
 
-POS-M02 maps the secure `/api/v1/restores` upload, preview, and execute backend. POS-M03 now maps
-the backend-only `/api/v1/maintenance` cleanup-preview/execute and branch-reset-preview/execute
+POS-M02 maps the secure `/api/v1/restores` upload, preview, and execute backend. POS-M03 maps the
+backend-only `/api/v1/maintenance` cleanup-preview/execute and branch-reset-preview/execute
 endpoints through the same authorization, antiforgery, operation, idempotency, lock,
-cancellation, audit, and sanitized-error boundaries. Downloader remains deferred to POS-M04; no
-integrated frontend is authorized by this backend work.
+cancellation, audit, and sanitized-error boundaries. POS-M04 maps the backend-only
+`/api/v1/downloads/batches` trigger boundary through the same operation, idempotency, lock,
+cancellation, artifact, and sanitized-error rules; no integrated frontend is authorized by this
+backend work.
 
 ## 6. Current Angular implementation
 
@@ -293,6 +298,14 @@ overlap for protected/install roots and allowed reparse destinations, and constr
 to the server-resolved database, exact-target verification, and the code-owned historical table
 allowlist.
 
+POS-M04 extends the operation engine to downloader work. Downloader entries use the `downloader`
+resource lock, principal-scoped idempotency, bounded per-branch state/progress, cancellation, and
+required sanitized audit. The queued work item contains only a server-owned non-secret
+configuration snapshot and validated logical branch codes; the RDB password is loaded from the
+Agent secret store at execution time. Completed archives are registered only through the existing
+principal-scoped `ArtifactCatalog`, and operation/audit evidence contains no SMB paths, local
+staging paths, credentials, or raw exception text.
+
 The ADR-approved in-memory architecture remains; no durable database or SQLite was introduced.
 
 ## 12. Backup architecture
@@ -317,7 +330,10 @@ work:
 
 No real `BACKUP DATABASE` command was authorized or executed. Future restore, cleanup, and download
 work must follow this server-owned, fake-testable boundary rather than adapting the old WinUI UI
-directly.
+directly. POS-M04 preserves the reusable downloader discovery/matching/stability behavior while
+adding server-owned trigger SSRF policy, manual redirect validation, DNS address checks, canonical
+SMB roots, scoped connection ownership, partial-file cleanup, and opaque artifact publication.
+No real RMS endpoint, SMB share, or LocalSystem/Session 0 proof ran in POS-M04.
 
 ## 13. Known risks
 
@@ -326,7 +342,7 @@ directly.
 | Runtime state grows without bound | POS-M01 closed the confirmed gap with injectable operation, event, activity, artifact, and file-handle retention; full Release validation passed 141 .NET tests |
 | Restore archive validation is weak | POS-M02 closes the Agent/backend gap with bounded pre-extraction ZIP inspection, manifest/checksum/branch/destination validation, server-derived preview/challenge recomputation, and fake-only tests; no real restore was executed |
 | Cleanup/reset safety is client/legacy driven | POS-M03 and POS-M03R close the Agent boundary with canonical managed-root policy, required safety-root boundaries, symmetric protected/install overlap and reparse checks, server-derived preview/challenge, execute-time recomputation, locks, explicit partial outcomes, exact-target branch verification, and code-owned SQL scope; retained WinUI compatibility calls fail closed when policy is not configured |
-| Downloader lacks Agent security/operation boundary | Legacy service has direct endpoint/SMB/credential behavior; POS-M04 |
+| Downloader service-identity portability | POS-M04 hardens the Agent boundary and fake portability seams; representative LocalSystem/Session 0 SMB proof remains required |
 | LocalSystem managed-root and SMB Session 0 proof | Representative-device evidence remains required; do not guess |
 | Manual live-Agent Negotiate/SSE evidence | Not recorded as a current automated replacement for fake integration tests |
 | Frontend duplication during merge | Standalone Angular expansion is frozen; Support Hub owns final frontend |
@@ -427,6 +443,23 @@ passed with zero warnings/errors, and the retained WinUI `win-x64` publish passe
 used fake/disposable infrastructure; no real cleanup, SQL reset, Windows service control,
 device-state mutation, or Angular Maintenance UI work occurred.
 
+POS-M04 - Downloader Backend & SMB Portability is complete. The Agent now accepts only validated
+logical branch batches at `/api/v1/downloads/batches`, snapshots server-owned non-secret settings,
+loads the RDB password from the DPAPI-backed secret store at execution time, and runs the existing
+downloader behavior behind a bounded `downloader` lock/idempotency/audit boundary. Trigger HTTP
+requests use an approved same-endpoint policy with manual redirect handling, DNS address checks,
+bounded timeouts, and SSRF rejection. SMB paths are canonical-root constrained, safe filenames are
+revalidated, connection ownership distinguishes scope-owned/pre-existing/no-credential/conflict
+outcomes, and unpublished `.partial` files are cleaned without overwriting published artifacts.
+Ready archives are checksum-registered through the existing principal-scoped opaque artifact
+catalog, while operation, audit, and problem evidence remains logical and path/credential-free.
+Validation is fake/disposable-only; the ADR-012 LocalSystem/Session 0 representative-device gate
+remains open and is not inferred from the automated tests. Focused Release coverage passed 4 new
+Application downloader tests, 14 Infrastructure security/SMB tests, 4 Agent downloader-contract
+tests, 17 operation-registry tests, and 5 artifact-catalog tests; complete Release validation
+passed 247 .NET tests, the solution build passed with zero warnings/errors, and the retained WinUI
+`win-x64` publish passed.
+
 ## 15. RMS+ Support Hub ownership boundary
 
 | Responsibility | POS repository owns | RMS+ Support Hub owns |
@@ -509,7 +542,7 @@ namespaces until the cross-project review chooses a final namespace and solution
 | `Application/Services/BackupService.cs` | KEEP/ADAPT | Session 08 reference implementation and fake-test boundary |
 | `Application/Services/RestoreService.cs` and `Application/Restore/**` | KEEP/ADAPT after POS-M02 | Server-owned archive policy, SQL MOVE planning, config rollback, and fake-test seams are now available; reconcile host composition during merge |
 | `Application/Services/CleanupService.cs` | KEEP/ADAPT after POS-M03 | Compatibility facade now delegates to the server-owned maintenance policy; Agent endpoints do not accept client paths |
-| `Application/Services/DbDownloadService.cs` | ADAPT only after POS-M04 | Preserve behavior while moving credentials/SMB behind Agent policy |
+| `Application/Services/DbDownloadService.cs` | KEEP/ADAPT after POS-M04 | Preserve behavior while credentials, trigger policy, SMB, and artifact publication remain behind the Agent boundary |
 | `Infrastructure/Windows/**`, `Smb/**`, `Backups/**`, `Configuration/**`, `Http/**` | MOVE under POS privileged backend | Windows targeting, service identity, DPAPI, and package collisions need explicit ownership |
 | `Web/src/app/app.*` and shell/shared UI | DO NOT COPY | RMS+ Support Hub owns final shell/design system |
 | `Web/src/app/core/agent-api.service.ts` | REFERENCE/ADAPT | Integrate with Hub HTTP/auth/error conventions |
@@ -614,7 +647,7 @@ Support Hub frontend integration.
 | POS-M02R3 | Complete; early Opus Restore follow-up passed | Interrupted SQL destructive truth, recovery-required partial semantics, worker-level Restore wiring, sanitized mode/target audit evidence, and positive bare-BAK branch evidence; focused 23 Application Restore and 24 Agent Restore/worker/audit tests, 190 Release .NET tests, and retained WinUI publish passed |
 | POS-M03 | Complete; owner-authorized after the early Opus Restore follow-up gate passed | Cleanup/reset backend safety only: canonical managed-path policy, server-derived preview/challenge, recomputation, locks, partial/residue truth, sanitized audit, and fake-only worker-path coverage; focused 9 Application and 11 Agent maintenance tests, 210 Release .NET tests, zero-warning solution build, and retained WinUI publish passed |
 | POS-M03R | Complete; corrective closure after POS-M03 | Required cleanup safety-root boundaries, symmetric protected/install overlap including allowed reparse destinations, exact server-approved branch database verification, and code-owned historical reset-table scope; focused 20 Application and 15 Agent maintenance/worker tests, 225 Release .NET tests, zero-warning solution build, and retained WinUI publish passed; fake/disposable-only with no real mutation |
-| POS-M04 | Pending owner authorization | Downloader backend/SMB portability only; not executed in POS-M03R |
+| POS-M04 | Complete; owner-authorized | Downloader backend/SMB portability only; focused downloader/security/operation/artifact coverage, 247 Release .NET tests, zero-warning solution build, and retained WinUI publish passed; ADR-012 LocalSystem/Session 0 representative-device gate remains open |
 | POS-M05 | Pending POS-M02 through POS-M04 | Complete landing/collision audit; then `CLAUDE OPUS 5 REVIEW REQUIRED` |
 | R1 | Scheduled after POS-M05 | Claude Opus 5 review gate |
 | POS-M06 | Review-gated and owner-authorized only | Final candidate audit |

@@ -23,6 +23,8 @@ using PosAdminTool.Contracts.V1.Common;
 using PosAdminTool.Domain.Interfaces;
 using PosAdminTool.Infrastructure.Configuration;
 using PosAdminTool.Infrastructure.Backups;
+using PosAdminTool.Infrastructure.Http;
+using PosAdminTool.Infrastructure.Smb;
 using PosAdminTool.Infrastructure.Windows;
 
 // A Windows Service is launched by the Service Control Manager with an unpredictable current
@@ -86,6 +88,11 @@ builder.Services.AddSingleton<IRestoreFileSystem, PhysicalRestoreFileSystem>();
 builder.Services.AddSingleton(RestoreArchiveLimits.Default);
 builder.Services.AddSingleton<IRestoreSqlPlanBuilder, RestoreSqlPlanBuilder>();
 builder.Services.AddSingleton<BackupService>();
+builder.Services.AddSingleton<IHostAddressResolver, SystemHostAddressResolver>();
+builder.Services.AddHttpClient<IBackupApiClient, BackupApiClient>()
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+builder.Services.AddSingleton<IBackupRepository, SmbBackupRepository>();
+builder.Services.AddSingleton<DbDownloadService>();
 builder.Services.AddSingleton<RestoreService>();
 builder.Services.AddSingleton<ArtifactCatalog>();
 builder.Services.AddSingleton<OperationRegistry>();
@@ -203,6 +210,7 @@ api.MapSessionEndpoints();
 api.MapAntiforgeryEndpoints();
 api.MapFileEndpoints();
 api.MapBackupEndpoints();
+api.MapDownloaderEndpoints();
 api.MapRestoreEndpoints();
 api.MapMaintenanceEndpoints();
 api.MapArtifactEndpoints();

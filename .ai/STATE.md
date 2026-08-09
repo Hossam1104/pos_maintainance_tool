@@ -1,7 +1,7 @@
 # Current Project State
 
 - **Updated:** 2026-08-09
-- **Branch:** `main` after the verified POS-M03 cleanup/reset backend safety merge
+- **Branch:** `main` after the verified POS-M04 downloader backend/SMB portability merge
 - **Release or milestone:** .NET 10 + Angular 22 migration; Sessions 00-08 complete; standalone Angular expansion frozen; POS preparation programme active
 
 ## Working State
@@ -62,12 +62,32 @@
   no real cleanup, SQL reset, service control, device mutation, or Angular Maintenance UI work
   occurred.
 
+## Verified POS-M04 Result
+
+- The Agent exposes only the backend `/api/v1/downloads/batches` trigger boundary: requests carry
+  validated logical branch codes and idempotency, work items carry server-owned non-secret settings,
+  the RDB password is loaded from the DPAPI-backed secret store at execution time, and downloader
+  operations use the bounded `downloader` resource lock, cancellation, per-branch outcomes, and
+  sanitized audit evidence.
+- Downloader discovery preserves newest-created-folder selection, exact branch ZIP matching,
+  bounded deterministic stable-size observation, independent timeout/cancellation/failure truth,
+  and partial outcomes. Trigger HTTP uses approved endpoint/manual redirect/DNS/timeout SSRF policy;
+  SMB uses canonical roots, safe filename/path revalidation, explicit connection ownership, and
+  cleanup-safe `.partial` publication. Completed archives use the existing principal-scoped opaque
+  artifact catalog.
+- Focused Release coverage passed 4 new Application downloader tests, 14 Infrastructure
+  security/SMB tests, 4 Agent downloader-contract tests, 17 operation-registry tests, and 5
+  artifact-catalog tests. Complete Release validation passed 247 .NET tests; solution build passed
+  with zero warnings/errors; retained WinUI `win-x64` publish passed. All checks used fakes,
+  disposable adapters, or temporary local staging only; no production endpoint, real SMB share, or
+  LocalSystem/Session 0 evidence test ran.
+
 ## Active Programme
 
 - Canonical plan: `docs/POS_SUPPORT_HUB_MERGE_PREPARATION_PLAN.md`.
 - Canonical prompts: `docs/POS_SUPPORT_HUB_PREPARATION_SESSION_PROMPTS.md`.
-- `TASK.md` contains the complete POS-M04 downloader backend/SMB prompt pending owner authorization;
-  POS-M05 requires the landing/collision audit and Claude Opus 5 R1 review; POS-M06 is review-gated.
+- `TASK.md` contains the complete POS-M05 landing/collision audit prompt pending owner authorization;
+  POS-M05 requires the Claude Opus 5 R1 review outcome before POS-M06; POS-M06 is review-gated.
 - Repository merge beyond the authorized session lifecycle, Angular integration, standalone
   installer cutover, and WinUI removal are not otherwise authorized.
 
@@ -76,6 +96,9 @@
 - Managed-root behavior under LocalSystem, representative-device SCM control, and SMB Session 0
   behavior still require safe representative-device evidence. Fake tests do not replace that gate.
 - Manual live-Agent SSE and real browser Negotiate/admin evidence remain operational evidence gaps.
-- POS-M04 remains owner-gated; downloader backend/SMB work is not executed.
+- ADR-012's representative LocalSystem/Session 0 SMB gate remains open: installed-service proof on
+  an isolated non-production device/server must demonstrate WNetAddConnection2, enumeration,
+  newest-batch discovery, ZIP read/download, cancellation/timeout cleanup, and scoped disconnect;
+  fake tests do not replace it.
 - WinUI remains retained until cross-project RMS+ Support Hub review and explicit owner-approved
   dedicated cutover.

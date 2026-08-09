@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
 using System.Threading.Channels;
 using PosAdminTool.Contracts.V1.Activity;
+using PosAdminTool.Contracts.V1.Downloader;
 using PosAdminTool.Contracts.V1.Maintenance;
 using PosAdminTool.Contracts.V1.Operations;
 
@@ -374,6 +375,7 @@ public sealed class OperationRegistry
         private string? _errorCode;
         private object? _workItem;
         private MaintenanceOperationOutcomeDto? _maintenanceOutcome;
+        private DownloaderOperationOutcomeDto? _downloaderOutcome;
         private bool _disposed;
 
         public Entry(
@@ -413,10 +415,11 @@ public sealed class OperationRegistry
                 "restore" => ["sql", "services", "filesystem-cleanup"],
                 "cleanup" => ["services", "filesystem-cleanup"],
                 "branch-reset" => ["sql", "services"],
+                "downloader" => ["downloader"],
                 _ => ["sql", "services", "filesystem-cleanup", "downloader"],
             };
             IsDestructive = type is "diagnostic-destructive" or "restore" or "cleanup" or "branch-reset";
-            NeedsAudit = IsDestructive || type == "backup";
+            NeedsAudit = IsDestructive || type is "backup" or "downloader";
             Add("queued", "Operation queued.");
         }
 
@@ -497,6 +500,11 @@ public sealed class OperationRegistry
             get { lock (_gate) return _maintenanceOutcome; }
         }
 
+        public DownloaderOperationOutcomeDto? DownloaderOutcome
+        {
+            get { lock (_gate) return _downloaderOutcome; }
+        }
+
         public void Cancel()
         {
             lock (_gate)
@@ -573,6 +581,29 @@ public sealed class OperationRegistry
             }
         }
 
+        public void SetDownloaderOutcome(DownloaderOperationOutcomeDto outcome)
+        {
+            ArgumentNullException.ThrowIfNull(outcome);
+            lock (_gate)
+            {
+                if (_state is not (OperationState.Queued or OperationState.Running)) return;
+                _downloaderOutcome = new DownloaderOperationOutcomeDto(
+                    outcome.Branches
+                        .Select(branch => (Branch: SanitizeLogicalEvidence(branch.BranchCode), Value: branch))
+                        .Where(branch => branch.Branch is not null)
+                        .Select(branch => new DownloaderBranchOutcomeDto(
+                            branch.Branch!,
+                            branch.Value.State,
+                            Math.Clamp(branch.Value.ProgressPercent, 0, 100),
+                            SanitizeCode(branch.Value.FailureCode),
+                            SanitizeArtifactId(branch.Value.ArtifactId)))
+                        .Take(64)
+                        .ToList(),
+                    SanitizeLogicalEvidence(outcome.Serial),
+                    outcome.TriggerAccepted);
+            }
+        }
+
         public void Complete(
             OperationState finalState,
             string? errorCode = null,
@@ -632,7 +663,8 @@ public sealed class OperationRegistry
                     _errorCode,
                     Correlation,
                     DestinationReference,
-                    _maintenanceOutcome);
+                    _maintenanceOutcome,
+                    _downloaderOutcome);
             }
         }
 
@@ -755,11 +787,24 @@ public sealed class OperationRegistry
         private static string? SanitizeCode(string? value)
         {
             if (string.IsNullOrWhiteSpace(value)) return null;
-            var sanitized = new string(value
-                .Where(character => char.IsLetterOrDigit(character) || character is '-' or '_' or '.')
-                .ToArray())
+            var sanitized = value.Trim()
                 .ToLowerInvariant();
+            if (sanitized.Any(character => !char.IsLetterOrDigit(character) && character is not ('-' or '_' or '.')))
+            {
+                return null;
+            }
+
             return sanitized.Length > 128 ? sanitized[..128] : sanitized;
+        }
+
+        private static string? SanitizeArtifactId(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return null;
+            var sanitized = value.Trim();
+            return sanitized.Length is > 0 and <= 64
+                && sanitized.All(char.IsLetterOrDigit)
+                ? sanitized
+                : null;
         }
 
         private static string? SanitizeReference(string? value)

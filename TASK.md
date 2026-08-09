@@ -1,6 +1,6 @@
 # Current Task
 
-- **Task ID:** POS-M04
+- **Task ID:** POS-M05
 - **Status:** PENDING OWNER AUTHORIZATION
 - **Role:** Implement
 - **Source:** `docs/POS_SUPPORT_HUB_PREPARATION_SESSION_PROMPTS.md`
@@ -9,55 +9,59 @@
 
 ```text
 Role:
-Implement one owner-authorized backend/portability session. No standalone Angular Downloader UI.
+Implement one owner-authorized planning/governance and safe repository-hygiene session. Do not
+merge repositories and do not expand standalone Angular.
 
 Objective:
-Extract the reusable backend portion of historical Session 12, preserve current downloader
-behavior, and make the capability safe under the Agent/service-identity boundary.
+Prepare exact future import/integration boundaries after POS-M01 through POS-M04. The canonical
+plan must be sufficient for a separate cross-project review without guessing file ownership.
 
 Entry conditions:
-- POS-M01 is complete; POS-M03 is complete if shared operation, artifact, or resource-lock code is
-  changed.
-- Read DbDownloadService, BackupApiClient, SMB repository/scope/path resolver, downloader settings,
-  Agent operation/artifact contracts, secret store, and ADR-012.
+- POS-M01, POS-M02, POS-M03, and POS-M04 are complete, or any exception is explicitly recorded.
+- Read the current source tree, project files, package/lock files, test projects, Angular workspace
+  metadata, generated-file rules, ADRs, the canonical POS preparation plan, and the available
+  Support Hub integration material.
 
-Required backend capability:
-1. Model downloader work as an Agent operation with operation ID, per-branch progress, state truth,
-   idempotency, cancellation, timeout, resource locks, sanitized messages, and audit where required.
-2. Preserve backup trigger behavior, newest-created-folder discovery, exact branch ZIP matching,
-   stable-size observation, independent per-branch progress, timeouts, and partial outcomes.
-3. Enforce SSRF defenses for the trigger endpoint: safe schemes, approved target policy, no loopback/
-   metadata/private-network bypass beyond the explicit local policy, bounded requests, and no
-   production calls in tests.
-4. Validate SMB/UNC target policy, canonical roots, safe filenames, share behavior, cancellation,
-   connection cleanup, and credential isolation. Never send RDB credentials to the browser.
-5. Use principal-scoped opaque artifact IDs and safe streamed download behavior. Do not return raw
-   UNC paths, connection strings, or server credentials.
-6. Validate service identity behavior and document the exact evidence gate for LocalSystem/Session 0
-   SMB behavior. If a representative-device proof cannot safely be obtained, record the exact gate;
-   do not infer success.
+Required plan outputs:
+1. Project-level landing map.
+2. File-level landing map for Domain, Application, Infrastructure, Contracts, Agent, WinUI, Web,
+   tests, scripts, resources, and documentation.
+3. Namespace strategy and public-contract compatibility strategy.
+4. Dependency ownership and NuGet/npm collision map with exact-version implications.
+5. DI ownership, configuration ownership, logging/audit ownership, Agent ownership, Angular
+   ownership, test ownership, resource ownership, and scripts/build ownership.
+6. `.gitignore`, generated-output, documentation, and security-contract collision analysis.
+7. A disposition for every significant source area using one of:
+   KEEP AS-IS; KEEP WITH RENAME; MOVE DURING MERGE; ADAPT DURING MERGE; REFERENCE ONLY;
+   DO NOT COPY - SUPPORT HUB ALREADY OWNS IT; RETIRE LATER; NEEDS CROSS-PROJECT DECISION.
+8. A clear list of residual POS risks, evidence gates, and decisions that cannot be made in the
+   POS repository alone.
 
-Required tests:
-- Newest-created-folder selection and exact branch ZIP matching are preserved.
-- Stable-size observation, per-branch progress, timeout, cancellation, partial completion, retry,
-  and failure semantics are deterministic under fake clocks/adapters.
-- Unsafe URL schemes, host forms, redirects, private/metadata targets, malformed branches, unsafe
-  SMB roots, and path traversal fail closed.
-- Credentials never appear in API responses, logs, audit, operation messages, or artifacts.
-- Artifact IDs are opaque and principal-scoped; streamed downloads are cancellable and safe.
-- SMB connection scope is disposed on success, failure, cancellation, and timeout.
-- Service identity validation is tested with fakes and its representative-device gate is documented.
+Safe repository hygiene may include correcting stale references, removing accidental temporary
+outputs, or aligning documentation links when the change is clearly task-scoped. Do not do broad
+formatting, unrelated refactoring, dependency upgrades, generated-file edits, repository merge,
+branch rewrite, or production changes.
+
+Required review outcome:
+At completion, update TASK.md with the complete POS-M06 prompt and mark it blocked pending:
+
+  CLAUDE OPUS 5 REVIEW REQUIRED
+
+Do not present a ready TASK.md as owner authorization. Do not begin POS-M06 before the R1 review and
+explicit owner authorization.
 
 Verification:
-  dotnet build PosAdminTool.sln -c Release --no-restore
-  dotnet test PosAdminTool.sln -c Release --no-restore
   git diff --check
+  python .ai/scripts/check_memory.py
+  rg -n "POS-M01|POS-M02|POS-M03|POS-M04|POS-M05|POS-M06|Support Hub|superseded" TASK.md .ai docs/POS_SUPPORT_HUB_MERGE_PREPARATION_PLAN.md docs/POS_SUPPORT_HUB_PREPARATION_SESSION_PROMPTS.md
 
-No Angular work:
-Do not build the final standalone Downloader feature. Preserve backend behavior and acceptance
-criteria for Support Hub integration.
+Review checklist:
+- No repository merge occurred.
+- No standalone Angular feature or global visual system was added.
+- WinUI remains present and buildable/publishable.
+- Active plan and prompts are the only active POS preparation documents.
+- Old Sessions 09-14 are visibly historical/deferred and cannot be copied as authorized prompts.
 
 Stop:
-Do not call real Production endpoints, real SMB shares, or a real service identity. Do not execute
-POS-M05 automatically.
+Stop after the landing/collision audit. Request Claude Opus 5 R1 review; do not execute POS-M06.
 ```

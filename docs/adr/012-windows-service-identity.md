@@ -34,6 +34,21 @@ Session 12 must still prove `WNetAddConnection2` SMB behaviour in Session 0 agai
 representative non-production device/server. Failure remains a recorded blocker rather than a
 reason to bypass the explicit SMB credential flow.
 
+POS-M04 records the automated portability evidence without claiming that representative proof:
+fakes cover a connection established by the scope, a compatible pre-existing connection, the
+no-credential service-identity path, credential conflict, safe root/path translation, bounded
+partial-file cleanup, cancellation, and stable sanitized failure outcomes. No real `WNetAddConnection2`
+call was made during POS-M04.
+
+The remaining evidence gate is an isolated, non-production device where the Agent is installed as
+`LocalSystem`, a non-production SMB server/share exposes the configured backup root, and the
+explicit RDB credential is provisioned. The proof must show, under the installed service in
+Session 0, successful `WNetAddConnection2`, directory enumeration, newest-batch discovery, ZIP
+read/download, cancellation/timeout cleanup, and scoped disconnect without cancelling an unrelated
+pre-existing connection. Any failure blocks the claim that the downloader is portable under the
+chosen service identity; it does not authorize a production test or a credential/path-policy
+bypass.
+
 ## Consequences
 
 - Installer work must register the Agent as `LocalSystem`; it must not create or retain a service-account password.

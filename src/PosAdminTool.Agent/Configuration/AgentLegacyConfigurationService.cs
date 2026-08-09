@@ -47,9 +47,12 @@ public sealed class AgentLegacyConfigurationService(
             current.Downloader.ApiUrl = settings.DbDownloader.ApiUrl;
             current.Downloader.RdbServerIp = settings.DbDownloader.RdbServerIp;
             current.Downloader.RdbUsername = settings.DbDownloader.RdbUsername;
+            current.Downloader.BackupRootFolder = settings.DbDownloader.BackupRootFolder;
             current.Downloader.KnownBranchCodes = [.. settings.DbDownloader.KnownBranchCodes];
             current.Downloader.PollIntervalSeconds = settings.DbDownloader.PollIntervalSeconds;
             current.Downloader.TimeoutSeconds = settings.DbDownloader.TimeoutSeconds;
+            current.Downloader.StableSizeObservationAttempts = settings.DbDownloader.StableSizeObservationAttempts;
+            current.Downloader.StableSizeObservationIntervalSeconds = settings.DbDownloader.StableSizeObservationIntervalSeconds;
             current.Version++;
             await configurations.SaveAsync(current, cancellationToken).ConfigureAwait(false);
 
@@ -103,10 +106,13 @@ public sealed class AgentLegacyConfigurationService(
                 ApiUrl = config.Downloader.ApiUrl,
                 RdbServerIp = config.Downloader.RdbServerIp,
                 RdbUsername = config.Downloader.RdbUsername,
+                BackupRootFolder = config.Downloader.BackupRootFolder,
                 RdbPassword = await secrets.TryGetSecretAsync(AgentSecretKind.RdbPassword, cancellationToken).ConfigureAwait(false) ?? string.Empty,
                 KnownBranchCodes = [.. config.Downloader.KnownBranchCodes],
                 PollIntervalSeconds = config.Downloader.PollIntervalSeconds,
                 TimeoutSeconds = config.Downloader.TimeoutSeconds,
+                StableSizeObservationAttempts = config.Downloader.StableSizeObservationAttempts,
+                StableSizeObservationIntervalSeconds = config.Downloader.StableSizeObservationIntervalSeconds,
             }
         };
     }

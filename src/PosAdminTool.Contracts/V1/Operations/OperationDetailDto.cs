@@ -1,4 +1,5 @@
 using PosAdminTool.Contracts.V1.Maintenance;
+using PosAdminTool.Contracts.V1.Downloader;
 
 namespace PosAdminTool.Contracts.V1.Operations;
 
@@ -24,4 +25,5 @@ public sealed record OperationDetailDto(
     string? ErrorCode,
     string? CorrelationId,
     string? ResolvedDestinationReference = null,
-    MaintenanceOperationOutcomeDto? MaintenanceOutcome = null);
+    MaintenanceOperationOutcomeDto? MaintenanceOutcome = null,
+    DownloaderOperationOutcomeDto? DownloaderOutcome = null);

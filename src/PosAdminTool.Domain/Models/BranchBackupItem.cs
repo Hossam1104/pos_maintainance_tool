@@ -14,5 +14,11 @@ public sealed class BranchBackupItem(string branchCode)
 
     public string? LocalDownloadPath { get; set; }
 
+    /// <summary>Stable, non-sensitive failure code for Agent-facing mapping.</summary>
+    public string? FailureCode { get; set; }
+
+    /// <summary>Opaque artifact capability assigned by the Agent after publication.</summary>
+    public string? ArtifactId { get; set; }
+
     public string? ErrorMessage { get; set; }
 }

@@ -103,6 +103,7 @@ public sealed class LegacyConfigurationImporter(
                 ImportString(downloader, "api_url", v => config.Downloader.ApiUrl = v, fieldsImported, "Downloader.ApiUrl");
                 ImportString(downloader, "rdb_server_ip", v => config.Downloader.RdbServerIp = v, fieldsImported, "Downloader.RdbServerIp");
                 ImportString(downloader, "rdb_username", v => config.Downloader.RdbUsername = v, fieldsImported, "Downloader.RdbUsername");
+                ImportString(downloader, "backup_root_folder", v => config.Downloader.BackupRootFolder = v, fieldsImported, "Downloader.BackupRootFolder");
                 ImportStringArray(downloader, "known_branch_codes", v => config.Downloader.KnownBranchCodes = v, fieldsImported, "Downloader.KnownBranchCodes");
                 ImportInt(downloader, "poll_interval_seconds", v => config.Downloader.PollIntervalSeconds = v, fieldsImported, "Downloader.PollIntervalSeconds");
                 ImportInt(downloader, "timeout_seconds", v => config.Downloader.TimeoutSeconds = v, fieldsImported, "Downloader.TimeoutSeconds");

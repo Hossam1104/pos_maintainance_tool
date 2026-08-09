@@ -24,6 +24,7 @@ public sealed class OperationAuditWriter(AgentConfigurationStoreOptions options)
             operationTarget = entry.OperationTarget,
             resultArtifactIds = entry.ResultArtifactIds,
             maintenanceOutcome = entry.MaintenanceOutcome,
+            downloaderOutcome = entry.DownloaderOutcome,
             correlationId = entry.Correlation,
         });
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);

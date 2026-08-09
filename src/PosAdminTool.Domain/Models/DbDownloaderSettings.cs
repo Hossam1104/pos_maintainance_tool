@@ -18,6 +18,12 @@ public sealed class DbDownloaderSettings
 
     public int TimeoutSeconds { get; set; } = 1800;
 
+    /// <summary>Maximum number of remote observations used to prove a ZIP is stable.</summary>
+    public int StableSizeObservationAttempts { get; set; } = 3;
+
+    /// <summary>Deterministic, bounded delay between stable-size observations.</summary>
+    public int StableSizeObservationIntervalSeconds { get; set; } = 2;
+
     public DbDownloaderSettings Clone()
     {
         return new DbDownloaderSettings
@@ -29,7 +35,9 @@ public sealed class DbDownloaderSettings
             BackupRootFolder = BackupRootFolder,
             KnownBranchCodes = [.. KnownBranchCodes],
             PollIntervalSeconds = PollIntervalSeconds,
-            TimeoutSeconds = TimeoutSeconds
+            TimeoutSeconds = TimeoutSeconds,
+            StableSizeObservationAttempts = StableSizeObservationAttempts,
+            StableSizeObservationIntervalSeconds = StableSizeObservationIntervalSeconds
         };
     }
 }
