@@ -348,6 +348,15 @@ Release solution passed 170 .NET tests with zero failures, and the retained WinU
 gate passed. Tests used disposable fakes and temporary directories only; no real database restore,
 RMS configuration overwrite, or Windows service stop was executed.
 
+POS-M02R is the corrective architecture checkpoint for the POS-M02 destructive-outcome review. It
+removes guessed SQL logical-file names and fails closed when server inspection cannot produce a
+usable MOVE plan. Restore execution now records destructive milestones and distinguishes clean,
+cancelled, failed, and partial/recovery-required outcomes for configuration rollback, service
+restart, verification, and cancellation boundaries. Partial restore failure codes are preserved
+through Agent operation details and sanitized destructive audit records; focused correction tests
+use disposable fake database/service/filesystem adapters and temporary directories only. The complete
+Release solution passed 178 .NET tests and the retained WinUI `win-x64` publish gate passed.
+
 ## 15. RMS+ Support Hub ownership boundary
 
 | Responsibility | POS repository owns | RMS+ Support Hub owns |
@@ -530,7 +539,8 @@ Support Hub frontend integration.
 | --- | --- | --- |
 | POS-M01 | Complete | Runtime boundedness, cleanup, artifact lifecycle, focused tests, full Release validation, and retained WinUI publish passed |
 | POS-M02 | Complete | Backend restore/archive hardening only; focused restore tests, full Release solution gates, and retained WinUI publish passed; no real restore/config/service operation was executed |
-| POS-M03 | Pending POS-M02 | Cleanup/reset backend safety only |
+| POS-M02R | Complete | Corrective Restore outcome semantics; fail-closed SQL inspection, explicit partial/cancellation/rollback/restart outcomes, stable Agent/audit failure evidence, focused fake-only tests, 178 Release .NET tests, and retained WinUI publish passed |
+| POS-M03 | Pending POS-M02R | Cleanup/reset backend safety only |
 | POS-M04 | Pending POS-M01 | Downloader backend/SMB portability only |
 | POS-M05 | Pending POS-M02 through POS-M04 | Complete landing/collision audit; then `CLAUDE OPUS 5 REVIEW REQUIRED` |
 | R1 | Scheduled after POS-M05 | Claude Opus 5 review gate |

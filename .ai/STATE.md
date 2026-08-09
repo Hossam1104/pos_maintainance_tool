@@ -67,12 +67,30 @@
   zero failures; retained WinUI `win-x64` publish passed. Tests used disposable fakes and temporary
   directories only; no real restore, RMS configuration overwrite, or Windows service stop ran.
 
+## Verified POS-M02R Result
+
+- SQL restore planning now fails closed when server-side `RESTORE FILELISTONLY` evidence is empty,
+  null, malformed, or cannot produce a valid bounded data/log MOVE plan; no guessed logical names
+  are sent to database restore execution.
+- Restore execution records service-stop, database-restore, post-restore verification,
+  configuration overwrite/rollback, and service-restart milestones. Database/configuration work
+  that does not achieve the requested complete outcome is represented as `PartialSuccess` with
+  stable sanitized failure codes; cancellation after confirmed database restore is not represented
+  as ordinary cancellation.
+- Configuration rollback success/failure is an explicit internal result. Recovery-required outcomes
+  remain sanitized, and partial failure codes are retained by Agent operation details and destructive
+  JSONL audit records. Targeted Release correction coverage passed 44 Application tests and 102
+  Agent integration tests; complete Release solution validation passed 178 .NET tests, and the
+  retained WinUI `win-x64` publish passed. All restore correction tests used fake adapters and
+  temporary directories only.
+
 ## Active Programme
 
 - Canonical plan: `docs/POS_SUPPORT_HUB_MERGE_PREPARATION_PLAN.md`.
 - Canonical prompts: `docs/POS_SUPPORT_HUB_PREPARATION_SESSION_PROMPTS.md`.
-- `TASK.md` contains the complete POS-M03 prompt for the next owner authorization; POS-M01 and
-  POS-M02 are complete. POS-M03/M04 prepare cleanup/reset and downloader backends. POS-M05
+- `TASK.md` contains the complete POS-M03 prompt for the next owner authorization; POS-M01, POS-M02,
+  and corrective checkpoint POS-M02R are complete. POS-M03/M04 prepare cleanup/reset and downloader
+  backends. POS-M05
   produces the landing/collision
   audit and requires Claude Opus 5 R1 review. POS-M06 is review-gated; R2 precedes any integration.
 - Repository merge, Angular integration, standalone installer cutover, and WinUI removal are not
@@ -88,7 +106,8 @@
 - Manual live-Agent SSE and real browser Negotiate/admin evidence are not substitutes for the fake
   automated tests and remain operational evidence gaps.
 - Legacy Cleanup/Downloader capabilities remain unsafe or incomplete for Agent exposure; POS-M03
-  and POS-M04 are still gated by their owner-authorized sessions. POS-M02 restore backend work is
-  complete, but representative-device LocalSystem/Session 0 evidence remains outstanding.
+  and POS-M04 are still gated by their owner-authorized sessions. POS-M02 and POS-M02R restore
+  backend work is complete, but representative-device LocalSystem/Session 0 evidence remains
+  outstanding.
 - WinUI remains retained until the cross-project RMS+ Support Hub review and an explicit owner-approved
   dedicated cutover.

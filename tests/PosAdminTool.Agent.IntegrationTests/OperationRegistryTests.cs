@@ -1,7 +1,12 @@
 using PosAdminTool.Agent;
+using PosAdminTool.Agent.Audit;
 using PosAdminTool.Agent.Operations;
 using PosAdminTool.Agent.IntegrationTests.TestSupport;
+using PosAdminTool.Application.Restore;
 using PosAdminTool.Contracts.V1.Operations;
+using PosAdminTool.Domain.Enums;
+using PosAdminTool.Domain.Models;
+using PosAdminTool.Infrastructure.Configuration;
 
 namespace PosAdminTool.Agent.IntegrationTests;
 
@@ -212,6 +217,56 @@ public sealed class OperationRegistryTests
         Assert.True(entry.IsDestructive);
         Assert.True(entry.NeedsAudit);
         Assert.Equal(["sql", "services", "filesystem-cleanup"], entry.Locks);
+    }
+
+    [Fact]
+    public void RestorePartialResult_PreservesFailureCodeWhenWorkerMapsIt()
+    {
+        var result = OperationResult.Running("restore_database");
+        result.Finalize(OperationStatus.PartialSuccess);
+        var execution = new RestoreExecutionResult(result, RestoreFailureCodes.ConfigRollbackFailed);
+
+        var mapped = OperationWorker.MapRestoreOutcome(execution, cancellationRequested: true);
+
+        Assert.Equal(OperationState.PartiallySucceeded, mapped.State);
+        Assert.Equal(RestoreFailureCodes.ConfigRollbackFailed, mapped.ErrorCode);
+
+        var entry = new OperationRegistry.Entry("restore", "B001", "TEST\\admin", "c");
+        Assert.True(entry.TryStart());
+        entry.Cancel();
+        entry.Complete(
+            mapped.State,
+            mapped.ErrorCode,
+            preserveOutcomeOnCancellation: mapped.State == OperationState.PartiallySucceeded);
+
+        var detail = entry.ToDto();
+        Assert.Equal(OperationState.PartiallySucceeded, detail.State);
+        Assert.Equal(RestoreFailureCodes.ConfigRollbackFailed, detail.ErrorCode);
+    }
+
+    [Fact]
+    public async Task PartialRestoreAuditCarriesOnlyTheStableFailureCode()
+    {
+        var root = Directory.CreateTempSubdirectory("pos-restore-audit-tests-");
+        try
+        {
+            var entry = new OperationRegistry.Entry("restore", "B001", "TEST\\admin", "correlation", destinationReference: "C:\\private\\restore.zip");
+            Assert.True(entry.TryStart());
+            entry.Complete(OperationState.PartiallySucceeded, RestoreFailureCodes.ConfigRollbackFailed);
+
+            await new OperationAuditWriter(new AgentConfigurationStoreOptions { RootDirectory = root.FullName })
+                .AppendAsync(entry, CancellationToken.None);
+
+            var audit = await File.ReadAllTextAsync(Path.Combine(root.FullName, "audit", "operations.jsonl"));
+            Assert.Contains("\"state\":\"PartiallySucceeded\"", audit, StringComparison.Ordinal);
+            Assert.Contains($"\"errorCode\":\"{RestoreFailureCodes.ConfigRollbackFailed}\"", audit, StringComparison.Ordinal);
+            Assert.DoesNotContain("C:\\private", audit, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("password", audit, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (Directory.Exists(root.FullName)) Directory.Delete(root.FullName, recursive: true);
+        }
     }
 
     private static async Task<OperationRegistry.Entry> ReadOneAsync(OperationRegistry registry)

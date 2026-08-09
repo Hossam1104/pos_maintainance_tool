@@ -195,7 +195,14 @@ public sealed class RestoreService
 
         progress?.Report("Restore preview validated.");
         var execution = await ExecuteAsync(effectiveSettings, source, mode, preview.Intent.Fingerprint, cancellationToken).ConfigureAwait(false);
-        if (execution.Operation.Success) progress?.Report("Restore completed.");
+        if (execution.Operation.Status == OperationStatus.Success)
+        {
+            progress?.Report("Restore completed.");
+        }
+        else if (execution.Operation.Status == OperationStatus.PartialSuccess)
+        {
+            progress?.Report("Restore completed with a partial outcome.");
+        }
         return execution.Operation;
     }
 
@@ -275,14 +282,11 @@ public sealed class RestoreService
                     throw new RestorePolicyException("restore.sql_inspection_failed", "The database backup could not be inspected.");
                 }
 
-                if (discovered.Count == 0)
+                if (discovered is null || discovered.Count == 0)
                 {
-                    discovered =
-                    [
-                        new RestoreFileInfo(targetDatabase, "D"),
-                        new RestoreFileInfo($"{targetDatabase}_log", "L")
-                    ];
-                    warnings.Add("The SQL adapter returned no logical files; the safe two-file compatibility mapping was used.");
+                    throw new RestorePolicyException(
+                        RestoreFailureCodes.SqlInspectionFailed,
+                        "The database backup did not provide usable logical-file evidence.");
                 }
 
                 if (discovered.Count > _limits.MaxLogicalFiles)
@@ -375,6 +379,7 @@ public sealed class RestoreService
     {
         var operation = OperationResult.Running("restore_database");
         var stoppedServices = new List<RestoreServiceTarget>();
+        var milestones = new RestoreExecutionMilestones();
         RestorePolicyException? failure = null;
         var cancelled = false;
         var restartFailed = false;
@@ -384,6 +389,11 @@ public sealed class RestoreService
             operation.AddMessage("Restore policy revalidation completed.");
             operation.AddMessage("Stopping affected services.");
             await StopServicesAsync(prepared.Intent.Services, stoppedServices, cancellationToken).ConfigureAwait(false);
+            milestones.ServicesStopped = stoppedServices.Count > 0;
+            if (milestones.ServicesStopped)
+            {
+                operation.AddMessage("Affected services stopped successfully.");
+            }
 
             if (prepared.Intent.Mode is RestoreMode.Full or RestoreMode.DatabaseOnly)
             {
@@ -396,19 +406,67 @@ public sealed class RestoreService
                     prepared.Intent.LogicalFiles,
                     prepared.Intent.SqlPlan.DbFilesPath,
                     cancellationToken).ConfigureAwait(false);
+                milestones.DatabaseRestoreCompleted = true;
+                operation.AddMessage("Database restore completed.");
 
                 if (_databaseService is IDatabaseRestoreVerifier verifier
                     && !await verifier.VerifyRestoreAsync(settings, prepared.Intent.TargetDatabase, cancellationToken).ConfigureAwait(false))
                 {
                     throw new RestorePolicyException("restore.verification_failed", "Post-restore verification did not confirm the target database.");
                 }
+
+                if (_databaseService is IDatabaseRestoreVerifier)
+                {
+                    milestones.PostDatabaseVerificationCompleted = true;
+                    operation.AddMessage("Post-database verification completed.");
+                }
             }
 
             if (prepared.Intent.Mode is RestoreMode.Full or RestoreMode.ConfigOnly)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                operation.AddMessage("Applying validated configuration overwrites.");
-                await ApplyConfigurationAsync(prepared, cancellationToken).ConfigureAwait(false);
+                milestones.ConfigurationOverwriteStarted = prepared.Intent.ConfigTargets.Count > 0;
+                if (milestones.ConfigurationOverwriteStarted)
+                {
+                    operation.AddMessage("Applying validated configuration overwrites.");
+                }
+
+                var configuration = await ApplyConfigurationAsync(prepared, cancellationToken).ConfigureAwait(false);
+                milestones.ConfigurationOverwriteStarted |= configuration.OverwriteStarted;
+                milestones.ConfigurationOverwriteCompleted = configuration.OverwriteCompleted;
+                milestones.ConfigurationRollbackAttempted = configuration.RollbackAttempted;
+                milestones.ConfigurationRollbackCompleted = configuration.RollbackCompleted;
+
+                switch (configuration.Status)
+                {
+                    case ConfigurationApplyStatus.Completed when configuration.OverwriteCompleted:
+                        operation.AddMessage("Configuration overwrite completed.");
+                        break;
+                    case ConfigurationApplyStatus.Failed:
+                        if (configuration.RollbackAttempted && configuration.RollbackCompleted)
+                        {
+                            operation.AddMessage("Configuration overwrite did not complete; the previous configuration was restored.");
+                        }
+
+                        failure = new RestorePolicyException(
+                            RestoreFailureCodes.ConfigCopyFailed,
+                            "Configuration files could not be restored safely.");
+                        break;
+                    case ConfigurationApplyStatus.Cancelled:
+                        cancelled = true;
+                        if (configuration.RollbackAttempted && configuration.RollbackCompleted)
+                        {
+                            operation.AddMessage("Configuration rollback completed after cancellation.");
+                        }
+
+                        break;
+                    case ConfigurationApplyStatus.RollbackFailed:
+                        operation.AddMessage("Configuration rollback did not complete; manual recovery is required.");
+                        failure = new RestorePolicyException(
+                            RestoreFailureCodes.ConfigRollbackFailed,
+                            "The previous configuration could not be completely restored. Manual recovery is required.");
+                        break;
+                }
             }
         }
         catch (OperationCanceledException)
@@ -439,10 +497,28 @@ public sealed class RestoreService
                     restartFailed = true;
                 }
             }
+
+            milestones.ServicesStopped |= stoppedServices.Count > 0;
+            milestones.ServicesRestarted = stoppedServices.Count == 0 || !restartFailed;
         }
 
         if (cancelled)
         {
+            if (HasDestructiveOutcome(milestones, restartFailed))
+            {
+                operation.AddError("Destructive restore work completed before cancellation; the requested restore remains incomplete.");
+                operation.AddMessage("Cancellation did not reverse completed destructive restore work.");
+                if (restartFailed)
+                {
+                    operation.AddError("One or more affected services could not be restarted; manual recovery is required.");
+                }
+
+                operation.Finalize(OperationStatus.PartialSuccess);
+                return new RestoreExecutionResult(
+                    operation,
+                    ResolvePartialFailureCode(null, milestones, cancelled: true, restartFailed: restartFailed));
+            }
+
             operation.AddMessage("Restore cancelled.");
             operation.Finalize(OperationStatus.Cancelled);
             return new RestoreExecutionResult(operation, "restore.cancelled");
@@ -451,16 +527,30 @@ public sealed class RestoreService
         if (failure is not null)
         {
             operation.AddError(failure.SafeMessage);
-            if (restartFailed) operation.AddError("One or more affected services could not be restarted.");
+            if (restartFailed)
+            {
+                operation.AddError("One or more affected services could not be restarted; manual recovery is required.");
+            }
+
+            if (HasDestructiveOutcome(milestones, restartFailed))
+            {
+                operation.AddMessage("The restore changed destructive state but did not achieve the requested complete outcome.");
+                operation.Finalize(OperationStatus.PartialSuccess);
+                return new RestoreExecutionResult(
+                    operation,
+                    ResolvePartialFailureCode(failure, milestones, cancelled: false, restartFailed: restartFailed));
+            }
+
             operation.Finalize(OperationStatus.Failed);
             return new RestoreExecutionResult(operation, failure.Code);
         }
 
         if (restartFailed)
         {
-            operation.AddError("One or more affected services could not be restarted.");
-            operation.Finalize(OperationStatus.Failed);
-            return new RestoreExecutionResult(operation, "restore.service_restart_failed");
+            operation.AddError("One or more affected services could not be restarted; manual recovery is required.");
+            operation.AddMessage("The restore completed only partially because service recovery was incomplete.");
+            operation.Finalize(OperationStatus.PartialSuccess);
+            return new RestoreExecutionResult(operation, RestoreFailureCodes.ServiceRestartFailed);
         }
 
         operation.Context["target_database"] = prepared.Intent.TargetDatabase;
@@ -473,6 +563,26 @@ public sealed class RestoreService
         });
         operation.Finalize(OperationStatus.Success);
         return new RestoreExecutionResult(operation);
+    }
+
+    private static bool HasDestructiveOutcome(RestoreExecutionMilestones milestones, bool restartFailed) =>
+        milestones.DatabaseRestoreCompleted
+        || (milestones.ConfigurationRollbackAttempted && !milestones.ConfigurationRollbackCompleted)
+        || (milestones.ServicesStopped && restartFailed);
+
+    private static string ResolvePartialFailureCode(
+        RestorePolicyException? failure,
+        RestoreExecutionMilestones milestones,
+        bool cancelled,
+        bool restartFailed)
+    {
+        if (restartFailed) return RestoreFailureCodes.ServiceRestartFailed;
+        if (milestones.ConfigurationRollbackAttempted && !milestones.ConfigurationRollbackCompleted)
+            return RestoreFailureCodes.ConfigRollbackFailed;
+        if (cancelled) return RestoreFailureCodes.CancelledAfterDestructiveWork;
+        if (milestones.DatabaseRestoreCompleted && failure?.Code == RestoreFailureCodes.ConfigCopyFailed)
+            return RestoreFailureCodes.PartialFailure;
+        return failure?.Code ?? RestoreFailureCodes.PartialFailure;
     }
 
     private async Task StopServicesAsync(
@@ -519,17 +629,25 @@ public sealed class RestoreService
         }
     }
 
-    private async Task ApplyConfigurationAsync(RestorePreparedPlan prepared, CancellationToken cancellationToken)
+    private async Task<ConfigurationApplyResult> ApplyConfigurationAsync(
+        RestorePreparedPlan prepared,
+        CancellationToken cancellationToken)
     {
-        if (prepared.Intent.ConfigTargets.Count == 0) return;
+        if (prepared.Intent.ConfigTargets.Count == 0)
+        {
+            return new(ConfigurationApplyStatus.Completed, false, false, false, true);
+        }
+
         if (prepared.StagingDirectory is null) throw new RestorePolicyException("restore.config_copy_failed", "The configuration staging area is unavailable.");
 
         var rollbackDirectory = Path.Combine(prepared.StagingDirectory, "rollback");
-        await _fileSystem.EnsureDirectoryAsync(rollbackDirectory, cancellationToken).ConfigureAwait(false);
-        EnsureSafeDirectoryChain(rollbackDirectory, "The configuration staging area is unsafe.");
         var rollback = new List<RollbackFile>();
+        var overwriteStarted = false;
         try
         {
+            await _fileSystem.EnsureDirectoryAsync(rollbackDirectory, cancellationToken).ConfigureAwait(false);
+            EnsureSafeDirectoryChain(rollbackDirectory, "The configuration staging area is unsafe.");
+
             foreach (var target in prepared.Intent.ConfigTargets)
             {
                 EnsureSafeFilePath(target.DestinationPath, "The configuration destination is not supported.");
@@ -549,21 +667,34 @@ public sealed class RestoreService
                 rollback.Add(new RollbackFile(target.DestinationPath, backupPath, existed));
             }
 
+            overwriteStarted = true;
             foreach (var target in prepared.Intent.ConfigTargets)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 await _fileSystem.CopyFileAtomicAsync(target.StagedSourcePath, target.DestinationPath, cancellationToken).ConfigureAwait(false);
             }
+
+            return new(ConfigurationApplyStatus.Completed, true, true, false, true);
         }
         catch (OperationCanceledException)
         {
-            await RollbackConfigurationAsync(rollback).ConfigureAwait(false);
-            throw;
+            var rollbackResult = await RollbackConfigurationAsync(rollback).ConfigureAwait(false);
+            return new(
+                rollbackResult.Completed ? ConfigurationApplyStatus.Cancelled : ConfigurationApplyStatus.RollbackFailed,
+                overwriteStarted,
+                false,
+                true,
+                rollbackResult.Completed);
         }
         catch
         {
-            await RollbackConfigurationAsync(rollback).ConfigureAwait(false);
-            throw new RestorePolicyException("restore.config_copy_failed", "Configuration files could not be restored safely.");
+            var rollbackResult = await RollbackConfigurationAsync(rollback).ConfigureAwait(false);
+            return new(
+                rollbackResult.Completed ? ConfigurationApplyStatus.Failed : ConfigurationApplyStatus.RollbackFailed,
+                overwriteStarted,
+                false,
+                true,
+                rollbackResult.Completed);
         }
         finally
         {
@@ -571,14 +702,16 @@ public sealed class RestoreService
         }
     }
 
-    private async Task RollbackConfigurationAsync(IEnumerable<RollbackFile> rollback)
+    private async Task<RollbackResult> RollbackConfigurationAsync(IReadOnlyList<RollbackFile> rollback)
     {
+        var completed = true;
         foreach (var item in rollback.Reverse())
         {
             try
             {
-                if (item.Existed && _fileSystem.FileExists(item.BackupPath))
+                if (item.Existed)
                 {
+                    if (!_fileSystem.FileExists(item.BackupPath)) throw new IOException("Rollback evidence is unavailable.");
                     await _fileSystem.CopyFileAtomicAsync(item.BackupPath, item.DestinationPath, CancellationToken.None).ConfigureAwait(false);
                 }
                 else if (!item.Existed)
@@ -588,10 +721,11 @@ public sealed class RestoreService
             }
             catch
             {
-                // The public result remains sanitized; the next service run can surface a safe
-                // failed state without exposing an internal path or exception detail.
+                completed = false;
             }
         }
+
+        return new(completed);
     }
 
     private async Task<ArchiveInspection> InspectZipAsync(
@@ -1512,6 +1646,35 @@ public sealed class RestoreService
     private sealed record ManifestData(string BranchCode, int SchemaVersion, IReadOnlyList<ManifestItem> Contents);
 
     private sealed record ManifestItem(string ArchiveName, long SizeBytes, string Sha256Checksum, string ComponentId);
+
+    private sealed class RestoreExecutionMilestones
+    {
+        public bool ServicesStopped { get; set; }
+        public bool DatabaseRestoreCompleted { get; set; }
+        public bool PostDatabaseVerificationCompleted { get; set; }
+        public bool ConfigurationOverwriteStarted { get; set; }
+        public bool ConfigurationOverwriteCompleted { get; set; }
+        public bool ConfigurationRollbackAttempted { get; set; }
+        public bool ConfigurationRollbackCompleted { get; set; }
+        public bool ServicesRestarted { get; set; }
+    }
+
+    private enum ConfigurationApplyStatus
+    {
+        Completed,
+        Failed,
+        Cancelled,
+        RollbackFailed,
+    }
+
+    private sealed record ConfigurationApplyResult(
+        ConfigurationApplyStatus Status,
+        bool OverwriteStarted,
+        bool OverwriteCompleted,
+        bool RollbackAttempted,
+        bool RollbackCompleted);
+
+    private sealed record RollbackResult(bool Completed);
 
     private sealed record RollbackFile(string DestinationPath, string BackupPath, bool Existed);
 }

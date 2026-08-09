@@ -81,6 +81,17 @@ public sealed record RestoreExecutionResult(
     OperationResult Operation,
     string? FailureCode = null);
 
+/// <summary>Stable, sanitized restore outcome codes shared by the application and Agent worker.</summary>
+public static class RestoreFailureCodes
+{
+    public const string SqlInspectionFailed = "restore.sql_inspection_failed";
+    public const string PartialFailure = "restore.partial_failure";
+    public const string ConfigRollbackFailed = "restore.config_rollback_failed";
+    public const string CancelledAfterDestructiveWork = "restore.cancelled_after_destructive_work";
+    public const string ConfigCopyFailed = "restore.config_copy_failed";
+    public const string ServiceRestartFailed = "restore.service_restart_failed";
+}
+
 public sealed record RestoreArchiveLimits
 {
     public const string PolicyVersion = "pos-m02-restore-policy-v1";

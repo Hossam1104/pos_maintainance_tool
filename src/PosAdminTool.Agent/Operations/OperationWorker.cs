@@ -180,16 +180,13 @@ public sealed class OperationWorker(
                     entry.Report(execution.Operation.Status == PosAdminTool.Domain.Enums.OperationStatus.Cancelled ? 90 : 80, "warning", error);
                 }
 
-                var restoreState = entry.Token.IsCancellationRequested || stoppingToken.IsCancellationRequested
-                    ? OperationState.Cancelled
-                    : execution.Operation.Status switch
-                    {
-                        PosAdminTool.Domain.Enums.OperationStatus.Success => OperationState.Succeeded,
-                        PosAdminTool.Domain.Enums.OperationStatus.PartialSuccess => OperationState.PartiallySucceeded,
-                        PosAdminTool.Domain.Enums.OperationStatus.Cancelled => OperationState.Cancelled,
-                        _ => OperationState.Failed,
-                    };
-                entry.Complete(restoreState, restoreState == OperationState.Failed ? execution.FailureCode ?? "restore.failed" : null);
+                var restoreOutcome = MapRestoreOutcome(
+                    execution,
+                    entry.Token.IsCancellationRequested || stoppingToken.IsCancellationRequested);
+                entry.Complete(
+                    restoreOutcome.State,
+                    restoreOutcome.ErrorCode,
+                    preserveOutcomeOnCancellation: restoreOutcome.State == OperationState.PartiallySucceeded);
                 await WriteAuditAsync().ConfigureAwait(false);
                 registry.Publish(entry);
                 return;
@@ -247,5 +244,28 @@ public sealed class OperationWorker(
         {
             logger.LogWarning("Audit persistence failed for operation {OperationId}.", entry.Id);
         }
+    }
+
+    internal static (OperationState State, string? ErrorCode) MapRestoreOutcome(
+        RestoreExecutionResult execution,
+        bool cancellationRequested)
+    {
+        var state = execution.Operation.Status switch
+        {
+            OperationStatus.Success when cancellationRequested => OperationState.Cancelled,
+            OperationStatus.Success => OperationState.Succeeded,
+            OperationStatus.PartialSuccess => OperationState.PartiallySucceeded,
+            OperationStatus.Cancelled => OperationState.Cancelled,
+            _ => OperationState.Failed,
+        };
+
+        var errorCode = state switch
+        {
+            OperationState.PartiallySucceeded => execution.FailureCode ?? RestoreFailureCodes.PartialFailure,
+            OperationState.Failed => execution.FailureCode ?? "restore.failed",
+            _ => null,
+        };
+
+        return (state, errorCode);
     }
 }
