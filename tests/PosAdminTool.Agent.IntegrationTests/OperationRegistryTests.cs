@@ -220,28 +220,106 @@ public sealed class OperationRegistryTests
     }
 
     [Fact]
-    public void RestorePartialResult_PreservesFailureCodeWhenWorkerMapsIt()
+    public void RestoreSuccess_IsAuthoritativeWhenCancellationArrivesBeforeWorkerMapping()
     {
-        var result = OperationResult.Running("restore_database");
-        result.Finalize(OperationStatus.PartialSuccess);
-        var execution = new RestoreExecutionResult(result, RestoreFailureCodes.ConfigRollbackFailed);
+        var execution = CreateRestoreExecution(OperationStatus.Success);
+        var entry = StartRestoreEntry();
+        entry.Cancel();
 
-        var mapped = OperationWorker.MapRestoreOutcome(execution, cancellationRequested: true);
+        Assert.True(entry.Token.IsCancellationRequested);
+        var mapped = OperationWorker.MapRestoreOutcome(execution);
+
+        Assert.Equal(OperationState.Succeeded, mapped.State);
+        Assert.Null(mapped.ErrorCode);
+
+        entry.Complete(mapped.State, mapped.ErrorCode, preserveOutcomeOnCancellation: true);
+
+        var detail = entry.ToDto();
+        Assert.Equal(OperationState.Succeeded, detail.State);
+        Assert.Null(detail.ErrorCode);
+    }
+
+    [Fact]
+    public void RestorePartialResult_PreservesFailureCodeWhenLateCancellationIsRequested()
+    {
+        var execution = CreateRestoreExecution(
+            OperationStatus.PartialSuccess,
+            RestoreFailureCodes.ConfigRollbackFailed);
+        var entry = StartRestoreEntry();
+        entry.Cancel();
+
+        var mapped = OperationWorker.MapRestoreOutcome(execution);
 
         Assert.Equal(OperationState.PartiallySucceeded, mapped.State);
         Assert.Equal(RestoreFailureCodes.ConfigRollbackFailed, mapped.ErrorCode);
 
-        var entry = new OperationRegistry.Entry("restore", "B001", "TEST\\admin", "c");
-        Assert.True(entry.TryStart());
-        entry.Cancel();
-        entry.Complete(
-            mapped.State,
-            mapped.ErrorCode,
-            preserveOutcomeOnCancellation: mapped.State == OperationState.PartiallySucceeded);
+        entry.Complete(mapped.State, mapped.ErrorCode, preserveOutcomeOnCancellation: true);
 
         var detail = entry.ToDto();
         Assert.Equal(OperationState.PartiallySucceeded, detail.State);
         Assert.Equal(RestoreFailureCodes.ConfigRollbackFailed, detail.ErrorCode);
+    }
+
+    [Fact]
+    public void RestoreFailure_RemainsFailureWhenCancellationArrivesAfterExecutionResult()
+    {
+        var execution = CreateRestoreExecution(OperationStatus.Failed, "restore.failed");
+        var entry = StartRestoreEntry();
+        var mapped = OperationWorker.MapRestoreOutcome(execution);
+
+        entry.Cancel();
+
+        Assert.Equal(OperationState.Failed, mapped.State);
+        Assert.Equal("restore.failed", mapped.ErrorCode);
+
+        entry.Complete(mapped.State, mapped.ErrorCode, preserveOutcomeOnCancellation: true);
+
+        var detail = entry.ToDto();
+        Assert.Equal(OperationState.Failed, detail.State);
+        Assert.Equal("restore.failed", detail.ErrorCode);
+    }
+
+    [Fact]
+    public void RestoreCancellation_IsMappedFromTheFinalizedServiceResult()
+    {
+        var execution = CreateRestoreExecution(OperationStatus.Cancelled);
+        var mapped = OperationWorker.MapRestoreOutcome(execution);
+
+        Assert.Equal(OperationState.Cancelled, mapped.State);
+        Assert.Null(mapped.ErrorCode);
+
+        var entry = StartRestoreEntry();
+        entry.Complete(mapped.State, mapped.ErrorCode, preserveOutcomeOnCancellation: true);
+
+        var detail = entry.ToDto();
+        Assert.Equal(OperationState.Cancelled, detail.State);
+        Assert.Null(detail.ErrorCode);
+    }
+
+    [Fact]
+    public void RestoreEntryCompletion_PreservesEveryFinalizedNonCancelledOutcomeAfterCancellation()
+    {
+        var outcomes = new (OperationState State, string? ErrorCode)[]
+        {
+            (OperationState.Succeeded, null),
+            (OperationState.PartiallySucceeded, RestoreFailureCodes.PartialFailure),
+            (OperationState.Failed, "restore.failed"),
+        };
+
+        foreach (var outcome in outcomes)
+        {
+            var entry = StartRestoreEntry();
+            entry.Cancel();
+
+            entry.Complete(
+                outcome.State,
+                outcome.ErrorCode,
+                preserveOutcomeOnCancellation: true);
+
+            var detail = entry.ToDto();
+            Assert.Equal(outcome.State, detail.State);
+            Assert.Equal(outcome.ErrorCode, detail.ErrorCode);
+        }
     }
 
     [Fact]
@@ -277,5 +355,21 @@ public sealed class OperationRegistryTests
         }
 
         throw new InvalidOperationException("The operation queue completed unexpectedly.");
+    }
+
+    private static RestoreExecutionResult CreateRestoreExecution(
+        OperationStatus status,
+        string? failureCode = null)
+    {
+        var result = OperationResult.Running("restore_database");
+        result.Finalize(status);
+        return new RestoreExecutionResult(result, failureCode);
+    }
+
+    private static OperationRegistry.Entry StartRestoreEntry()
+    {
+        var entry = new OperationRegistry.Entry("restore", "B001", "TEST\\admin", "c");
+        Assert.True(entry.TryStart());
+        return entry;
     }
 }
