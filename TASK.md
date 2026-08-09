@@ -1,7 +1,7 @@
 # Current Task
 
 - **Task ID:** POS-M03
-- **Status:** Ready for owner authorization
+- **Status:** BLOCKED PENDING EARLY OPUS RESTORE FOLLOW-UP APPROVAL
 - **Role:** Implement
 - **Source:** `docs/POS_SUPPORT_HUB_PREPARATION_SESSION_PROMPTS.md`
 

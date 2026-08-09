@@ -34,6 +34,8 @@ public sealed class RestoreServiceTests : IDisposable
         Assert.Equal("legacy-no-manifest-v1", legacyPreview.Intent!.ArchiveVersion);
         var legacyExecution = await service.ExecuteAsync(settings, Source(legacy, "B001_legacy.zip"), RestoreMode.DatabaseOnly, legacyPreview.Intent.Fingerprint);
         Assert.Equal(OperationStatus.Success, legacyExecution.Operation.Status);
+        Assert.True(database.RestoreAttempted);
+        Assert.True(database.RestoreCompleted);
 
         var bareBak = Path.Combine(_root, "B001_device.bak");
         await File.WriteAllTextAsync(bareBak, "device-side backup");
@@ -61,6 +63,31 @@ public sealed class RestoreServiceTests : IDisposable
         Assert.Contains(("TestService", ServiceControlAction.Stop), services.Controls);
         Assert.Contains(("TestService", ServiceControlAction.Start), services.Controls);
         AssertNoStagingResidue(Path.Combine(_root, "staging"));
+    }
+
+    [Theory]
+    [InlineData("B001_device.bak", null)]
+    [InlineData("B002_device.bak", "restore.archive_branch_mismatch")]
+    [InlineData("backup_final.bak", "restore.branch_evidence_missing")]
+    [InlineData("B001_B002_device.bak", "restore.archive_bak_ambiguous")]
+    public async Task BareBakRequiresPositiveUnambiguousBranchEvidence(string fileName, string? expectedCode)
+    {
+        var path = Path.Combine(_root, fileName);
+        await File.WriteAllTextAsync(path, "device-side backup");
+
+        var result = await CreateService().BuildPreviewAsync(
+            CreateSettings(),
+            Source(path, fileName),
+            RestoreMode.DatabaseOnly);
+
+        if (expectedCode is null)
+        {
+            Assert.True(result.Ready, result.SafeMessage);
+            return;
+        }
+
+        AssertRejected(result, expectedCode);
+        Assert.DoesNotContain(_root, result.SafeMessage ?? string.Empty, StringComparison.OrdinalIgnoreCase);
     }
 
     [Theory]
@@ -271,9 +298,12 @@ public sealed class RestoreServiceTests : IDisposable
         var preview = await service.BuildPreviewAsync(settings, Source(archive, "B001_failure.zip"), RestoreMode.DatabaseOnly);
         var failed = await service.ExecuteAsync(settings, Source(archive, "B001_failure.zip"), RestoreMode.DatabaseOnly, preview.Intent!.Fingerprint);
 
-        Assert.Equal(OperationStatus.Failed, failed.Operation.Status);
-        Assert.Contains("Restore execution failed", failed.Operation.Errors.Single());
+        Assert.Equal(OperationStatus.PartialSuccess, failed.Operation.Status);
+        Assert.Equal(RestoreFailureCodes.DatabaseRestoreInterrupted, failed.FailureCode);
+        Assert.Contains(RestoreFailureCodes.DatabaseRestoreInterruptedMessage, failed.Operation.Errors);
         Assert.DoesNotContain(_root, string.Join(' ', failed.Operation.Errors), StringComparison.OrdinalIgnoreCase);
+        Assert.True(database.RestoreAttempted);
+        Assert.False(database.RestoreCompleted);
         Assert.Contains(("TestService", ServiceControlAction.Start), services.Controls);
 
         database.RestoreFailure = null;
@@ -315,7 +345,11 @@ public sealed class RestoreServiceTests : IDisposable
         await database.RestoreStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
         cancellation.Cancel();
         var cancelled = await execution;
-        Assert.Equal(OperationStatus.Cancelled, cancelled.Operation.Status);
+        Assert.Equal(OperationStatus.PartialSuccess, cancelled.Operation.Status);
+        Assert.Equal(RestoreFailureCodes.DatabaseRestoreInterrupted, cancelled.FailureCode);
+        Assert.Contains(RestoreFailureCodes.DatabaseRestoreInterruptedMessage, cancelled.Operation.Errors);
+        Assert.True(database.RestoreAttempted);
+        Assert.False(database.RestoreCompleted);
         Assert.Contains(("TestService", ServiceControlAction.Start), services.Controls);
         AssertNoStagingResidue(Path.Combine(_root, "staging"));
     }
@@ -418,6 +452,8 @@ public sealed class RestoreServiceTests : IDisposable
 
         Assert.Equal(OperationStatus.Cancelled, execution.Operation.Status);
         Assert.Equal("restore.cancelled", execution.FailureCode);
+        Assert.False(database.RestoreAttempted);
+        Assert.False(database.RestoreCompleted);
         Assert.Empty(database.RestoreCalls);
         Assert.Empty(services.Controls);
     }
@@ -446,10 +482,50 @@ public sealed class RestoreServiceTests : IDisposable
 
         Assert.Equal(OperationStatus.PartialSuccess, execution.Operation.Status);
         Assert.Equal(RestoreFailureCodes.CancelledAfterDestructiveWork, execution.FailureCode);
+        Assert.True(database.RestoreAttempted);
+        Assert.True(database.RestoreCompleted);
         Assert.Single(database.RestoreCalls);
         Assert.Equal("{\"branch\":\"original\"}", await File.ReadAllTextAsync(settings.BranchConfigPath));
         Assert.Contains(execution.Operation.Messages, message => message.Contains("did not reverse", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(execution.Operation.Messages, message => message.Contains("rolled back", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task FullRestoreInterruptedDuringDatabaseDoesNotStartConfigurationOverwrite()
+    {
+        var settings = CreateSettings();
+        var archive = CreateArchive(
+            "B001_full-interrupted-database.zip",
+            [
+                ("B001_branch.bak", Bytes("bak")),
+                ("branch-config.json", Bytes("{\"replacement\":true}")),
+            ],
+            includeManifest: true);
+        var database = new FakeDatabaseService { BlockRestore = true };
+        var services = new FakeServiceManager();
+        services.Statuses["TestService"] = ServiceStatus.Running;
+        var service = CreateService(database, services);
+        var preview = await service.BuildPreviewAsync(settings, Source(archive, "B001_full-interrupted-database.zip"), RestoreMode.Full);
+        using var cancellation = new CancellationTokenSource();
+        var execution = service.ExecuteAsync(
+            settings,
+            Source(archive, "B001_full-interrupted-database.zip"),
+            RestoreMode.Full,
+            preview.Intent!.Fingerprint,
+            cancellation.Token);
+
+        await database.RestoreStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        cancellation.Cancel();
+        var interrupted = await execution;
+
+        Assert.Equal(OperationStatus.PartialSuccess, interrupted.Operation.Status);
+        Assert.Equal(RestoreFailureCodes.DatabaseRestoreInterrupted, interrupted.FailureCode);
+        Assert.True(database.RestoreAttempted);
+        Assert.False(database.RestoreCompleted);
+        Assert.Empty(database.RestoreCalls);
+        Assert.Equal("{\"branch\":\"original\"}", await File.ReadAllTextAsync(settings.BranchConfigPath));
+        Assert.Contains(("TestService", ServiceControlAction.Start), services.Controls);
+        Assert.Contains(interrupted.Operation.Messages, message => message.Contains("must be verified", StringComparison.OrdinalIgnoreCase));
     }
 
     public void Dispose()
@@ -591,6 +667,12 @@ public sealed class RestoreServiceTests : IDisposable
 
         public bool BlockRestore { get; set; }
 
+        public bool RestoreAttempted { get; private set; }
+
+        public bool RestoreCompleted { get; private set; }
+
+        public Action? AfterRestoreAttempt { get; set; }
+
         public Action? AfterRestore { get; set; }
 
         public TaskCompletionSource RestoreStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -614,12 +696,15 @@ public sealed class RestoreServiceTests : IDisposable
             string dbFilesPath,
             CancellationToken cancellationToken = default)
         {
+            RestoreAttempted = true;
             RestoreStarted.TrySetResult();
+            AfterRestoreAttempt?.Invoke();
             if (BlockRestore) await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             if (RestoreFailure is not null) throw RestoreFailure;
             RestoreCalls.Add((targetDatabase, backupFilePath, logicalFiles, dbFilesPath));
             AfterRestore?.Invoke();
+            RestoreCompleted = true;
         }
 
         public Task<bool> VerifyRestoreAsync(AppSettings settings, string targetDatabase, CancellationToken cancellationToken = default) =>

@@ -298,6 +298,8 @@ public static class RestoreEndpoints
                 idempotencyKey,
                 workItem,
                 $"restore:{recomputed.Intent.Mode.ToString().ToLowerInvariant()}",
+                ToAuditMode(recomputed.Intent.Mode),
+                recomputed.Intent.TargetDatabase,
                 out var detail,
                 out var duplicateSubmit);
             if (!accepted)
@@ -406,6 +408,13 @@ public static class RestoreEndpoints
         ContractRestoreMode.DatabaseOnly => ApplicationRestoreMode.DatabaseOnly,
         ContractRestoreMode.ConfigOnly => ApplicationRestoreMode.ConfigOnly,
         _ => ApplicationRestoreMode.Full,
+    };
+
+    private static string ToAuditMode(ApplicationRestoreMode mode) => mode switch
+    {
+        ApplicationRestoreMode.DatabaseOnly => "database-only",
+        ApplicationRestoreMode.ConfigOnly => "config-only",
+        _ => "full",
     };
 
     private static IResult ToChallengeProblem(string errorCode) =>

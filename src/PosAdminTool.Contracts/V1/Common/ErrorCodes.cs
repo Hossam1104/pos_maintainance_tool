@@ -54,6 +54,7 @@ public static class ErrorCodes
     public const string RestoreArchiveManifestInvalid = "restore.archive_manifest_invalid";
     public const string RestoreArchiveChecksumMismatch = "restore.archive_checksum_mismatch";
     public const string RestoreArchiveBranchMismatch = "restore.archive_branch_mismatch";
+    public const string RestoreBranchEvidenceMissing = "restore.branch_evidence_missing";
     public const string RestoreArchiveBakAmbiguous = "restore.archive_bak_ambiguous";
     public const string RestoreArchiveUnknownJson = "restore.archive_unknown_json";
     public const string RestoreDestinationUnsafe = "restore.destination_unsafe";
@@ -72,6 +73,7 @@ public static class ErrorCodes
     public const string RestoreConfigCopyFailed = "restore.config_copy_failed";
     public const string RestoreConfigRollbackFailed = "restore.config_rollback_failed";
     public const string RestorePartialFailure = "restore.partial_failure";
+    public const string RestoreDatabaseRestoreInterrupted = "restore.database_restore_interrupted";
     public const string RestoreCancelledAfterDestructiveWork = "restore.cancelled_after_destructive_work";
     public const string RestoreServiceStopFailed = "restore.service_stop_failed";
     public const string RestoreServiceRestartFailed = "restore.service_restart_failed";

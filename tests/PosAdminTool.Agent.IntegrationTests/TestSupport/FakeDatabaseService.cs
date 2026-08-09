@@ -16,6 +16,31 @@ public sealed class FakeDatabaseService : IDatabaseService, IDatabaseRestoreVeri
 
     public bool RestoreVerificationResult { get; set; } = true;
 
+    public bool BlockVerification { get; set; }
+
+    public bool RestoreAttempted { get; private set; }
+
+    public bool RestoreCompleted { get; private set; }
+
+    public TaskCompletionSource RestoreInvocationStarted { get; private set; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public TaskCompletionSource RestoreVerificationStarted { get; private set; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public TaskCompletionSource RestoreVerificationRelease { get; private set; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public void ResetRestoreState()
+    {
+        RestoreFailure = null;
+        RestoreVerificationResult = true;
+        BlockVerification = false;
+        RestoreAttempted = false;
+        RestoreCompleted = false;
+        RestoreCalls.Clear();
+        RestoreInvocationStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        RestoreVerificationStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        RestoreVerificationRelease = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
+
     public Task TestConnectionAsync(AppSettings settings, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
     public Task<bool> BranchExistsAsync(AppSettings settings, string branchCode, CancellationToken cancellationToken = default) => Task.FromResult(true);
@@ -49,17 +74,29 @@ public sealed class FakeDatabaseService : IDatabaseService, IDatabaseRestoreVeri
         string dbFilesPath,
         CancellationToken cancellationToken = default)
     {
+        RestoreAttempted = true;
+        RestoreInvocationStarted.TrySetResult();
         cancellationToken.ThrowIfCancellationRequested();
         if (RestoreFailure is not null) return Task.FromException(RestoreFailure);
         RestoreCalls.Add((targetDatabase, logicalFiles, dbFilesPath));
+        RestoreCompleted = true;
         return Task.CompletedTask;
     }
 
     public Task<bool> VerifyRestoreAsync(
         AppSettings settings,
         string targetDatabase,
-        CancellationToken cancellationToken = default) =>
-        Task.FromResult(RestoreVerificationResult);
+        CancellationToken cancellationToken = default)
+    {
+        RestoreVerificationStarted.TrySetResult();
+        return VerifyRestoreCoreAsync();
+    }
+
+    private async Task<bool> VerifyRestoreCoreAsync()
+    {
+        if (BlockVerification) await RestoreVerificationRelease.Task.ConfigureAwait(false);
+        return RestoreVerificationResult;
+    }
 
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 }

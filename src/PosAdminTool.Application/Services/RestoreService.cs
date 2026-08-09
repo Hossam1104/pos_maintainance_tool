@@ -399,6 +399,7 @@ public sealed class RestoreService
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 operation.AddMessage("Restoring the validated database backup.");
+                milestones.DatabaseRestoreAttempted = true;
                 await _databaseService.RestoreDatabaseAsync(
                     settings,
                     prepared.Intent.TargetDatabase,
@@ -506,8 +507,17 @@ public sealed class RestoreService
         {
             if (HasDestructiveOutcome(milestones, restartFailed))
             {
-                operation.AddError("Destructive restore work completed before cancellation; the requested restore remains incomplete.");
-                operation.AddMessage("Cancellation did not reverse completed destructive restore work.");
+                if (DatabaseRestoreInterrupted(milestones))
+                {
+                    operation.AddError(RestoreFailureCodes.DatabaseRestoreInterruptedMessage);
+                    operation.AddMessage("Database state must be verified before further operations.");
+                }
+                else
+                {
+                    operation.AddError("Destructive restore work completed before cancellation; the requested restore remains incomplete.");
+                    operation.AddMessage("Cancellation did not reverse completed destructive restore work.");
+                }
+
                 if (restartFailed)
                 {
                     operation.AddError("One or more affected services could not be restarted; manual recovery is required.");
@@ -526,7 +536,9 @@ public sealed class RestoreService
 
         if (failure is not null)
         {
-            operation.AddError(failure.SafeMessage);
+            operation.AddError(DatabaseRestoreInterrupted(milestones)
+                ? RestoreFailureCodes.DatabaseRestoreInterruptedMessage
+                : failure.SafeMessage);
             if (restartFailed)
             {
                 operation.AddError("One or more affected services could not be restarted; manual recovery is required.");
@@ -534,7 +546,9 @@ public sealed class RestoreService
 
             if (HasDestructiveOutcome(milestones, restartFailed))
             {
-                operation.AddMessage("The restore changed destructive state but did not achieve the requested complete outcome.");
+                operation.AddMessage(DatabaseRestoreInterrupted(milestones)
+                    ? "Database state must be verified before further operations."
+                    : "The restore changed destructive state but did not achieve the requested complete outcome.");
                 operation.Finalize(OperationStatus.PartialSuccess);
                 return new RestoreExecutionResult(
                     operation,
@@ -566,9 +580,12 @@ public sealed class RestoreService
     }
 
     private static bool HasDestructiveOutcome(RestoreExecutionMilestones milestones, bool restartFailed) =>
-        milestones.DatabaseRestoreCompleted
+        milestones.DatabaseRestoreAttempted
         || (milestones.ConfigurationRollbackAttempted && !milestones.ConfigurationRollbackCompleted)
         || (milestones.ServicesStopped && restartFailed);
+
+    private static bool DatabaseRestoreInterrupted(RestoreExecutionMilestones milestones) =>
+        milestones.DatabaseRestoreAttempted && !milestones.DatabaseRestoreCompleted;
 
     private static string ResolvePartialFailureCode(
         RestorePolicyException? failure,
@@ -576,6 +593,7 @@ public sealed class RestoreService
         bool cancelled,
         bool restartFailed)
     {
+        if (DatabaseRestoreInterrupted(milestones)) return RestoreFailureCodes.DatabaseRestoreInterrupted;
         if (restartFailed) return RestoreFailureCodes.ServiceRestartFailed;
         if (milestones.ConfigurationRollbackAttempted && !milestones.ConfigurationRollbackCompleted)
             return RestoreFailureCodes.ConfigRollbackFailed;
@@ -1247,7 +1265,27 @@ public sealed class RestoreService
 
     private static void ValidateLegacyBakBranch(string fileName, string branchCode)
     {
-        ValidateLegacyBranchTokens([fileName], branchCode);
+        var tokens = ExtractLegacyBranchTokens([fileName]);
+        if (tokens.Count == 0)
+        {
+            throw new RestorePolicyException(
+                RestoreFailureCodes.BranchEvidenceMissing,
+                "The device backup filename does not contain trusted branch evidence.");
+        }
+
+        if (tokens.Count != 1)
+        {
+            throw new RestorePolicyException(
+                "restore.archive_bak_ambiguous",
+                "The device backup filename contains ambiguous branch evidence.");
+        }
+
+        if (!string.Equals(tokens[0], branchCode, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new RestorePolicyException(
+                "restore.archive_branch_mismatch",
+                "The device backup belongs to a different branch.");
+        }
     }
 
     private static void ValidateLegacyArchiveBranch(string branchCode, string sourceName, IReadOnlyList<ArchiveEntryInfo> bakEntries)
@@ -1257,20 +1295,20 @@ public sealed class RestoreService
 
     private static void ValidateLegacyBranchTokens(IEnumerable<string> names, string branchCode)
     {
-        foreach (var name in names)
+        foreach (var token in ExtractLegacyBranchTokens(names))
         {
-            foreach (Match match in Regex.Matches(name, "(?i)(?<![A-Z0-9])B\\d{1,10}(?![A-Z0-9])"))
+            if (!string.Equals(token, branchCode, StringComparison.OrdinalIgnoreCase))
             {
-                if (!string.Equals(match.Value, branchCode, StringComparison.OrdinalIgnoreCase))
-                {
-                    throw new RestorePolicyException("restore.archive_branch_mismatch", "The restore archive belongs to a different branch.");
-                }
+                throw new RestorePolicyException("restore.archive_branch_mismatch", "The restore archive belongs to a different branch.");
             }
         }
     }
 
-    private static bool ContainsBranchToken(string value, string branchCode) =>
-        value.Contains(branchCode, StringComparison.OrdinalIgnoreCase);
+    private static IReadOnlyList<string> ExtractLegacyBranchTokens(IEnumerable<string> names) =>
+        names.SelectMany(name => Regex.Matches(name ?? string.Empty, "(?i)(?<![A-Z0-9])B\\d{1,10}(?![A-Z0-9])")
+                .Cast<Match>()
+                .Select(match => match.Value))
+            .ToList();
 
     private static string ValidateArchiveEntryName(string rawName)
     {
@@ -1650,6 +1688,7 @@ public sealed class RestoreService
     private sealed class RestoreExecutionMilestones
     {
         public bool ServicesStopped { get; set; }
+        public bool DatabaseRestoreAttempted { get; set; }
         public bool DatabaseRestoreCompleted { get; set; }
         public bool PostDatabaseVerificationCompleted { get; set; }
         public bool ConfigurationOverwriteStarted { get; set; }

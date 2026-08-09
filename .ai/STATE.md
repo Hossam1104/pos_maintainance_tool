@@ -1,7 +1,7 @@
 # Current Project State
 
 - **Updated:** 2026-08-09
-- **Branch:** `main` after the verified POS-M02R2 restore terminal-outcome correction merge
+- **Branch:** `main` after the verified POS-M02R3 interrupted-restore safety closure merge
 - **Release or milestone:** .NET 10 + Angular 22 migration; Sessions 00-08 complete; standalone Angular expansion frozen; POS preparation programme active
 
 ## Working State
@@ -84,18 +84,18 @@
   retained WinUI `win-x64` publish passed. All restore correction tests used fake adapters and
   temporary directories only.
 
-## Verified POS-M02R2 Result
+## Verified POS-M02R2/M02R3 Result
 
 - `RestoreService` is authoritative for finalized terminal outcomes; `OperationWorker` maps the returned `OperationStatus` directly and no longer rewrites a successful Restore after late cancellation.
-- Restore calls preserve finalized `Succeeded`, `PartiallySucceeded`, and `Failed` states through `Entry.Complete`; genuine service-level `Cancelled` remains cancelled and stable codes stay in detail/audit.
-- Focused Release coverage passed 44 Application and 106 Agent integration tests; complete Release solution validation passed 182 .NET tests and retained WinUI publish passed. Fakes/temp directories only were used, with no real SQL, RMS configuration, or Windows service operation.
+- Restore calls preserve finalized `Succeeded`, `PartiallySucceeded`, and `Failed` states through `Entry.Complete`; genuine service-level `Cancelled` remains cancelled and stable codes stay in detail/audit. POS-M02R2 focused coverage passed 44 Application and 106 Agent tests; complete validation passed 182 .NET tests.
+- POS-M02R3 records `DatabaseRestoreAttempted` before the destructive SQL seam, maps interrupted attempts to `PartialSuccess` with `restore.database_restore_interrupted`, requires positive bare-BAK branch evidence, and carries sanitized Restore mode/target audit evidence. Focused coverage passed 23 Application Restore and 24 Agent Restore/worker/audit tests; complete validation passed 190 .NET tests and retained WinUI publish passed. Fakes/temp directories only; no real SQL, RMS configuration, Windows service, or device-state mutation ran.
 
 ## Active Programme
 
 - Canonical plan: `docs/POS_SUPPORT_HUB_MERGE_PREPARATION_PLAN.md`.
 - Canonical prompts: `docs/POS_SUPPORT_HUB_PREPARATION_SESSION_PROMPTS.md`.
 - `TASK.md` contains the complete POS-M03 prompt for the next owner authorization; POS-M01/POS-M02 and
-  corrective checkpoints POS-M02R/POS-M02R2 are complete. POS-M03/M04 prepare cleanup/reset and downloader
+  corrective checkpoints POS-M02R/POS-M02R2/POS-M02R3 are complete. POS-M03/M04 prepare cleanup/reset and downloader
   backends; POS-M05 produces the landing/collision audit and requires Claude Opus 5 R1 review; POS-M06
   is review-gated and R2 precedes any integration.
 - Repository merge, Angular integration, standalone installer cutover, and WinUI removal are not authorized.
@@ -109,9 +109,9 @@
   behavior still require safe representative-device evidence.
 - Manual live-Agent SSE and real browser Negotiate/admin evidence are not substitutes for the fake
   automated tests and remain operational evidence gaps.
-- Legacy Cleanup/Downloader capabilities remain unsafe or incomplete for Agent exposure; POS-M03
-  and POS-M04 are still gated by their owner-authorized sessions. POS-M02/POS-M02R restore backend
-  work, including POS-M02R2, is complete, but representative-device LocalSystem/Session 0 evidence
-  remains outstanding.
+- Legacy Cleanup/Downloader capabilities remain unsafe or incomplete for Agent exposure; POS-M03 is
+  blocked pending `EARLY OPUS RESTORE FOLLOW-UP REVIEW REQUIRED`, and POS-M04 remains owner-gated.
+  POS-M02 restore work through POS-M02R3 is complete, but representative-device LocalSystem/Session 0
+  evidence remains outstanding.
 - WinUI remains retained until the cross-project RMS+ Support Hub review and an explicit owner-approved
   dedicated cutover.

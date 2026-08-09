@@ -347,6 +347,46 @@ public sealed class OperationRegistryTests
         }
     }
 
+    [Fact]
+    public async Task RestoreAuditCarriesSanitizedModeAndLogicalTargetForEveryRestoreMode()
+    {
+        var root = Directory.CreateTempSubdirectory("pos-restore-intent-audit-tests-");
+        try
+        {
+            var writer = new OperationAuditWriter(new AgentConfigurationStoreOptions { RootDirectory = root.FullName });
+            foreach (var mode in new[] { "full", "database-only", "config-only" })
+            {
+                var entry = new OperationRegistry.Entry(
+                    "restore",
+                    "B001",
+                    "TEST\\admin",
+                    "correlation",
+                    destinationReference: "C:\\private\\restore.zip",
+                    operationMode: mode,
+                    operationTarget: "RmsBranchSrv");
+                Assert.True(entry.TryStart());
+                entry.Complete(OperationState.PartiallySucceeded, RestoreFailureCodes.DatabaseRestoreInterrupted);
+                await writer.AppendAsync(entry, CancellationToken.None);
+            }
+
+            var audit = await File.ReadAllTextAsync(Path.Combine(root.FullName, "audit", "operations.jsonl"));
+            Assert.Contains("\"operationMode\":\"full\"", audit, StringComparison.Ordinal);
+            Assert.Contains("\"operationMode\":\"database-only\"", audit, StringComparison.Ordinal);
+            Assert.Contains("\"operationMode\":\"config-only\"", audit, StringComparison.Ordinal);
+            Assert.Equal(3, audit.Split("\"operationTarget\":\"RmsBranchSrv\"", StringSplitOptions.None).Length - 1);
+            Assert.Equal(3, audit.Split("\"state\":\"PartiallySucceeded\"", StringSplitOptions.None).Length - 1);
+            Assert.Equal(3, audit.Split($"\"errorCode\":\"{RestoreFailureCodes.DatabaseRestoreInterrupted}\"", StringSplitOptions.None).Length - 1);
+            Assert.DoesNotContain("C:\\private", audit, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("password", audit, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("token", audit, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("connectionString", audit, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (Directory.Exists(root.FullName)) Directory.Delete(root.FullName, recursive: true);
+        }
+    }
+
     private static async Task<OperationRegistry.Entry> ReadOneAsync(OperationRegistry registry)
     {
         await foreach (var entry in registry.ReadAllAsync(CancellationToken.None))
