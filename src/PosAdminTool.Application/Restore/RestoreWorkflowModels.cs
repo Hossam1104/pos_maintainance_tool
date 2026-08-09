@@ -85,11 +85,16 @@ public sealed record RestoreExecutionResult(
 public static class RestoreFailureCodes
 {
     public const string SqlInspectionFailed = "restore.sql_inspection_failed";
+    public const string DatabaseRestoreInterrupted = "restore.database_restore_interrupted";
+    public const string BranchEvidenceMissing = "restore.branch_evidence_missing";
     public const string PartialFailure = "restore.partial_failure";
     public const string ConfigRollbackFailed = "restore.config_rollback_failed";
     public const string CancelledAfterDestructiveWork = "restore.cancelled_after_destructive_work";
     public const string ConfigCopyFailed = "restore.config_copy_failed";
     public const string ServiceRestartFailed = "restore.service_restart_failed";
+
+    public const string DatabaseRestoreInterruptedMessage =
+        "Database restore execution was interrupted after destructive work began. Database state must be verified before further operations.";
 }
 
 public sealed record RestoreArchiveLimits

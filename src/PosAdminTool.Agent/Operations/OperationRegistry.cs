@@ -71,7 +71,7 @@ public sealed class OperationRegistry
         string? idempotencyKey,
         out OperationDetailDto? detail,
         out bool duplicate) =>
-        TrySubmit(operationType, branchCode, principal, correlationId, idempotencyKey, null, null, out detail, out duplicate);
+        TrySubmit(operationType, branchCode, principal, correlationId, idempotencyKey, null, null, null, null, out detail, out duplicate);
 
     public bool TrySubmit(
         string operationType,
@@ -81,6 +81,31 @@ public sealed class OperationRegistry
         string? idempotencyKey,
         object? workItem,
         string? destinationReference,
+        out OperationDetailDto? detail,
+        out bool duplicate) =>
+        TrySubmit(
+            operationType,
+            branchCode,
+            principal,
+            correlationId,
+            idempotencyKey,
+            workItem,
+            destinationReference,
+            null,
+            null,
+            out detail,
+            out duplicate);
+
+    public bool TrySubmit(
+        string operationType,
+        string branchCode,
+        string principal,
+        string correlationId,
+        string? idempotencyKey,
+        object? workItem,
+        string? destinationReference,
+        string? operationMode,
+        string? operationTarget,
         out OperationDetailDto? detail,
         out bool duplicate)
     {
@@ -114,6 +139,8 @@ public sealed class OperationRegistry
                 correlationId,
                 workItem,
                 destinationReference,
+                operationMode,
+                operationTarget,
                 _timeProvider,
                 _retention);
             _entries[entry.Id] = entry;
@@ -354,6 +381,8 @@ public sealed class OperationRegistry
             string correlation,
             object? workItem = null,
             string? destinationReference = null,
+            string? operationMode = null,
+            string? operationTarget = null,
             TimeProvider? timeProvider = null,
             RuntimeRetentionPolicy? retention = null)
         {
@@ -373,6 +402,8 @@ public sealed class OperationRegistry
             _state = OperationState.Queued;
             _workItem = workItem;
             DestinationReference = SanitizeReference(destinationReference);
+            OperationMode = SanitizeLogicalEvidence(operationMode);
+            OperationTarget = SanitizeLogicalEvidence(operationTarget);
             Locks = type switch
             {
                 "diagnostic" or "diagnostic-destructive" => ["services"],
@@ -427,6 +458,8 @@ public sealed class OperationRegistry
         }
 
         public string? DestinationReference { get; }
+        public string? OperationMode { get; }
+        public string? OperationTarget { get; }
         public CancellationToken Token => _cancellation.Token;
 
         public bool IsActive
@@ -714,6 +747,19 @@ public sealed class OperationRegistry
             if (string.IsNullOrWhiteSpace(value)) return null;
             var sanitized = BoundedValue(value, MaxSmallValueLength);
             if (PathPattern.IsMatch(sanitized)) return "[redacted-reference]";
+            return sanitized;
+        }
+
+        private static string? SanitizeLogicalEvidence(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return null;
+            var sanitized = value.Trim();
+            if (sanitized.Length > MaxSmallValueLength
+                || sanitized.Any(character => !char.IsLetterOrDigit(character) && character is not ('.' or '-' or '_')))
+            {
+                return null;
+            }
+
             return sanitized;
         }
     }

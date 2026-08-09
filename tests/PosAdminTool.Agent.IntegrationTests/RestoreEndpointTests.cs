@@ -8,6 +8,7 @@ using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using PosAdminTool.Agent.IntegrationTests.TestSupport;
 using PosAdminTool.Agent.Restore;
+using RestoreFailureCodes = PosAdminTool.Application.Restore.RestoreFailureCodes;
 using PosAdminTool.Contracts.V1.Common;
 using PosAdminTool.Contracts.V1.Files;
 using PosAdminTool.Contracts.V1.Operations;
@@ -69,7 +70,10 @@ public sealed class RestoreEndpointTests : IClassFixture<AgentWebApplicationFact
         Assert.DoesNotContain(_factory.FakeBrowseRootPath, operationJson, StringComparison.OrdinalIgnoreCase);
         var auditPath = Path.Combine(_factory.FakeConfigRootPath, "audit", "operations.jsonl");
         Assert.True(File.Exists(auditPath));
-        Assert.DoesNotContain(_factory.FakeBrowseRootPath, await File.ReadAllTextAsync(auditPath), StringComparison.OrdinalIgnoreCase);
+        var audit = await File.ReadAllTextAsync(auditPath);
+        Assert.DoesNotContain(_factory.FakeBrowseRootPath, audit, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\"operationMode\":\"full\"", audit, StringComparison.Ordinal);
+        Assert.Contains("\"operationTarget\":\"RmsBranchSrv\"", audit, StringComparison.Ordinal);
 
         var database = (FakeDatabaseService)_factory.Services.GetRequiredService<IDatabaseService>();
         Assert.Single(database.RestoreCalls);
@@ -232,6 +236,93 @@ public sealed class RestoreEndpointTests : IClassFixture<AgentWebApplicationFact
         Assert.Empty(((FakeDatabaseService)_factory.Services.GetRequiredService<IDatabaseService>()).RestoreCalls);
     }
 
+    [Fact]
+    public async Task RestoreWorker_PreservesFinalizedSuccessWhenCancellationArrivesAtLateBoundary()
+    {
+        await PrepareConfigurationAsync();
+        CreateArchive(
+            "B001_worker-late-cancel.zip",
+            new Dictionary<string, byte[]> { ["B001_branch.bak"] = Encoding.UTF8.GetBytes("fake-bak") },
+            includeManifest: false);
+
+        var client = await CreateAdminClientWithAntiforgeryAsync("TESTDOMAIN\\late-cancel-admin");
+        var handle = await IssueHandleAsync(client, "B001_worker-late-cancel.zip");
+        var previewResponse = await client.PostAsJsonAsync(
+            "/api/v1/restores/preview",
+            new RestorePreviewRequestDto(new RestoreSourceDto(null, handle), RestoreMode.DatabaseOnly));
+        var preview = await previewResponse.Content.ReadFromJsonAsync<RestorePreviewDto>(TestJsonOptions.Default);
+        Assert.True(preview!.Ready, await previewResponse.Content.ReadAsStringAsync());
+
+        var database = (FakeDatabaseService)_factory.Services.GetRequiredService<IDatabaseService>();
+        database.BlockVerification = true;
+        var execute = await client.PostAsJsonAsync(
+            $"/api/v1/restores/{preview.PreviewId}/execute",
+            new RestoreExecuteRequestDto(preview.PreviewId, preview.ConfirmationText, "restore-worker-late-cancel"));
+        var accepted = await execute.Content.ReadFromJsonAsync<OperationDetailDto>(TestJsonOptions.Default);
+        Assert.Equal(HttpStatusCode.Accepted, execute.StatusCode);
+
+        try
+        {
+            await database.RestoreVerificationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            var cancel = await client.PostAsync($"/api/v1/operations/{accepted!.OperationId}/cancel", content: null);
+            Assert.Equal(HttpStatusCode.OK, cancel.StatusCode);
+            database.RestoreVerificationRelease.TrySetResult();
+
+            var completed = await WaitForCompletionAsync(client, accepted.OperationId);
+            Assert.Equal(OperationState.Succeeded, completed.State);
+            Assert.Null(completed.ErrorCode);
+            Assert.True(database.RestoreAttempted);
+            Assert.True(database.RestoreCompleted);
+        }
+        finally
+        {
+            database.BlockVerification = false;
+            database.RestoreVerificationRelease.TrySetResult();
+        }
+    }
+
+    [Fact]
+    public async Task RestoreWorker_ReportsInterruptedSqlAsPartialRecoveryRequired()
+    {
+        await PrepareConfigurationAsync();
+        CreateArchive(
+            "B001_worker-interrupted.zip",
+            new Dictionary<string, byte[]> { ["B001_branch.bak"] = Encoding.UTF8.GetBytes("fake-bak") },
+            includeManifest: false);
+
+        var client = await CreateAdminClientWithAntiforgeryAsync("TESTDOMAIN\\interrupted-admin");
+        var handle = await IssueHandleAsync(client, "B001_worker-interrupted.zip");
+        var previewResponse = await client.PostAsJsonAsync(
+            "/api/v1/restores/preview",
+            new RestorePreviewRequestDto(new RestoreSourceDto(null, handle), RestoreMode.DatabaseOnly));
+        var preview = await previewResponse.Content.ReadFromJsonAsync<RestorePreviewDto>(TestJsonOptions.Default);
+        Assert.True(preview!.Ready, await previewResponse.Content.ReadAsStringAsync());
+
+        var database = (FakeDatabaseService)_factory.Services.GetRequiredService<IDatabaseService>();
+        database.RestoreFailure = new InvalidOperationException("secret connection string at C:\\private\\database.bak");
+        var execute = await client.PostAsJsonAsync(
+            $"/api/v1/restores/{preview.PreviewId}/execute",
+            new RestoreExecuteRequestDto(preview.PreviewId, preview.ConfirmationText, "restore-worker-interrupted"));
+        var accepted = await execute.Content.ReadFromJsonAsync<OperationDetailDto>(TestJsonOptions.Default);
+        Assert.Equal(HttpStatusCode.Accepted, execute.StatusCode);
+
+        var completed = await WaitForCompletionAsync(client, accepted!.OperationId);
+        var operationJson = await client.GetStringAsync($"/api/v1/operations/{accepted.OperationId}");
+        Assert.Equal(OperationState.PartiallySucceeded, completed.State);
+        Assert.Equal(RestoreFailureCodes.DatabaseRestoreInterrupted, completed.ErrorCode);
+        Assert.DoesNotContain("secret connection string", operationJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(_factory.FakeBrowseRootPath, operationJson, StringComparison.OrdinalIgnoreCase);
+        Assert.True(database.RestoreAttempted);
+        Assert.False(database.RestoreCompleted);
+
+        var audit = await File.ReadAllTextAsync(Path.Combine(_factory.FakeConfigRootPath, "audit", "operations.jsonl"));
+        Assert.Contains("\"state\":\"PartiallySucceeded\"", audit, StringComparison.Ordinal);
+        Assert.Contains($"\"errorCode\":\"{RestoreFailureCodes.DatabaseRestoreInterrupted}\"", audit, StringComparison.Ordinal);
+        Assert.Contains("\"operationMode\":\"database-only\"", audit, StringComparison.Ordinal);
+        Assert.Contains("\"operationTarget\":\"RmsBranchSrv\"", audit, StringComparison.Ordinal);
+        Assert.DoesNotContain("C:\\private", audit, StringComparison.OrdinalIgnoreCase);
+    }
+
     public void Dispose()
     {
         foreach (var entry in Directory.EnumerateFileSystemEntries(_factory.FakeBrowseRootPath))
@@ -271,6 +362,7 @@ public sealed class RestoreEndpointTests : IClassFixture<AgentWebApplicationFact
         await store.SaveAsync(configuration);
 
         var database = (FakeDatabaseService)_factory.Services.GetRequiredService<IDatabaseService>();
+        database.ResetRestoreState();
         database.RestoreFileList = [new RestoreFileInfo("branch-data", "D"), new RestoreFileInfo("branch-log", "L")];
         database.RestoreFailure = null;
         database.RestoreVerificationResult = true;

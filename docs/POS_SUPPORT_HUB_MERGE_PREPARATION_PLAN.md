@@ -365,6 +365,26 @@ Application tests and 106 Agent integration tests; complete Release solution val
 .NET tests and the retained WinUI `win-x64` publish gate passed. The correction continues to use
 fake adapters and temporary directories only.
 
+POS-M02R3 - Interrupted SQL Restore Truth & Final Restore Safety Closure closes the remaining
+destructive-truth gaps identified by the early Claude Opus 5 architecture/security review. Restore
+now records `DatabaseRestoreAttempted` immediately before the destructive SQL seam and reports an
+interrupted attempt as `PartialSuccess` with `restore.database_restore_interrupted` and explicit
+database-verification recovery guidance; ordinary cancellation remains available only before SQL
+invocation. The fake SQL seam records attempted versus completed invocation, and focused tests cover
+pre-invocation cancellation, interrupted cancellation, interrupted exception, successful completion,
+full-restore configuration gating, and real `OperationWorker` Restore wiring. Restore audit records
+now carry sanitized logical mode (`full`, `database-only`, or `config-only`) and target database
+identity. Bare `.bak` sources require exactly one positive matching branch token; conflicting,
+missing, or ambiguous evidence fails closed, while ZIP manifest validation remains unchanged. The
+dead `ContainsBranchToken` helper was removed. Focused Release coverage passed 23 Application
+Restore tests and 24 Agent Restore/worker/audit tests; complete Release solution validation passed
+49 Application, 109 Agent integration, 25 Infrastructure, and 7 Domain tests (190 total), and the
+retained WinUI `win-x64` publish gate passed. All validation used fakes and temporary directories;
+no real SQL restore, RMS configuration overwrite, Windows service operation, or device-state
+mutation was executed. Findings addressed: HIGH-1, MEDIUM-1, MEDIUM-2, MEDIUM-3, and applicable
+LOW-1. `EARLY OPUS RESTORE FOLLOW-UP REVIEW REQUIRED` remains the next gate; this session does not
+declare that review gate cleared.
+
 ## 15. RMS+ Support Hub ownership boundary
 
 | Responsibility | POS repository owns | RMS+ Support Hub owns |
@@ -549,7 +569,8 @@ Support Hub frontend integration.
 | POS-M02 | Complete | Backend restore/archive hardening only; focused restore tests, full Release solution gates, and retained WinUI publish passed; no real restore/config/service operation was executed |
 | POS-M02R | Complete | Corrective Restore outcome semantics; fail-closed SQL inspection, explicit partial/cancellation/rollback/restart outcomes, stable Agent/audit failure evidence, focused fake-only tests, 178 Release .NET tests, and retained WinUI publish passed |
 | POS-M02R2 | Complete | Restore terminal-result race closed; finalized service outcomes map directly through the Agent and remain stable under late cancellation, with focused 44 Application and 106 Agent tests, 182 Release .NET tests, and retained WinUI publish passed |
-| POS-M03 | Pending owner authorization after POS-M02R2 | Cleanup/reset backend safety only |
+| POS-M02R3 | Complete; early Opus Restore follow-up required | Interrupted SQL destructive truth, recovery-required partial semantics, worker-level Restore wiring, sanitized mode/target audit evidence, and positive bare-BAK branch evidence; focused 23 Application Restore and 24 Agent Restore/worker/audit tests, 190 Release .NET tests, and retained WinUI publish passed |
+| POS-M03 | Blocked pending early Opus Restore follow-up approval | Cleanup/reset backend safety only; do not execute until the Restore follow-up review clears the block and the owner authorizes the session |
 | POS-M04 | Pending POS-M01 | Downloader backend/SMB portability only |
 | POS-M05 | Pending POS-M02 through POS-M04 | Complete landing/collision audit; then `CLAUDE OPUS 5 REVIEW REQUIRED` |
 | R1 | Scheduled after POS-M05 | Claude Opus 5 review gate |
