@@ -94,53 +94,60 @@ public sealed class MaintenancePathPolicy
             return Reject(safeTargetId, MaintenanceFailureCodes.RootTarget);
         }
 
-        if (!TryCanonicalizeRoots(settings.ManagedRoots, settings.AllowUncPaths, out var managedRoots)
-            || managedRoots.Count == 0)
+        if (!TryCanonicalizeRequiredRoots(settings.ManagedRoots, settings.AllowUncPaths, out var managedRoots))
         {
             return Reject(safeTargetId, MaintenanceFailureCodes.NoManagedRoots);
         }
 
-        if (!TryCanonicalizeRoots(settings.ProtectedRoots, settings.AllowUncPaths, out var protectedRoots))
+        if (!TryCanonicalizeRequiredRoots(settings.ProtectedRoots, settings.AllowUncPaths, out var protectedRoots))
         {
-            return Reject(safeTargetId, MaintenanceFailureCodes.InvalidConfiguration);
+            return Reject(safeTargetId, settings.ProtectedRoots is null or { Count: 0 }
+                ? MaintenanceFailureCodes.NoProtectedRoots
+                : MaintenanceFailureCodes.InvalidConfiguration);
         }
 
-        if (protectedRoots.Any(root => IsWithinOrEqual(canonicalTarget, root)))
+        if (!TryCanonicalizeRequiredRoots(settings.InstallRoots, settings.AllowUncPaths, out var installRoots))
+        {
+            return Reject(safeTargetId, settings.InstallRoots is null or { Count: 0 }
+                ? MaintenanceFailureCodes.NoInstallRoots
+                : MaintenanceFailureCodes.InvalidConfiguration);
+        }
+
+        if (!TryCanonicalizeRequiredRoots(settings.DataRoots, settings.AllowUncPaths, out var dataRoots))
+        {
+            return Reject(safeTargetId, settings.DataRoots is null or { Count: 0 }
+                ? MaintenanceFailureCodes.NoDataRoots
+                : MaintenanceFailureCodes.InvalidConfiguration);
+        }
+
+        var managedRoot = managedRoots.FirstOrDefault(root => IsWithinOrEqual(canonicalTarget, root));
+
+        // A managed root itself is never a cleanup target.  This also keeps a root-level target
+        // from becoming a recursive delete of the entire configured data area.
+        if (managedRoot is not null
+            && PathComparer.Equals(TrimSeparator(canonicalTarget), TrimSeparator(managedRoot)))
+        {
+            return Reject(safeTargetId, MaintenanceFailureCodes.RootTarget);
+        }
+
+        if (protectedRoots.Any(root => OverlapsByContainment(canonicalTarget, root)))
         {
             return Reject(safeTargetId, MaintenanceFailureCodes.ProtectedRoot);
         }
 
-        if (!TryCanonicalizeRoots(settings.InstallRoots, settings.AllowUncPaths, out var installRoots))
-        {
-            return Reject(safeTargetId, MaintenanceFailureCodes.InvalidConfiguration);
-        }
-
-        if (installRoots.Any(root => IsWithinOrEqual(canonicalTarget, root)))
+        if (installRoots.Any(root => OverlapsByContainment(canonicalTarget, root)))
         {
             return Reject(safeTargetId, MaintenanceFailureCodes.InstallRoot);
         }
 
-        var managedRoot = managedRoots.FirstOrDefault(root => IsWithinOrEqual(canonicalTarget, root));
         if (managedRoot is null)
         {
             return Reject(safeTargetId, MaintenanceFailureCodes.OutsideManagedRoot);
         }
 
-        if (!TryCanonicalizeRoots(settings.DataRoots, settings.AllowUncPaths, out var dataRoots))
-        {
-            return Reject(safeTargetId, MaintenanceFailureCodes.InvalidConfiguration);
-        }
-
-        if (dataRoots.Count > 0 && !dataRoots.Any(root => IsWithinOrEqual(canonicalTarget, root)))
+        if (!dataRoots.Any(root => IsWithinOrEqual(canonicalTarget, root)))
         {
             return Reject(safeTargetId, MaintenanceFailureCodes.NotDataRoot);
-        }
-
-        // A managed root itself is never a cleanup target.  This also keeps a root-level target
-        // from becoming a recursive delete of the entire configured data area.
-        if (PathComparer.Equals(TrimSeparator(canonicalTarget), TrimSeparator(managedRoot)))
-        {
-            return Reject(safeTargetId, MaintenanceFailureCodes.RootTarget);
         }
 
         var inspections = _fileSystem.InspectAncestors(canonicalTarget);
@@ -163,8 +170,9 @@ public sealed class MaintenancePathPolicy
 
             if (!TryCanonicalize(inspection.ResolvedLinkTarget, settings.AllowUncPaths, out var linkTarget)
                 || !IsWithinOrEqual(linkTarget, managedRoot)
-                || protectedRoots.Any(root => IsWithinOrEqual(linkTarget, root))
-                || installRoots.Any(root => IsWithinOrEqual(linkTarget, root)))
+                || !dataRoots.Any(root => IsWithinOrEqual(linkTarget, root))
+                || protectedRoots.Any(root => OverlapsByContainment(linkTarget, root))
+                || installRoots.Any(root => OverlapsByContainment(linkTarget, root)))
             {
                 return Reject(safeTargetId, MaintenanceFailureCodes.ReparseEscape);
             }
@@ -186,8 +194,9 @@ public sealed class MaintenancePathPolicy
             if (string.IsNullOrWhiteSpace(targetInspection.ResolvedLinkTarget)
                 || !TryCanonicalize(targetInspection.ResolvedLinkTarget, settings.AllowUncPaths, out var targetLink)
                 || !IsWithinOrEqual(targetLink, managedRoot)
-                || protectedRoots.Any(root => IsWithinOrEqual(targetLink, root))
-                || installRoots.Any(root => IsWithinOrEqual(targetLink, root)))
+                || !dataRoots.Any(root => IsWithinOrEqual(targetLink, root))
+                || protectedRoots.Any(root => OverlapsByContainment(targetLink, root))
+                || installRoots.Any(root => OverlapsByContainment(targetLink, root)))
             {
                 return Reject(safeTargetId, MaintenanceFailureCodes.ReparseEscape);
             }
@@ -243,6 +252,15 @@ public sealed class MaintenancePathPolicy
         return valid;
     }
 
+    private bool TryCanonicalizeRequiredRoots(
+        IEnumerable<string>? roots,
+        bool allowUnc,
+        out List<string> canonicalRoots)
+    {
+        return TryCanonicalizeRoots(roots, allowUnc, out canonicalRoots)
+            && canonicalRoots.Count > 0;
+    }
+
     private bool TryCanonicalize(string? rawPath, bool allowUnc, out string canonical)
     {
         canonical = string.Empty;
@@ -277,6 +295,10 @@ public sealed class MaintenancePathPolicy
             || normalizedCandidate.StartsWith(normalizedRoot + Path.DirectorySeparatorChar, PathComparison)
             || normalizedCandidate.StartsWith(normalizedRoot + Path.AltDirectorySeparatorChar, PathComparison);
     }
+
+    private static bool OverlapsByContainment(string candidate, string boundary) =>
+        IsWithinOrEqual(candidate, boundary)
+        || IsWithinOrEqual(boundary, candidate);
 
     private static string TrimSeparator(string path) =>
         path.Length > 3 ? path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) : path;

@@ -20,7 +20,18 @@ public sealed partial class SqlCmdExecutor : IDatabaseService, IDatabaseRestoreV
         await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task<bool> BranchExistsAsync(AppSettings settings, string branchCode, CancellationToken cancellationToken = default)
+    public Task<bool> BranchExistsAsync(AppSettings settings, string branchCode, CancellationToken cancellationToken = default) =>
+        BranchExistsInDatabaseAsync(
+            settings,
+            DatabaseResolver.ResolveBranchDatabase(settings),
+            branchCode,
+            cancellationToken);
+
+    public async Task<bool> BranchExistsInDatabaseAsync(
+        AppSettings settings,
+        string databaseName,
+        string branchCode,
+        CancellationToken cancellationToken = default)
     {
         const string sql = """
             SET NOCOUNT ON;
@@ -33,7 +44,7 @@ public sealed partial class SqlCmdExecutor : IDatabaseService, IDatabaseRestoreV
             THEN 1 ELSE 0 END AS bit);
             """;
 
-        await using var connection = new SqlConnection(BuildConnectionString(settings));
+        await using var connection = new SqlConnection(BuildConnectionString(settings, databaseName));
         await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
         await using var command = new SqlCommand(sql, connection);
         command.Parameters.Add("@branch_code", SqlDbType.NVarChar, 50).Value = branchCode;

@@ -3,7 +3,7 @@ namespace PosAdminTool.Domain.Models;
 /// <summary>
 /// Service-owned maintenance policy.  These values are intentionally not part of the browser
 /// configuration contract: paths are policy inputs for the Agent, not client-selected targets.
-/// An empty managed-root list is a fail-closed configuration.
+/// Empty or invalid managed, data, protected, or install safety-root lists fail closed for cleanup.
 /// </summary>
 public sealed class MaintenanceSettings
 {

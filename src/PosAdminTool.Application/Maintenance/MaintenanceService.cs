@@ -18,6 +18,16 @@ public sealed class MaintenanceService(
 {
     private readonly MaintenancePathPolicy _pathPolicy = new(fileSystem);
 
+    // Historical RMS branch-reset scope is code-owned. Configuration may only select/deduplicate
+    // these identifiers; it cannot expand the destructive SQL target set.
+    private static readonly IReadOnlyDictionary<string, string> ApprovedBranchResetTables =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Sales"] = "Sales",
+            ["CashierSessions"] = "CashierSessions",
+            ["InventoryMovements"] = "InventoryMovements",
+        };
+
     public async Task<CleanupPreviewBuildResult> BuildCleanupPreviewAsync(
         AppSettings settings,
         CancellationToken cancellationToken = default)
@@ -129,12 +139,13 @@ public sealed class MaintenanceService(
         var configuredServices = settings.Services ?? [];
         var services = ResolveServices(configuredServices, rejections);
         var branchCode = (settings.BranchCode ?? string.Empty).Trim();
+        var approvedDatabaseName = DatabaseResolver.ResolveBranchDatabase(settings);
         var databaseName = string.IsNullOrWhiteSpace(maintenance.BranchResetDatabase)
-            ? DatabaseResolver.ResolveBranchDatabase(settings)
+            ? approvedDatabaseName
             : maintenance.BranchResetDatabase.Trim();
         var tableNames = maintenance.BranchResetTables is { Count: > 0 }
-            ? maintenance.BranchResetTables
-            : new MaintenanceSettings().BranchResetTables;
+            ? maintenance.BranchResetTables.ToArray()
+            : ApprovedBranchResetTables.Values.ToArray();
 
         if (!MaintenancePathPolicy.IsSafeIdentifier(branchCode) || branchCode.Length > 50)
         {
@@ -145,17 +156,23 @@ public sealed class MaintenanceService(
         {
             rejections.Add(new("database", MaintenanceFailureCodes.DatabaseInvalid, "The configured branch database identity is invalid."));
         }
+        else if (!MaintenancePathPolicy.IsSafeIdentifier(approvedDatabaseName)
+            || !string.Equals(databaseName, approvedDatabaseName, StringComparison.OrdinalIgnoreCase))
+        {
+            rejections.Add(new("database", MaintenanceFailureCodes.DatabaseOutOfScope, "The configured branch database is outside the server-approved scope."));
+        }
 
         var safeTables = new List<string>();
         foreach (var table in tableNames)
         {
-            if (!MaintenancePathPolicy.IsSafeIdentifier(table))
+            if (!MaintenancePathPolicy.IsSafeIdentifier(table)
+                || !ApprovedBranchResetTables.TryGetValue(table.Trim(), out var approvedTable))
             {
                 rejections.Add(new("tables", MaintenanceFailureCodes.DatabaseInvalid, "The configured reset table scope is invalid."));
                 continue;
             }
 
-            if (!safeTables.Contains(table, StringComparer.OrdinalIgnoreCase)) safeTables.Add(table);
+            if (!safeTables.Contains(approvedTable, StringComparer.OrdinalIgnoreCase)) safeTables.Add(approvedTable);
         }
 
         if (safeTables.Count == 0)
@@ -164,11 +181,22 @@ public sealed class MaintenanceService(
         }
 
         var branchExists = false;
+        var maintenanceDatabase = databaseService as IMaintenanceDatabasePreview;
+        if (rejections.Count == 0
+            && (maintenanceDatabase is null || databaseService is not IMaintenanceDatabaseReset))
+        {
+            rejections.Add(new("database", MaintenanceFailureCodes.DatabaseScopeUnavailable, "The branch scope could not be verified by the maintenance database adapter."));
+        }
+
         if (rejections.Count == 0)
         {
             try
             {
-                branchExists = await databaseService.BranchExistsAsync(settings, branchCode, cancellationToken).ConfigureAwait(false);
+                branchExists = await maintenanceDatabase!.BranchExistsInDatabaseAsync(
+                    settings,
+                    databaseName,
+                    branchCode,
+                    cancellationToken).ConfigureAwait(false);
                 if (!branchExists)
                 {
                     rejections.Add(new("branch", MaintenanceFailureCodes.BranchNotFound, "The configured branch was not found."));
@@ -187,11 +215,11 @@ public sealed class MaintenanceService(
         var tablePreviews = safeTables
             .Select(table => new MaintenanceTablePreview(table, null))
             .ToList();
-        if (branchExists && databaseService is IMaintenanceDatabasePreview preview)
+        if (branchExists && maintenanceDatabase is not null)
         {
             try
             {
-                var scope = await preview.GetBranchResetScopeAsync(
+                var scope = await maintenanceDatabase.GetBranchResetScopeAsync(
                     settings,
                     databaseName,
                     branchCode,
@@ -452,17 +480,22 @@ public sealed class MaintenanceService(
                 anyAttempt ? MaintenanceFailureCodes.RecoveryRequired : null);
         }
 
+        if (databaseService is not IMaintenanceDatabaseReset reset)
+        {
+            return Finish(
+                operation,
+                items,
+                warnings,
+                recovery,
+                anyAttempt,
+                OperationStatus.Failed,
+                MaintenanceFailureCodes.DatabaseScopeUnavailable);
+        }
+
         anyAttempt = true; // The flag is set immediately before the injected destructive SQL seam.
         try
         {
-            if (databaseService is IMaintenanceDatabaseReset reset)
-            {
-                await reset.ResetBranchDataAsync(settings, database, branch, tables, cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                await databaseService.ResetBranchDataAsync(settings, branch, cancellationToken).ConfigureAwait(false);
-            }
+            await reset.ResetBranchDataAsync(settings, database, branch, tables, cancellationToken).ConfigureAwait(false);
 
             items.Add(new("branch-reset-sql", "database", "completed", true, true, false, null, null));
         }

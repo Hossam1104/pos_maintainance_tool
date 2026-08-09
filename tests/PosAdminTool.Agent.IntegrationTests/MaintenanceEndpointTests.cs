@@ -177,6 +177,97 @@ public sealed class MaintenanceEndpointTests : IClassFixture<AgentWebApplication
     }
 
     [Fact]
+    public async Task BranchResetVerifiesAndResetsTheSameApprovedDatabaseWithLogicalScopeEvidence()
+    {
+        await PrepareBranchResetAsync("REGION_A_9");
+        var database = (FakeDatabaseService)_factory.Services.GetRequiredService<IDatabaseService>();
+        var client = await CreateAdminClientWithAntiforgeryAsync("TESTDOMAIN\\sql-scope-admin");
+
+        var preview = await ReadBranchResetPreviewAsync(client);
+        Assert.Equal(["RmsBranchSrv"], database.BranchVerificationDatabases);
+
+        var execute = await client.PostAsJsonAsync(
+            "/api/v1/maintenance/reset/execute",
+            new BranchResetExecuteRequestDto(preview.ChallengeId, preview.ConfirmationPhrase) { IdempotencyKey = "maintenance-sql-scope-1" });
+        var accepted = await execute.Content.ReadFromJsonAsync<OperationDetailDto>(TestJsonOptions.Default);
+        var completed = await WaitForCompletionAsync(client, accepted!.OperationId);
+        var operationJson = await client.GetStringAsync($"/api/v1/operations/{accepted.OperationId}");
+
+        Assert.Equal(OperationState.Succeeded, completed.State);
+        Assert.Equal("RmsBranchSrv", database.ResetCalls.Single().DatabaseName);
+        Assert.Equal(["Sales", "CashierSessions"], database.ResetCalls.Single().Tables);
+        Assert.DoesNotContain("C:\\private", operationJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("connection string", operationJson, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task UnrelatedBranchDatabaseIsRejectedBeforeVerificationOrReset()
+    {
+        await PrepareBranchResetAsync("REGION_A_10");
+        var configuration = _factory.Services.GetRequiredService<IAgentConfigurationStore>();
+        var current = await configuration.LoadAsync();
+        current.Maintenance.BranchResetDatabase = "UnrelatedDatabase";
+        await configuration.SaveAsync(current);
+        var database = (FakeDatabaseService)_factory.Services.GetRequiredService<IDatabaseService>();
+        var client = await CreateAdminClientWithAntiforgeryAsync("TESTDOMAIN\\sql-out-of-scope-admin");
+
+        var response = await client.PostAsJsonAsync("/api/v1/maintenance/reset/preview", new { });
+        var preview = await response.Content.ReadFromJsonAsync<BranchResetPreviewDto>(TestJsonOptions.Default);
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.NotNull(preview);
+        Assert.False(preview!.Ready);
+        Assert.Contains(preview.Rejections, item => item.Code == ErrorCodes.MaintenanceDatabaseOutOfScope);
+        Assert.Empty(database.BranchVerificationDatabases);
+        Assert.Empty(database.ResetCalls);
+        Assert.DoesNotContain("UnrelatedDatabase", await response.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task UnknownConfiguredResetTableIsRejectedBeforeVerificationOrReset()
+    {
+        await PrepareBranchResetAsync("REGION_A_11");
+        var configuration = _factory.Services.GetRequiredService<IAgentConfigurationStore>();
+        var current = await configuration.LoadAsync();
+        current.Maintenance.BranchResetTables = ["Sales", "CustomerBalances"];
+        await configuration.SaveAsync(current);
+        var database = (FakeDatabaseService)_factory.Services.GetRequiredService<IDatabaseService>();
+        var client = await CreateAdminClientWithAntiforgeryAsync("TESTDOMAIN\\sql-table-scope-admin");
+
+        var response = await client.PostAsJsonAsync("/api/v1/maintenance/reset/preview", new { });
+        var preview = await response.Content.ReadFromJsonAsync<BranchResetPreviewDto>(TestJsonOptions.Default);
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.NotNull(preview);
+        Assert.False(preview!.Ready);
+        Assert.Contains(preview.Rejections, item => item.TargetId == "tables");
+        Assert.Empty(database.BranchVerificationDatabases);
+        Assert.Empty(database.ResetCalls);
+    }
+
+    [Fact]
+    public async Task BranchVerificationFailureAgainstApprovedDatabaseFailsClosedWithoutReset()
+    {
+        await PrepareBranchResetAsync("REGION_A_12");
+        var database = (FakeDatabaseService)_factory.Services.GetRequiredService<IDatabaseService>();
+        database.BranchVerificationFailure = new IOException("secret=C:\\private\\sql");
+        var client = await CreateAdminClientWithAntiforgeryAsync("TESTDOMAIN\\sql-verification-failure-admin");
+
+        var response = await client.PostAsJsonAsync("/api/v1/maintenance/reset/preview", new { });
+        var preview = await response.Content.ReadFromJsonAsync<BranchResetPreviewDto>(TestJsonOptions.Default);
+        var responseJson = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.NotNull(preview);
+        Assert.False(preview!.Ready);
+        Assert.Contains(preview.Rejections, item => item.Code == ErrorCodes.MaintenanceDatabaseScopeUnavailable);
+        Assert.Equal(["RmsBranchSrv"], database.BranchVerificationDatabases);
+        Assert.Empty(database.ResetCalls);
+        Assert.DoesNotContain("private", responseJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("secret", responseJson, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task StaleCleanupTargetFailsClosedBeforeQueueAndWrongPrincipalCannotRedeemChallenge()
     {
         var targets = await PrepareCleanupAsync("NORTH_EU_03", ["cleanup-root\\stale"]);

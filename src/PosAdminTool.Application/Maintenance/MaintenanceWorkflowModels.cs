@@ -13,6 +13,9 @@ public static class MaintenanceFailureCodes
 {
     public const string InvalidConfiguration = "maintenance.invalid_configuration";
     public const string NoManagedRoots = "maintenance.no_managed_roots";
+    public const string NoDataRoots = "maintenance.no_data_roots";
+    public const string NoProtectedRoots = "maintenance.no_protected_roots";
+    public const string NoInstallRoots = "maintenance.no_install_roots";
     public const string InvalidPath = "maintenance.path_invalid";
     public const string UnresolvedEnvironmentVariable = "maintenance.path_unresolved_environment_variable";
     public const string DriveRelativePath = "maintenance.path_drive_relative";
@@ -35,6 +38,7 @@ public static class MaintenanceFailureCodes
     public const string PreviewChanged = "maintenance.preview_changed";
     public const string PreviewNotReady = "maintenance.preview_not_ready";
     public const string DatabaseInvalid = "maintenance.database_invalid";
+    public const string DatabaseOutOfScope = "maintenance.database_out_of_scope";
     public const string BranchInvalid = "maintenance.branch_invalid";
     public const string BranchNotFound = "maintenance.branch_not_found";
     public const string DatabaseScopeUnavailable = "maintenance.database_scope_unavailable";

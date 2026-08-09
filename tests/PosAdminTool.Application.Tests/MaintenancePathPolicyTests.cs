@@ -25,6 +25,76 @@ public sealed class MaintenancePathPolicyTests
     }
 
     [Fact]
+    public void ProtectedAndInstallRootsRejectEveryContainmentOverlapButAllowSafeSiblings()
+    {
+        var settings = PathSettings();
+        var policy = new MaintenancePathPolicy(_fileSystem);
+        var protectedRoot = settings.ProtectedRoots.Single();
+        var installRoot = settings.InstallRoots.Single();
+        var protectedParentSettings = PathSettings();
+        protectedParentSettings.ProtectedRoots = [Path.Combine(_root, "managed", "protected")];
+        protectedParentSettings.InstallRoots = [Path.Combine(_root, "other-install")];
+        var installParentSettings = PathSettings();
+        installParentSettings.ProtectedRoots = [Path.Combine(_root, "other-protected")];
+        installParentSettings.InstallRoots = [Path.Combine(_root, "managed", "install")];
+
+        Assert.Equal(
+            MaintenanceFailureCodes.ProtectedRoot,
+            policy.Resolve("protected-child", Path.Combine(protectedRoot, "child"), settings).RejectionCode);
+        Assert.Equal(
+            MaintenanceFailureCodes.ProtectedRoot,
+            policy.Resolve("protected-equal", protectedRoot, settings).RejectionCode);
+        Assert.Equal(
+            MaintenanceFailureCodes.ProtectedRoot,
+            policy.Resolve("protected-parent", Path.Combine(_root, "managed"), protectedParentSettings).RejectionCode);
+        Assert.Equal(
+            MaintenanceFailureCodes.InstallRoot,
+            policy.Resolve("install-parent", Path.Combine(_root, "managed"), installParentSettings).RejectionCode);
+        Assert.True(policy.Resolve("safe-sibling", Path.Combine(_root, "safe-sibling"), settings).Accepted);
+    }
+
+    [Theory]
+    [InlineData("managed")]
+    [InlineData("data")]
+    [InlineData("protected")]
+    [InlineData("install")]
+    public void EmptyRequiredSafetyRootsFailClosed(string missingRoot)
+    {
+        var settings = PathSettings();
+        switch (missingRoot)
+        {
+            case "managed": settings.ManagedRoots = []; break;
+            case "data": settings.DataRoots = []; break;
+            case "protected": settings.ProtectedRoots = []; break;
+            case "install": settings.InstallRoots = []; break;
+        }
+
+        var result = new MaintenancePathPolicy(_fileSystem).Resolve(
+            "missing-root",
+            Path.Combine(_root, "safe-sibling"),
+            settings);
+
+        Assert.False(result.Accepted);
+        Assert.NotNull(result.RejectionCode);
+        Assert.DoesNotContain(_root, result.SafeMessage ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void InvalidRequiredSafetyRootFailsClosed()
+    {
+        var settings = PathSettings();
+        settings.DataRoots = ["C:relative-data-root"];
+
+        var result = new MaintenancePathPolicy(_fileSystem).Resolve(
+            "invalid-data-root",
+            Path.Combine(_root, "safe-sibling"),
+            settings);
+
+        Assert.Equal(MaintenanceFailureCodes.InvalidConfiguration, result.RejectionCode);
+        Assert.DoesNotContain(_root, result.SafeMessage ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void DriveRelativeUncAndUnresolvedEnvironmentPathsFailClosed()
     {
         var settings = PathSettings();
@@ -80,6 +150,24 @@ public sealed class MaintenancePathPolicyTests
     }
 
     [Fact]
+    public void ReparseDestinationInsideOrContainingProtectedRootIsRejected()
+    {
+        var settings = PathSettings();
+        settings.RejectReparsePoints = false;
+        var policy = new MaintenancePathPolicy(_fileSystem);
+        var target = Path.Combine(_root, "reparse-target");
+        var protectedRoot = settings.ProtectedRoots.Single();
+
+        _fileSystem.SetReparse(target, Path.Combine(protectedRoot, "destination"));
+        _fileSystem.SetAncestors(target, [_fileSystem.Inspect(target)]);
+        Assert.Equal(MaintenanceFailureCodes.ReparseEscape, policy.Resolve("reparse-inside", target, settings).RejectionCode);
+
+        _fileSystem.SetReparse(target, _root);
+        _fileSystem.SetAncestors(target, [_fileSystem.Inspect(target)]);
+        Assert.Equal(MaintenanceFailureCodes.ReparseEscape, policy.Resolve("reparse-containing", target, settings).RejectionCode);
+    }
+
+    [Fact]
     public async Task CleanupRecomputesTheTargetAndFailsClosedWhenConfigurationChanges()
     {
         var settings = ApplicationSettings();
@@ -132,6 +220,94 @@ public sealed class MaintenancePathPolicyTests
         Assert.Equal(OperationStatus.Success, execution.Operation.Status);
         Assert.Equal("BranchData", database.ResetCalls.Single().DatabaseName);
         Assert.Equal("NORTH_EU_01", database.ResetCalls.Single().BranchCode);
+        Assert.Equal(2, database.BranchVerificationDatabases.Count);
+        Assert.All(database.BranchVerificationDatabases, name => Assert.Equal("BranchData", name));
+    }
+
+    [Fact]
+    public async Task BranchResetUsesResolvedDatabaseByDefaultAndNormalizesApprovedTableSubset()
+    {
+        var settings = ApplicationSettings();
+        settings.Databases = ["RmsBranchSrv"];
+        settings.BranchCode = "NORTH_EU_03";
+        settings.Maintenance.BranchResetDatabase = string.Empty;
+        settings.Maintenance.BranchResetTables = ["sales", "SALES", "CashierSessions"];
+        var database = new FakeDatabase();
+        var service = new MaintenanceService(database, new FakeServices(), _fileSystem);
+
+        var preview = await service.BuildBranchResetPreviewAsync(settings);
+        var execution = await service.ExecuteBranchResetAsync(settings, preview.Intent!.Fingerprint);
+
+        Assert.True(preview.Ready);
+        Assert.Equal("RmsBranchSrv", preview.Intent.DatabaseName);
+        Assert.Equal(["Sales", "CashierSessions"], preview.Intent.TableNames);
+        Assert.Equal(2, database.BranchVerificationDatabases.Count);
+        Assert.All(database.BranchVerificationDatabases, name => Assert.Equal("RmsBranchSrv", name));
+        Assert.Equal(["Sales", "CashierSessions"], database.ResetCalls.Single().Tables);
+        Assert.Equal(OperationStatus.Success, execution.Operation.Status);
+    }
+
+    [Fact]
+    public async Task UnrelatedDatabaseIsRejectedBeforeAnyReset()
+    {
+        var settings = ApplicationSettings();
+        settings.Databases = ["RmsBranchSrv"];
+        settings.Maintenance.BranchResetDatabase = "UnrelatedDatabase";
+        var database = new FakeDatabase();
+        var service = new MaintenanceService(database, new FakeServices(), _fileSystem);
+
+        var preview = await service.BuildBranchResetPreviewAsync(settings);
+        var execution = await service.ExecuteBranchResetAsync(settings);
+
+        Assert.False(preview.Ready);
+        Assert.Contains(preview.Rejections, item => item.Code == MaintenanceFailureCodes.DatabaseOutOfScope);
+        Assert.Empty(database.BranchVerificationDatabases);
+        Assert.Empty(database.ResetCalls);
+        Assert.Equal(OperationStatus.Failed, execution.Operation.Status);
+        Assert.False(execution.Evidence.DestructiveAttempted);
+    }
+
+    [Fact]
+    public async Task UnknownConfiguredTableIsRejectedBeforeAnyReset()
+    {
+        var settings = ApplicationSettings();
+        settings.Databases = ["RmsBranchSrv"];
+        settings.Maintenance.BranchResetTables = ["Sales", "CustomerBalances"];
+        var database = new FakeDatabase();
+        var service = new MaintenanceService(database, new FakeServices(), _fileSystem);
+
+        var preview = await service.BuildBranchResetPreviewAsync(settings);
+        var execution = await service.ExecuteBranchResetAsync(settings);
+
+        Assert.False(preview.Ready);
+        Assert.Contains(preview.Rejections, item => item.TargetId == "tables");
+        Assert.Empty(database.BranchVerificationDatabases);
+        Assert.Empty(database.ResetCalls);
+        Assert.Equal(OperationStatus.Failed, execution.Operation.Status);
+        Assert.False(execution.Evidence.DestructiveAttempted);
+    }
+
+    [Fact]
+    public async Task ExactTargetDatabaseVerificationFailurePreventsReset()
+    {
+        var settings = ApplicationSettings();
+        settings.Databases = ["RmsBranchSrv"];
+        var database = new FakeDatabase
+        {
+            BranchVerificationFailure = new IOException("secret=C:\\private\\database"),
+        };
+        var service = new MaintenanceService(database, new FakeServices(), _fileSystem);
+
+        var preview = await service.BuildBranchResetPreviewAsync(settings);
+        var execution = await service.ExecuteBranchResetAsync(settings);
+
+        Assert.False(preview.Ready);
+        Assert.Contains(preview.Rejections, item => item.Code == MaintenanceFailureCodes.DatabaseScopeUnavailable);
+        Assert.Equal(2, database.BranchVerificationDatabases.Count);
+        Assert.All(database.BranchVerificationDatabases, name => Assert.Equal("RmsBranchSrv", name));
+        Assert.Empty(database.ResetCalls);
+        Assert.Equal(OperationStatus.Failed, execution.Operation.Status);
+        Assert.DoesNotContain("private", string.Join(" ", preview.Rejections.Select(item => item.Message)), StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -206,16 +382,33 @@ public sealed class MaintenancePathPolicyTests
         public Task ControlAsync(string serviceName, ServiceControlAction action, CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
-    private sealed class FakeDatabase : IDatabaseService, IMaintenanceDatabaseReset
+    private sealed class FakeDatabase : IDatabaseService, IMaintenanceDatabasePreview, IMaintenanceDatabaseReset
     {
         public List<(string DatabaseName, string BranchCode, IReadOnlyList<string> Tables)> ResetCalls { get; } = [];
+        public List<string> BranchVerificationDatabases { get; } = [];
         public Action? OnBranchExists { get; set; }
+        public Exception? BranchVerificationFailure { get; set; }
         public Task TestConnectionAsync(AppSettings settings, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<bool> BranchExistsAsync(AppSettings settings, string branchCode, CancellationToken cancellationToken = default)
         {
             OnBranchExists?.Invoke();
             return Task.FromResult(true);
         }
+        public Task<bool> BranchExistsInDatabaseAsync(AppSettings settings, string databaseName, string branchCode, CancellationToken cancellationToken = default)
+        {
+            BranchVerificationDatabases.Add(databaseName);
+            OnBranchExists?.Invoke();
+            if (BranchVerificationFailure is not null) return Task.FromException<bool>(BranchVerificationFailure);
+            return Task.FromResult(true);
+        }
+        public Task<IReadOnlyList<MaintenanceTableScope>> GetBranchResetScopeAsync(
+            AppSettings settings,
+            string databaseName,
+            string branchCode,
+            IReadOnlyList<string> tableNames,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<MaintenanceTableScope>>(
+                tableNames.Select(table => new MaintenanceTableScope(table, null)).ToList());
         public Task ResetBranchDataAsync(AppSettings settings, string branchCode, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task ResetBranchDataAsync(AppSettings settings, string databaseName, string branchCode, IReadOnlyList<string> tableNames, CancellationToken cancellationToken = default)
         {

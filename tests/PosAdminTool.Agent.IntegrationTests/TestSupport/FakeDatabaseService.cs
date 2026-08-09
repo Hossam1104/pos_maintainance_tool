@@ -24,6 +24,10 @@ public sealed class FakeDatabaseService : IDatabaseService, IDatabaseRestoreVeri
 
     public bool BranchExistsResult { get; set; } = true;
 
+    public List<string> BranchVerificationDatabases { get; } = [];
+
+    public Exception? BranchVerificationFailure { get; set; }
+
     public List<(string DatabaseName, string BranchCode, IReadOnlyList<string> Tables)> ResetCalls { get; } = [];
 
     public IReadOnlyList<MaintenanceTableScope> BranchResetScope { get; set; } = [];
@@ -59,6 +63,8 @@ public sealed class FakeDatabaseService : IDatabaseService, IDatabaseRestoreVeri
         RestoreVerificationRelease = new(TaskCreationOptions.RunContinuationsAsynchronously);
         ResetFailure = null;
         BranchExistsResult = true;
+        BranchVerificationDatabases.Clear();
+        BranchVerificationFailure = null;
         BlockReset = false;
         ResetAttempted = false;
         ResetCompleted = false;
@@ -71,6 +77,17 @@ public sealed class FakeDatabaseService : IDatabaseService, IDatabaseRestoreVeri
     public Task TestConnectionAsync(AppSettings settings, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
     public Task<bool> BranchExistsAsync(AppSettings settings, string branchCode, CancellationToken cancellationToken = default) => Task.FromResult(BranchExistsResult);
+
+    public Task<bool> BranchExistsInDatabaseAsync(
+        AppSettings settings,
+        string databaseName,
+        string branchCode,
+        CancellationToken cancellationToken = default)
+    {
+        BranchVerificationDatabases.Add(databaseName);
+        if (BranchVerificationFailure is not null) return Task.FromException<bool>(BranchVerificationFailure);
+        return Task.FromResult(BranchExistsResult);
+    }
 
     public Task<IReadOnlyList<MaintenanceTableScope>> GetBranchResetScopeAsync(
         AppSettings settings,

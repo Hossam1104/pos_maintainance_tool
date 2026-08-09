@@ -47,6 +47,21 @@
   infrastructure only; no real cleanup, reset, service control, device mutation, or Angular
   Maintenance UI work occurred.
 
+## Verified POS-M03R Corrective Closure
+
+- `MaintenancePathPolicy` now requires non-empty valid ManagedRoots, DataRoots, ProtectedRoots, and
+  InstallRoots for cleanup; a target or allowed reparse destination cannot contain or be contained
+  by a protected/install root, and rejection evidence remains path-free.
+- Branch reset now uses the server-resolved branch database as its only authority, verifies the
+  branch against that exact database before execution, and limits configured tables to the
+  code-owned historical `Sales`, `CashierSessions`, and `InventoryMovements` set with
+  case-insensitive deduplication. The legacy unscoped reset fallback is not used.
+- Focused Release coverage passed 20 Application and 15 Agent maintenance/worker tests. Complete
+  Release validation passed 225 .NET tests; solution build passed with zero warnings/errors; the
+  retained WinUI `win-x64` publish passed. All checks used fakes/disposable infrastructure only;
+  no real cleanup, SQL reset, service control, device mutation, or Angular Maintenance UI work
+  occurred.
+
 ## Active Programme
 
 - Canonical plan: `docs/POS_SUPPORT_HUB_MERGE_PREPARATION_PLAN.md`.

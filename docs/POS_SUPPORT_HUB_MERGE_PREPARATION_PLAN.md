@@ -287,7 +287,11 @@ retains only the logical mode and preview fingerprint, while the worker reloads 
 configuration and the application service recomputes policy immediately before each destructive
 seam. Terminal operation details and JSONL audit entries retain logical per-item attempted versus
 completed state, residue uncertainty, recovery guidance, and stable failure codes without host
-paths, raw SQL, credentials, or exception text.
+paths, raw SQL, credentials, or exception text. POS-M03R closes the corrective safety gaps by
+requiring non-empty valid managed/data/protected/install roots, rejecting symmetric containment
+overlap for protected/install roots and allowed reparse destinations, and constraining branch reset
+to the server-resolved database, exact-target verification, and the code-owned historical table
+allowlist.
 
 The ADR-approved in-memory architecture remains; no durable database or SQLite was introduced.
 
@@ -321,7 +325,7 @@ directly.
 | --- | --- |
 | Runtime state grows without bound | POS-M01 closed the confirmed gap with injectable operation, event, activity, artifact, and file-handle retention; full Release validation passed 141 .NET tests |
 | Restore archive validation is weak | POS-M02 closes the Agent/backend gap with bounded pre-extraction ZIP inspection, manifest/checksum/branch/destination validation, server-derived preview/challenge recomputation, and fake-only tests; no real restore was executed |
-| Cleanup/reset safety is client/legacy driven | POS-M03 closes the Agent boundary with canonical managed-root policy, server-derived preview/challenge, execute-time recomputation, locks, and explicit partial outcomes; retained WinUI compatibility calls fail closed when policy is not configured |
+| Cleanup/reset safety is client/legacy driven | POS-M03 and POS-M03R close the Agent boundary with canonical managed-root policy, required safety-root boundaries, symmetric protected/install overlap and reparse checks, server-derived preview/challenge, execute-time recomputation, locks, explicit partial outcomes, exact-target branch verification, and code-owned SQL scope; retained WinUI compatibility calls fail closed when policy is not configured |
 | Downloader lacks Agent security/operation boundary | Legacy service has direct endpoint/SMB/credential behavior; POS-M04 |
 | LocalSystem managed-root and SMB Session 0 proof | Representative-device evidence remains required; do not guess |
 | Manual live-Agent Negotiate/SSE evidence | Not recorded as a current automated replacement for fake integration tests |
@@ -410,6 +414,18 @@ Release validation passed 210 .NET tests, the solution build passed with zero wa
 the retained WinUI `win-x64` publish passed. All POS-M03 validation used disposable fakes or
 temporary test infrastructure; no real file cleanup, database reset, Windows service control, or
 device-state mutation ran, and no Angular Maintenance UI was added.
+
+POS-M03R - Maintenance Denylist & SQL Scope Safety Closure is complete. Cleanup now fails closed
+when any required managed/data/protected/install safety-root category is empty or invalid, rejects
+targets and allowed reparse destinations that overlap protected/install roots in either containment
+direction, and keeps rejection evidence path-free. Branch reset now accepts only the
+server-resolved branch database, verifies the branch against that exact database before reset, and
+normalizes/deduplicates only the code-owned historical `Sales`, `CashierSessions`, and
+`InventoryMovements` table scope. Focused Release coverage passed 20 Application and 15 Agent
+maintenance/worker tests; complete Release validation passed 225 .NET tests, the solution build
+passed with zero warnings/errors, and the retained WinUI `win-x64` publish passed. All validation
+used fake/disposable infrastructure; no real cleanup, SQL reset, Windows service control,
+device-state mutation, or Angular Maintenance UI work occurred.
 
 ## 15. RMS+ Support Hub ownership boundary
 
@@ -597,7 +613,8 @@ Support Hub frontend integration.
 | POS-M02R2 | Complete | Restore terminal-result race closed; finalized service outcomes map directly through the Agent and remain stable under late cancellation, with focused 44 Application and 106 Agent tests, 182 Release .NET tests, and retained WinUI publish passed |
 | POS-M02R3 | Complete; early Opus Restore follow-up passed | Interrupted SQL destructive truth, recovery-required partial semantics, worker-level Restore wiring, sanitized mode/target audit evidence, and positive bare-BAK branch evidence; focused 23 Application Restore and 24 Agent Restore/worker/audit tests, 190 Release .NET tests, and retained WinUI publish passed |
 | POS-M03 | Complete; owner-authorized after the early Opus Restore follow-up gate passed | Cleanup/reset backend safety only: canonical managed-path policy, server-derived preview/challenge, recomputation, locks, partial/residue truth, sanitized audit, and fake-only worker-path coverage; focused 9 Application and 11 Agent maintenance tests, 210 Release .NET tests, zero-warning solution build, and retained WinUI publish passed |
-| POS-M04 | Pending POS-M03 and owner authorization | Downloader backend/SMB portability only; not executed in POS-M03 |
+| POS-M03R | Complete; corrective closure after POS-M03 | Required cleanup safety-root boundaries, symmetric protected/install overlap including allowed reparse destinations, exact server-approved branch database verification, and code-owned historical reset-table scope; focused 20 Application and 15 Agent maintenance/worker tests, 225 Release .NET tests, zero-warning solution build, and retained WinUI publish passed; fake/disposable-only with no real mutation |
+| POS-M04 | Pending owner authorization | Downloader backend/SMB portability only; not executed in POS-M03R |
 | POS-M05 | Pending POS-M02 through POS-M04 | Complete landing/collision audit; then `CLAUDE OPUS 5 REVIEW REQUIRED` |
 | R1 | Scheduled after POS-M05 | Claude Opus 5 review gate |
 | POS-M06 | Review-gated and owner-authorized only | Final candidate audit |

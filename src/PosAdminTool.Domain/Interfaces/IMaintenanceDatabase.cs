@@ -2,9 +2,15 @@ using PosAdminTool.Domain.Models;
 
 namespace PosAdminTool.Domain.Interfaces;
 
-/// <summary>Optional server-side preview seam for bounded branch-reset row counts.</summary>
+/// <summary>Server-side branch verification and bounded branch-reset scope preview seam.</summary>
 public interface IMaintenanceDatabasePreview
 {
+    Task<bool> BranchExistsInDatabaseAsync(
+        AppSettings settings,
+        string databaseName,
+        string branchCode,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<MaintenanceTableScope>> GetBranchResetScopeAsync(
         AppSettings settings,
         string databaseName,
