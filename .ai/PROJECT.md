@@ -41,6 +41,21 @@ Read this file only when the task requires stable, non-obvious project knowledge
 - Agent restart intentionally loses in-flight jobs and file handles. Do not add SQLite, SignalR, PWA/service-worker behavior, IndexedDB, or queued browser mutations.
 - Keep WinUI buildable/runnable until the cross-project RMS+ Support Hub review and explicit owner-approved dedicated cutover. Its removal must be a dedicated change.
 
+## Support Hub merge-preparation baseline
+
+- The reviewed RMS+ Support Hub `main` baseline for POS preparation is
+  `954b35698f5778386ad45826589f2a1ed7dff108`. Its backend is a portable .NET 10
+  `RmsSupportHub.Core -> RmsSupportHub.Data -> RmsSupportHub.Api` solution with Dapper-backed
+  module repositories, one backend test project, and an Angular 22 frontend that owns the final
+  shell, navigation, shared UI, branding, and the informational `/tools/pos-maintenance`
+  placeholder. It does not currently contain a POS Agent or equivalent Windows security boundary.
+- The POS preparation baseline is `810658467f77b0e2a37aa4a28a66ee3df6519933`. Any future
+  cross-project implementation must preserve an isolated Windows POS privileged boundary,
+  explicit route/error/auth compatibility, POS audit/idempotency/resource ownership, exact package
+  and lockfile review, and the retained WinUI publish gate. Separate POS Agent versus shared host,
+  final namespace/project layout, route/transport, package, deployment, and Angular integration
+  choices require owner-approved cross-project decisions.
+
 ## Build and Validation Entry Points
 
 - Restore — discovered in CI, not run during context initialization: `dotnet restore PosAdminTool.sln --locked-mode`; from `src/PosAdminTool.Web`, `npm ci`.

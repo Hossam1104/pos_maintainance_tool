@@ -1,67 +1,74 @@
 # Current Task
 
-- **Task ID:** POS-M05
-- **Status:** PENDING OWNER AUTHORIZATION
+- **Task ID:** POS-M06
+- **Status:** BLOCKED — CLAUDE OPUS 5 REVIEW REQUIRED
 - **Role:** Implement
 - **Source:** `docs/POS_SUPPORT_HUB_PREPARATION_SESSION_PROMPTS.md`
+- **Authorization:** Not granted. POS-M06 must not begin until Claude Opus 5 R1 review has completed and the owner explicitly authorizes continuation.
 
 ## Authorized Session Prompt
 
+## POS-M06 - Final Merge-Ready Candidate Audit
+
 ```text
 Role:
-Implement one owner-authorized planning/governance and safe repository-hygiene session. Do not
-merge repositories and do not expand standalone Angular.
+Perform one owner-authorized, review-gated final POS preparation audit. Do not merge repositories
+or integrate Angular.
 
-Objective:
-Prepare exact future import/integration boundaries after POS-M01 through POS-M04. The canonical
-plan must be sufficient for a separate cross-project review without guessing file ownership.
+Entry conditions (all required):
+- POS-M01 through POS-M05 are complete.
+- Claude Opus 5 R1 review has completed and its findings are addressed or explicitly accepted.
+- The owner explicitly authorizes POS-M06 continuation.
+- The workspace is clean and synchronized according to AGENTS.md.
 
-Entry conditions:
-- POS-M01, POS-M02, POS-M03, and POS-M04 are complete, or any exception is explicitly recorded.
-- Read the current source tree, project files, package/lock files, test projects, Angular workspace
-  metadata, generated-file rules, ADRs, the canonical POS preparation plan, and the available
-  Support Hub integration material.
+Verify, with evidence:
+1. Domain/Application portability and absence of privileged host leakage.
+2. Infrastructure isolation for SQL, SCM, SMB, filesystem, configuration, and secrets.
+3. Agent loopback binding, Negotiate/local-admin authorization, antiforgery, redaction, correlation,
+   safe Problem Details, operation contracts, and audit behavior.
+4. Bounded runtime state: operation entries, idempotency, events, activity, artifacts, cancellation,
+   and resource cleanup.
+5. Restore backend archive safety, preview/challenge/execute-time policy, locks, cancellation, and
+   post-restore verification.
+6. Cleanup/reset path policy, protected roots, previews, challenge/recomputation, locks, audit,
+   and partial failure semantics.
+7. DB Downloader backend, SSRF/SMB policy, credential isolation, cancellation, artifacts, and the
+   exact service-identity evidence gate.
+8. Configuration ownership, secret handling, operation messages, and no browser path/secret leak.
+9. Stable versioned contracts and generated-file hygiene.
+10. Repository cleanliness, namespace/dependency/DI/config/logging/test/resource ownership, landing
+    map, collision analysis, and no duplicate standalone Angular plan.
+11. Retained WinUI presence and required publish/buildability evidence.
+12. Documentation consistency and Git cleanliness.
 
-Required plan outputs:
-1. Project-level landing map.
-2. File-level landing map for Domain, Application, Infrastructure, Contracts, Agent, WinUI, Web,
-   tests, scripts, resources, and documentation.
-3. Namespace strategy and public-contract compatibility strategy.
-4. Dependency ownership and NuGet/npm collision map with exact-version implications.
-5. DI ownership, configuration ownership, logging/audit ownership, Agent ownership, Angular
-   ownership, test ownership, resource ownership, and scripts/build ownership.
-6. `.gitignore`, generated-output, documentation, and security-contract collision analysis.
-7. A disposition for every significant source area using one of:
-   KEEP AS-IS; KEEP WITH RENAME; MOVE DURING MERGE; ADAPT DURING MERGE; REFERENCE ONLY;
-   DO NOT COPY - SUPPORT HUB ALREADY OWNS IT; RETIRE LATER; NEEDS CROSS-PROJECT DECISION.
-8. A clear list of residual POS risks, evidence gates, and decisions that cannot be made in the
-   POS repository alone.
+Required output if every gate passes:
 
-Safe repository hygiene may include correcting stale references, removing accidental temporary
-outputs, or aligning documentation links when the change is clearly task-scoped. Do not do broad
-formatting, unrelated refactoring, dependency upgrades, generated-file edits, repository merge,
-branch rewrite, or production changes.
+  POS PREPARATION:
+  COMPLETE
 
-Required review outcome:
-At completion, update TASK.md with the complete POS-M06 prompt and mark it blocked pending:
+  POS STATUS:
+  MERGE-READY CANDIDATE
 
-  CLAUDE OPUS 5 REVIEW REQUIRED
+  STANDALONE ANGULAR EXPANSION:
+  FROZEN
 
-Do not present a ready TASK.md as owner authorization. Do not begin POS-M06 before the R1 review and
-explicit owner authorization.
+  WINUI:
+  RETAINED UNTIL CROSS-PROJECT DECISION
 
-Verification:
-  git diff --check
-  python .ai/scripts/check_memory.py
-  rg -n "POS-M01|POS-M02|POS-M03|POS-M04|POS-M05|POS-M06|Support Hub|superseded" TASK.md .ai docs/POS_SUPPORT_HUB_MERGE_PREPARATION_PLAN.md docs/POS_SUPPORT_HUB_PREPARATION_SESSION_PROMPTS.md
+  REPOSITORY MERGE:
+  NOT AUTHORIZED
 
-Review checklist:
-- No repository merge occurred.
-- No standalone Angular feature or global visual system was added.
-- WinUI remains present and buildable/publishable.
-- Active plan and prompts are the only active POS preparation documents.
-- Old Sessions 09-14 are visibly historical/deferred and cannot be copied as authorized prompts.
+  NEXT:
+  WAIT FOR RMS+ SUPPORT HUB SESSION 08 AND CROSS-PROJECT REVIEW
+
+Required validation:
+Run the targeted checks for every changed area, the full agreed .NET/Angular gates where the
+environment supports them, `git diff --check`, memory checks, and the retained WinUI publish gate.
+Report actual results and distinguish unavailable representative-device evidence from passing fake
+tests.
 
 Stop:
-Stop after the landing/collision audit. Request Claude Opus 5 R1 review; do not execute POS-M06.
+If any safety, security, portability, build, documentation, or collision gate fails, do not call
+the repository merge-ready. Record the blocker, update TASK.md/HANDOFF.md, and stop. Even a
+successful POS-M06 audit does not authorize a repository merge or Angular integration.
 ```

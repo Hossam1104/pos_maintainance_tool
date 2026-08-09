@@ -1,8 +1,8 @@
 # Current Project State
 
 - **Updated:** 2026-08-10
-- **Branch:** `main` after the verified POS-M04R2 remote-trigger uncertainty corrective merge
-- **Release or milestone:** .NET 10 + Angular 22 migration; Sessions 00-08 complete; standalone Angular expansion frozen; POS preparation programme active
+- **Branch:** `main` after the verified POS-M05 landing/collision audit merge
+- **Release or milestone:** .NET 10 + Angular 22 migration; Sessions 00-08 and POS-M01 through POS-M05 complete; standalone Angular expansion frozen; Claude Opus 5 R1 required before POS-M06
 
 ## Working State
 
@@ -50,13 +50,31 @@
   complete Release validation passed 263 .NET tests, zero-warning solution build passed, and
   retained WinUI `win-x64` publish passed using fakes/temp-only infrastructure.
 
+## Verified POS-M05 Landing and Collision Audit
+
+- POS-M05 reviewed POS `main` at `810658467f77b0e2a37aa4a28a66ee3df6519933` and RMS+ Support Hub
+  `main` at `954b35698f5778386ad45826589f2a1ed7dff108`; the Support Hub checkout was inspected
+  read-only at that commit on `ui/online-orders-opus-redesign` and had pre-existing uncommitted
+  changes. No Support Hub source or generated output was modified by POS-M05.
+- The actual Support Hub structure is a .NET 10 `Core -> Data -> Api` backend, one backend xUnit
+  project, and an Angular 22 frontend whose final shell/shared UI/branding owns the live
+  `/tools/pos-maintenance` informational placeholder. It has no POS Agent or equivalent Windows
+  Negotiate/local-admin/antiforgery/loopback boundary.
+- The canonical preparation plan now records a detailed project/file landing map with exact POS
+  and Support Hub package/framework baselines, namespace/route/error compatibility, DI/config/
+  security/audit/resource/test/generated/build ownership, concrete collisions, and explicit
+  cross-project decisions. The recommended separate Windows POS Agent topology remains undecided.
+- POS-M05 is complete as planning/governance only. `TASK.md` now contains POS-M06 as
+  `BLOCKED - CLAUDE OPUS 5 REVIEW REQUIRED`; POS-M06 was not executed and RMS+ Support Hub
+  integration remains unauthorized.
+
 ## Active Programme
 
 - Canonical plan: `docs/POS_SUPPORT_HUB_MERGE_PREPARATION_PLAN.md`.
 - Canonical prompts: `docs/POS_SUPPORT_HUB_PREPARATION_SESSION_PROMPTS.md`.
-- `TASK.md` contains the complete POS-M05 landing/collision audit prompt pending owner authorization;
-  POS-M04R2 is complete, POS-M05 requires the Claude Opus 5 R1 review outcome before POS-M06, and
-  POS-M06 is review-gated.
+- `TASK.md` contains the complete POS-M06 final-candidate prompt with status
+  `BLOCKED - CLAUDE OPUS 5 REVIEW REQUIRED`; POS-M01 through POS-M05 are complete, POS-M05
+  requires the Claude Opus 5 R1 review outcome, and POS-M06 is not authorized.
 - Repository merge beyond the authorized session lifecycle, Angular integration, standalone
   installer cutover, and WinUI removal are not otherwise authorized.
 
@@ -72,4 +90,7 @@
 - Remote trigger reconciliation/idempotency remains open: no independently verified remote
   job-status or idempotency contract exists, so an unknown trigger must be checked remotely before
   any operator-directed retry.
+- Claude Opus 5 R1 must review the POS-M05 landing/collision map, the separate-Agent versus shared-
+  host recommendation, package/route/error/security collisions, and the open HTTP rejection
+  semantics question before any POS-M06 authorization.
 - WinUI remains retained until cross-project RMS+ Support Hub review and explicit owner-approved dedicated cutover.
