@@ -357,6 +357,14 @@ through Agent operation details and sanitized destructive audit records; focused
 use disposable fake database/service/filesystem adapters and temporary directories only. The complete
 Release solution passed 178 .NET tests and the retained WinUI `win-x64` publish gate passed.
 
+POS-M02R2 closes the verified late-cancellation terminal-result race. Once `RestoreService` returns
+its finalized `OperationStatus`, `OperationWorker` maps it directly without reinterpreting a later
+cancellation signal, and Restore completion preserves finalized success, partial, and failure
+outcomes through the existing entry cancellation guard. Focused Release coverage passed 44
+Application tests and 106 Agent integration tests; complete Release solution validation passed 182
+.NET tests and the retained WinUI `win-x64` publish gate passed. The correction continues to use
+fake adapters and temporary directories only.
+
 ## 15. RMS+ Support Hub ownership boundary
 
 | Responsibility | POS repository owns | RMS+ Support Hub owns |
@@ -540,7 +548,8 @@ Support Hub frontend integration.
 | POS-M01 | Complete | Runtime boundedness, cleanup, artifact lifecycle, focused tests, full Release validation, and retained WinUI publish passed |
 | POS-M02 | Complete | Backend restore/archive hardening only; focused restore tests, full Release solution gates, and retained WinUI publish passed; no real restore/config/service operation was executed |
 | POS-M02R | Complete | Corrective Restore outcome semantics; fail-closed SQL inspection, explicit partial/cancellation/rollback/restart outcomes, stable Agent/audit failure evidence, focused fake-only tests, 178 Release .NET tests, and retained WinUI publish passed |
-| POS-M03 | Pending POS-M02R | Cleanup/reset backend safety only |
+| POS-M02R2 | Complete | Restore terminal-result race closed; finalized service outcomes map directly through the Agent and remain stable under late cancellation, with focused 44 Application and 106 Agent tests, 182 Release .NET tests, and retained WinUI publish passed |
+| POS-M03 | Pending owner authorization after POS-M02R2 | Cleanup/reset backend safety only |
 | POS-M04 | Pending POS-M01 | Downloader backend/SMB portability only |
 | POS-M05 | Pending POS-M02 through POS-M04 | Complete landing/collision audit; then `CLAUDE OPUS 5 REVIEW REQUIRED` |
 | R1 | Scheduled after POS-M05 | Claude Opus 5 review gate |

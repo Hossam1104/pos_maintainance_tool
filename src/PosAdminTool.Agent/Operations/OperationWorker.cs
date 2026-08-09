@@ -180,13 +180,13 @@ public sealed class OperationWorker(
                     entry.Report(execution.Operation.Status == PosAdminTool.Domain.Enums.OperationStatus.Cancelled ? 90 : 80, "warning", error);
                 }
 
-                var restoreOutcome = MapRestoreOutcome(
-                    execution,
-                    entry.Token.IsCancellationRequested || stoppingToken.IsCancellationRequested);
+                var restoreOutcome = MapRestoreOutcome(execution);
                 entry.Complete(
                     restoreOutcome.State,
                     restoreOutcome.ErrorCode,
-                    preserveOutcomeOnCancellation: restoreOutcome.State == OperationState.PartiallySucceeded);
+                    // RestoreService has already finalized the destructive truth. A cancellation
+                    // signal that arrives after ExecuteAsync returns must not rewrite it.
+                    preserveOutcomeOnCancellation: true);
                 await WriteAuditAsync().ConfigureAwait(false);
                 registry.Publish(entry);
                 return;
@@ -247,12 +247,10 @@ public sealed class OperationWorker(
     }
 
     internal static (OperationState State, string? ErrorCode) MapRestoreOutcome(
-        RestoreExecutionResult execution,
-        bool cancellationRequested)
+        RestoreExecutionResult execution)
     {
         var state = execution.Operation.Status switch
         {
-            OperationStatus.Success when cancellationRequested => OperationState.Cancelled,
             OperationStatus.Success => OperationState.Succeeded,
             OperationStatus.PartialSuccess => OperationState.PartiallySucceeded,
             OperationStatus.Cancelled => OperationState.Cancelled,
