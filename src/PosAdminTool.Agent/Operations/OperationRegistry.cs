@@ -521,14 +521,19 @@ public sealed class OperationRegistry
             }
         }
 
-        public void Complete(OperationState finalState, string? errorCode = null)
+        public void Complete(
+            OperationState finalState,
+            string? errorCode = null,
+            bool preserveOutcomeOnCancellation = false)
         {
             lock (_gate)
             {
                 if (finalState is not (OperationState.Cancelled or OperationState.Succeeded or OperationState.PartiallySucceeded or OperationState.Failed)) return;
                 if (_state is OperationState.Cancelled or OperationState.Succeeded or OperationState.PartiallySucceeded or OperationState.Failed) return;
 
-                if (_cancellation.IsCancellationRequested && finalState != OperationState.Cancelled)
+                if (_cancellation.IsCancellationRequested
+                    && finalState != OperationState.Cancelled
+                    && !preserveOutcomeOnCancellation)
                 {
                     finalState = OperationState.Cancelled;
                     errorCode = null;

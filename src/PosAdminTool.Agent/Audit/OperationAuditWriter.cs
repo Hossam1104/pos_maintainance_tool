@@ -19,6 +19,7 @@ public sealed class OperationAuditWriter(AgentConfigurationStoreOptions options)
             requestedAtUtc = entry.Requested,
             completedAtUtc = entry.Ended,
             state = entry.State.ToString(),
+            errorCode = entry.ErrorCode,
             resultArtifactIds = entry.ResultArtifactIds,
             correlationId = entry.Correlation,
         });

@@ -67,8 +67,12 @@ public static class ErrorCodes
     public const string RestoreConfirmationMismatch = "restore.confirmation_mismatch";
     public const string RestoreOperationQueueFull = "restore.operation_queue_full";
     public const string RestoreFailed = "restore.failed";
+    public const string RestoreSqlInspectionFailed = "restore.sql_inspection_failed";
     public const string RestoreVerificationFailed = "restore.verification_failed";
     public const string RestoreConfigCopyFailed = "restore.config_copy_failed";
+    public const string RestoreConfigRollbackFailed = "restore.config_rollback_failed";
+    public const string RestorePartialFailure = "restore.partial_failure";
+    public const string RestoreCancelledAfterDestructiveWork = "restore.cancelled_after_destructive_work";
     public const string RestoreServiceStopFailed = "restore.service_stop_failed";
     public const string RestoreServiceRestartFailed = "restore.service_restart_failed";
 }
