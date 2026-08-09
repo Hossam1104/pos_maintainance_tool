@@ -1,11 +1,14 @@
 using PosAdminTool.Agent.Artifacts;
 using PosAdminTool.Agent.Audit;
 using PosAdminTool.Agent.Restore;
+using PosAdminTool.Application.Maintenance;
 using PosAdminTool.Application.Restore;
 using PosAdminTool.Application.Services;
 using PosAdminTool.Contracts.V1.Common;
+using PosAdminTool.Contracts.V1.Maintenance;
 using PosAdminTool.Contracts.V1.Operations;
 using PosAdminTool.Domain.Enums;
+using PosAdminTool.Domain.Interfaces;
 
 namespace PosAdminTool.Agent.Operations;
 
@@ -16,8 +19,10 @@ public sealed class OperationWorker(
     OperationAuditWriter audit,
     BackupService backupService,
     RestoreService restoreService,
+    MaintenanceService maintenanceService,
     RestoreSourceResolver restoreSourceResolver,
     ArtifactCatalog artifacts,
+    IConfigurationService configuration,
     IHostEnvironment environment,
     ILogger<OperationWorker> logger) : BackgroundService
 {
@@ -192,6 +197,61 @@ public sealed class OperationWorker(
                 return;
             }
 
+            if (entry.Type is "cleanup" or "branch-reset"
+                && entry.WorkItem is MaintenanceOperationWorkItem maintenanceWorkItem)
+            {
+                MaintenanceExecutionResult execution;
+                try
+                {
+                    var settings = await configuration.LoadAsync(operationToken).ConfigureAwait(false);
+                    execution = maintenanceWorkItem.Mode switch
+                    {
+                        MaintenanceMode.Cleanup => await maintenanceService.ExecuteCleanupAsync(
+                            settings,
+                            maintenanceWorkItem.ExpectedFingerprint,
+                            new Progress<string>(message =>
+                            {
+                                entry.Report(60, "maintenance", message);
+                                registry.Publish(entry);
+                            }),
+                            operationToken).ConfigureAwait(false),
+                        MaintenanceMode.BranchReset => await maintenanceService.ExecuteBranchResetAsync(
+                            settings,
+                            maintenanceWorkItem.ExpectedFingerprint,
+                            new Progress<string>(message =>
+                            {
+                                entry.Report(60, "maintenance", message);
+                                registry.Publish(entry);
+                            }),
+                            operationToken).ConfigureAwait(false),
+                        _ => FailedMaintenanceExecution(MaintenanceFailureCodes.InvalidConfiguration),
+                    };
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch
+                {
+                    execution = FailedMaintenanceExecution(MaintenanceFailureCodes.OperationFailed);
+                }
+
+                entry.SetMaintenanceOutcome(MapMaintenanceEvidence(execution.Evidence));
+                foreach (var warning in execution.Evidence.Warnings)
+                {
+                    entry.Report(80, "warning", warning);
+                }
+
+                var maintenanceOutcome = MapMaintenanceOutcome(execution);
+                entry.Complete(
+                    maintenanceOutcome.State,
+                    maintenanceOutcome.ErrorCode,
+                    preserveOutcomeOnCancellation: true);
+                await WriteAuditAsync().ConfigureAwait(false);
+                registry.Publish(entry);
+                return;
+            }
+
             if (!environment.IsDevelopment() || entry.Type is not ("diagnostic" or "diagnostic-destructive"))
             {
                 entry.Complete(OperationState.Failed, "operation.unsupported");
@@ -265,5 +325,61 @@ public sealed class OperationWorker(
         };
 
         return (state, errorCode);
+    }
+
+    internal static (OperationState State, string? ErrorCode) MapMaintenanceOutcome(
+        MaintenanceExecutionResult execution)
+    {
+        var state = execution.Operation.Status switch
+        {
+            OperationStatus.Success => OperationState.Succeeded,
+            OperationStatus.PartialSuccess => OperationState.PartiallySucceeded,
+            OperationStatus.Cancelled => OperationState.Cancelled,
+            _ => OperationState.Failed,
+        };
+
+        var errorCode = state switch
+        {
+            OperationState.PartiallySucceeded => execution.FailureCode ?? MaintenanceFailureCodes.PartialFailure,
+            OperationState.Failed => execution.FailureCode ?? MaintenanceFailureCodes.OperationFailed,
+            _ => null,
+        };
+
+        return (state, errorCode);
+    }
+
+    private static MaintenanceOperationOutcomeDto MapMaintenanceEvidence(
+        MaintenanceExecutionEvidence evidence) => new(
+        evidence.DestructiveAttempted,
+        evidence.RecoveryRequired,
+        evidence.Items.Select(item => new MaintenanceItemOutcomeDto(
+            item.TargetId,
+            item.Kind,
+            item.State switch
+            {
+                "already_absent" => MaintenanceItemState.AlreadyAbsent,
+                "completed" => MaintenanceItemState.Completed,
+                "rejected" => MaintenanceItemState.Rejected,
+                "recovery_required" => MaintenanceItemState.RecoveryRequired,
+                "failed" => MaintenanceItemState.Failed,
+                _ => MaintenanceItemState.NotAttempted,
+            },
+            item.Attempted,
+            item.Completed,
+            item.ResidueUncertain,
+            item.FailureCode,
+            item.RecoveryGuidance)).ToList(),
+        evidence.Warnings,
+        evidence.RecoveryGuidance);
+
+    private static MaintenanceExecutionResult FailedMaintenanceExecution(string errorCode)
+    {
+        var operation = PosAdminTool.Domain.Models.OperationResult.Running("maintenance");
+        operation.AddError(errorCode);
+        operation.Finalize(OperationStatus.Failed);
+        return new(
+            operation,
+            new MaintenanceExecutionEvidence(false, false, [], [], []),
+            errorCode);
     }
 }

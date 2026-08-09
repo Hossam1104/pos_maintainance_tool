@@ -91,6 +91,7 @@ public partial class App : Microsoft.UI.Xaml.Application
         services.AddSingleton<IConnectivityMonitor, ConnectivityMonitor>();
         services.AddSingleton<IDatabaseService, SqlCmdExecutor>();
         services.AddSingleton<IBackupFileSystem, PhysicalBackupFileSystem>();
+        services.AddSingleton<IMaintenanceFileSystem, PhysicalMaintenanceFileSystem>();
         services.AddSingleton<AdminPrivilegeManager>();
         services.AddSingleton(new HttpClient());
         services.AddSingleton<IBackupApiClient, BackupApiClient>();

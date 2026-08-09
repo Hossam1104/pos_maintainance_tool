@@ -41,8 +41,9 @@ public sealed class AgentLegacyConfigurationService(
             current.BranchConfigPath = settings.BranchConfigPath;
             current.CashierGrpcConfigPath = settings.CashierGrpcConfigPath;
             current.CashierUiConfigPath = settings.CashierUiConfigPath;
-            current.Databases = [.. settings.Databases];
-            current.Services = [.. settings.Services];
+            current.Databases = settings.Databases is null ? [] : [.. settings.Databases];
+            current.Services = settings.Services is null ? [] : [.. settings.Services];
+            current.Maintenance = settings.Maintenance?.Clone() ?? new MaintenanceSettings();
             current.Downloader.ApiUrl = settings.DbDownloader.ApiUrl;
             current.Downloader.RdbServerIp = settings.DbDownloader.RdbServerIp;
             current.Downloader.RdbUsername = settings.DbDownloader.RdbUsername;
@@ -94,8 +95,9 @@ public sealed class AgentLegacyConfigurationService(
             CashierUiConfigPath = string.IsNullOrWhiteSpace(config.CashierUiConfigPath)
                 ? new AppSettings().CashierUiConfigPath
                 : config.CashierUiConfigPath,
-            Databases = [.. config.Databases],
-            Services = [.. config.Services],
+            Databases = config.Databases is null ? [] : [.. config.Databases],
+            Services = config.Services is null ? [] : [.. config.Services],
+            Maintenance = config.Maintenance?.Clone() ?? new MaintenanceSettings(),
             DbDownloader = new DbDownloaderSettings
             {
                 ApiUrl = config.Downloader.ApiUrl,

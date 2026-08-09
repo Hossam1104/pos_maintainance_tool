@@ -10,4 +10,15 @@ public sealed record CleanupPreviewDto(
     IReadOnlyList<string> ServicesToStop,
     IReadOnlyList<string> PathsToDelete,
     string ConfirmationPhrase,
-    DateTimeOffset ExpiresAtUtc);
+    DateTimeOffset ExpiresAtUtc)
+{
+    public bool Ready { get; init; }
+
+    public IReadOnlyList<CleanupTargetPreviewDto> Targets { get; init; } = [];
+
+    public IReadOnlyList<MaintenancePolicyRejectionDto> Rejections { get; init; } = [];
+
+    public IReadOnlyList<string> Warnings { get; init; } = [];
+
+    public long? AvailableFreeSpaceBytes { get; init; }
+}

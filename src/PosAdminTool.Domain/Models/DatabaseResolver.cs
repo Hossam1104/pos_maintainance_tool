@@ -4,25 +4,27 @@ public static class DatabaseResolver
 {
     public static string ResolveBranchDatabase(AppSettings settings)
     {
-        var branch = settings.Databases.FirstOrDefault(db => db.Contains("branch", StringComparison.OrdinalIgnoreCase));
+        var databases = settings.Databases ?? [];
+        var branch = databases.FirstOrDefault(db => db.Contains("branch", StringComparison.OrdinalIgnoreCase));
         if (!string.IsNullOrWhiteSpace(branch))
         {
             return branch;
         }
 
-        var exact = settings.Databases.FirstOrDefault(db => string.Equals(db, "RmsBranchSrv", StringComparison.OrdinalIgnoreCase));
+        var exact = databases.FirstOrDefault(db => string.Equals(db, "RmsBranchSrv", StringComparison.OrdinalIgnoreCase));
         return exact ?? "RmsBranchSrv";
     }
 
     public static string ResolveCashierDatabase(AppSettings settings)
     {
-        var cashier = settings.Databases.FirstOrDefault(db => db.Contains("cashier", StringComparison.OrdinalIgnoreCase));
+        var databases = settings.Databases ?? [];
+        var cashier = databases.FirstOrDefault(db => db.Contains("cashier", StringComparison.OrdinalIgnoreCase));
         if (!string.IsNullOrWhiteSpace(cashier))
         {
             return cashier;
         }
 
-        var exact = settings.Databases.FirstOrDefault(db => string.Equals(db, "RmsCashierSrv", StringComparison.OrdinalIgnoreCase));
+        var exact = databases.FirstOrDefault(db => string.Equals(db, "RmsCashierSrv", StringComparison.OrdinalIgnoreCase));
         return exact ?? "RmsCashierSrv";
     }
 

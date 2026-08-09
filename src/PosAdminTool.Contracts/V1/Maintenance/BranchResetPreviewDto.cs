@@ -6,4 +6,17 @@ public sealed record BranchResetPreviewDto(
     string BranchCode,
     IReadOnlyList<string> AffectedTables,
     string ConfirmationPhrase,
-    DateTimeOffset ExpiresAtUtc);
+    DateTimeOffset ExpiresAtUtc)
+{
+    public bool Ready { get; init; }
+
+    public string DatabaseName { get; init; } = string.Empty;
+
+    public IReadOnlyList<BranchResetTablePreviewDto> TableScopes { get; init; } = [];
+
+    public IReadOnlyList<MaintenancePolicyRejectionDto> Rejections { get; init; } = [];
+
+    public IReadOnlyList<string> Warnings { get; init; } = [];
+
+    public long? AvailableFreeSpaceBytes { get; init; }
+}

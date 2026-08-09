@@ -39,6 +39,9 @@ public sealed class AgentConfiguration
 
     public List<string> Services { get; set; } = [];
 
+    /// <summary>Service-owned maintenance policy; omitted from redacted browser configuration.</summary>
+    public MaintenanceSettings Maintenance { get; set; } = new();
+
     public AgentDownloaderConfiguration Downloader { get; set; } = new();
 
     /// <summary>Optimistic-concurrency token. Incremented on every persisted mutation, including
@@ -61,9 +64,10 @@ public sealed class AgentConfiguration
             BranchConfigPath = BranchConfigPath,
             CashierGrpcConfigPath = CashierGrpcConfigPath,
             CashierUiConfigPath = CashierUiConfigPath,
-            Databases = [.. Databases],
-            Services = [.. Services],
-            Downloader = Downloader.Clone(),
+            Databases = Databases is null ? [] : [.. Databases],
+            Services = Services is null ? [] : [.. Services],
+            Maintenance = Maintenance?.Clone() ?? new MaintenanceSettings(),
+            Downloader = Downloader?.Clone() ?? new AgentDownloaderConfiguration(),
             Version = Version
         };
     }

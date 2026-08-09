@@ -4,7 +4,7 @@ using PosAdminTool.Domain.Models;
 namespace PosAdminTool.Agent.IntegrationTests.TestSupport;
 
 /// <summary>Filesystem-only database double used by Agent integration tests; it never invokes SQL.</summary>
-public sealed class FakeDatabaseService : IDatabaseService, IDatabaseRestoreVerifier
+public sealed class FakeDatabaseService : IDatabaseService, IDatabaseRestoreVerifier, IMaintenanceDatabasePreview, IMaintenanceDatabaseReset
 {
     public List<(string DatabaseName, bool UseCompatibilityMode)> BackupCalls { get; } = [];
 
@@ -21,6 +21,24 @@ public sealed class FakeDatabaseService : IDatabaseService, IDatabaseRestoreVeri
     public bool RestoreAttempted { get; private set; }
 
     public bool RestoreCompleted { get; private set; }
+
+    public bool BranchExistsResult { get; set; } = true;
+
+    public List<(string DatabaseName, string BranchCode, IReadOnlyList<string> Tables)> ResetCalls { get; } = [];
+
+    public IReadOnlyList<MaintenanceTableScope> BranchResetScope { get; set; } = [];
+
+    public Exception? ResetFailure { get; set; }
+
+    public bool BlockReset { get; set; }
+
+    public bool ResetAttempted { get; private set; }
+
+    public bool ResetCompleted { get; private set; }
+
+    public TaskCompletionSource ResetInvocationStarted { get; private set; } = NewSignal();
+
+    public TaskCompletionSource ResetRelease { get; private set; } = NewSignal();
 
     public TaskCompletionSource RestoreInvocationStarted { get; private set; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -39,11 +57,46 @@ public sealed class FakeDatabaseService : IDatabaseService, IDatabaseRestoreVeri
         RestoreInvocationStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
         RestoreVerificationStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
         RestoreVerificationRelease = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        ResetFailure = null;
+        BranchExistsResult = true;
+        BlockReset = false;
+        ResetAttempted = false;
+        ResetCompleted = false;
+        ResetCalls.Clear();
+        BranchResetScope = [];
+        ResetInvocationStarted = NewSignal();
+        ResetRelease = NewSignal();
     }
 
     public Task TestConnectionAsync(AppSettings settings, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-    public Task<bool> BranchExistsAsync(AppSettings settings, string branchCode, CancellationToken cancellationToken = default) => Task.FromResult(true);
+    public Task<bool> BranchExistsAsync(AppSettings settings, string branchCode, CancellationToken cancellationToken = default) => Task.FromResult(BranchExistsResult);
+
+    public Task<IReadOnlyList<MaintenanceTableScope>> GetBranchResetScopeAsync(
+        AppSettings settings,
+        string databaseName,
+        string branchCode,
+        IReadOnlyList<string> tableNames,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<MaintenanceTableScope>>(BranchResetScope.Count > 0
+            ? BranchResetScope
+            : tableNames.Select(table => new MaintenanceTableScope(table, null)).ToList());
+
+    public async Task ResetBranchDataAsync(
+        AppSettings settings,
+        string databaseName,
+        string branchCode,
+        IReadOnlyList<string> tableNames,
+        CancellationToken cancellationToken = default)
+    {
+        ResetAttempted = true;
+        ResetInvocationStarted.TrySetResult();
+        if (BlockReset) await ResetRelease.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (ResetFailure is not null) throw ResetFailure;
+        ResetCalls.Add((databaseName, branchCode, tableNames));
+        ResetCompleted = true;
+    }
 
     public Task ResetBranchDataAsync(AppSettings settings, string branchCode, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
@@ -99,4 +152,6 @@ public sealed class FakeDatabaseService : IDatabaseService, IDatabaseRestoreVeri
     }
 
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+    private static TaskCompletionSource NewSignal() => new(TaskCreationOptions.RunContinuationsAsynchronously);
 }

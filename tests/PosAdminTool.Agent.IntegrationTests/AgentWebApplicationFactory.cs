@@ -41,6 +41,7 @@ public sealed class AgentWebApplicationFactory : WebApplicationFactory<Program>
 
     public SentinelLogSink LogSink { get; } = new();
     public FakeServiceManager ServiceManager { get; } = new();
+    public FakeMaintenanceFileSystem MaintenanceFileSystem { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -84,6 +85,8 @@ public sealed class AgentWebApplicationFactory : WebApplicationFactory<Program>
             services.AddSingleton<IDatabaseService, FakeDatabaseService>();
             services.RemoveAll<IServiceManager>();
             services.AddSingleton<IServiceManager>(ServiceManager);
+            services.RemoveAll<IMaintenanceFileSystem>();
+            services.AddSingleton<IMaintenanceFileSystem>(MaintenanceFileSystem);
             services.AddSingleton(LogSink);
             services.AddSingleton<ILoggerProvider, SentinelTestLoggerProvider>();
         });
