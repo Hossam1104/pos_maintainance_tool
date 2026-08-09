@@ -1,104 +1,37 @@
-using PosAdminTool.Domain.Enums;
+using PosAdminTool.Application.Maintenance;
 using PosAdminTool.Domain.Interfaces;
 using PosAdminTool.Domain.Models;
 
 namespace PosAdminTool.Application.Services;
 
-public sealed class CleanupService(IDatabaseService databaseService, IServiceManager serviceManager)
+/// <summary>
+/// Compatibility facade for the retained WinUI workflow. The Agent uses <see
+/// cref="MaintenanceService"/> directly so browser requests cannot bypass challenge and operation
+/// controls. Both paths share the same canonical policy and fakeable privileged seams.
+/// </summary>
+public sealed class CleanupService(
+    IDatabaseService databaseService,
+    IServiceManager serviceManager,
+    IMaintenanceFileSystem fileSystem)
 {
-    public async Task<OperationResult> CleanupFilesAsync(AppSettings settings, IProgress<string>? progress = null, CancellationToken cancellationToken = default)
+    private readonly MaintenanceService _maintenance = new(databaseService, serviceManager, fileSystem);
+
+    public async Task<OperationResult> CleanupFilesAsync(
+        AppSettings settings,
+        IProgress<string>? progress = null,
+        CancellationToken cancellationToken = default)
     {
-        var result = OperationResult.Running("cleanup_files");
-        var deleted = 0;
-        var skipped = 0;
-        var failures = 0;
-
-        foreach (var serviceName in settings.Services)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            try
-            {
-                progress?.Report($"Stopping {serviceName}...");
-                await serviceManager.ControlAsync(serviceName, ServiceControlAction.Stop, cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                failures++;
-                result.AddMessage($"Skipped service stop for {serviceName}: {ex.Message}");
-            }
-        }
-
-        foreach (var rawFolder in settings.FoldersToDelete)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var folder = Environment.ExpandEnvironmentVariables(rawFolder);
-            progress?.Report($"Processing {folder}...");
-
-            try
-            {
-                if (Directory.Exists(folder))
-                {
-                    Directory.Delete(folder, recursive: true);
-                    deleted++;
-                }
-                else if (File.Exists(folder))
-                {
-                    File.Delete(folder);
-                    deleted++;
-                }
-                else
-                {
-                    skipped++;
-                }
-            }
-            catch (Exception ex)
-            {
-                skipped++;
-                failures++;
-                result.AddMessage($"Skipped {folder}: {ex.Message}");
-            }
-        }
-
-        result.AddMessage($"Cleanup completed. Deleted: {deleted}, Skipped: {skipped}");
-        if (failures > 0 && deleted > 0)
-        {
-            result.Finalize(OperationStatus.PartialSuccess);
-        }
-        else if (failures > 0)
-        {
-            result.Finalize(OperationStatus.Failed);
-        }
-        else
-        {
-            result.Finalize(OperationStatus.Success);
-        }
-        return result;
+        var result = await _maintenance.ExecuteCleanupAsync(settings, progress: progress, cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+        return result.Operation;
     }
 
-    public async Task<OperationResult> ResetBranchDataAsync(AppSettings settings, CancellationToken cancellationToken = default)
+    public async Task<OperationResult> ResetBranchDataAsync(
+        AppSettings settings,
+        CancellationToken cancellationToken = default)
     {
-        var result = OperationResult.Running("reset_branch_data");
-
-        var branchCode = settings.BranchCode?.Trim();
-        if (string.IsNullOrWhiteSpace(branchCode))
-        {
-            result.AddError("Branch code is invalid");
-            result.Finalize(OperationStatus.Failed);
-            return result;
-        }
-
-        try
-        {
-            await databaseService.ResetBranchDataAsync(settings, branchCode, cancellationToken).ConfigureAwait(false);
-            result.AddMessage("Branch reset completed");
-            result.Finalize(OperationStatus.Success);
-            return result;
-        }
-        catch (Exception ex)
-        {
-            result.AddError($"Branch reset failed: {ex.Message}");
-            result.Finalize(OperationStatus.Failed);
-            return result;
-        }
+        var result = await _maintenance.ExecuteBranchResetAsync(settings, cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+        return result.Operation;
     }
 }

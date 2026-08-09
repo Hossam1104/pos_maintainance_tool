@@ -16,6 +16,13 @@ public sealed class FakeServiceManager : IServiceManager
 
     public void Fail(string service, ServiceControlAction action, Exception exception) => _failures[(service, action)] = exception;
 
+    public void Clear()
+    {
+        _statuses.Clear();
+        _failures.Clear();
+        while (Controls.TryDequeue(out _)) { }
+    }
+
     public Task<ServiceStatus> GetStatusAsync(string serviceName, CancellationToken cancellationToken = default) =>
         Task.FromResult(_statuses.GetValueOrDefault(serviceName, ServiceStatus.NotFound));
 

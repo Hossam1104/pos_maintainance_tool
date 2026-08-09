@@ -5,4 +5,7 @@ namespace PosAdminTool.Contracts.V1.Maintenance;
 /// current configuration at execute time and never trusts the preview's conclusions (plan section
 /// 6.3, section 11 Session task list).
 /// </summary>
-public sealed record CleanupExecuteRequestDto(string ChallengeId, string TypedConfirmation);
+public sealed record CleanupExecuteRequestDto(string ChallengeId, string TypedConfirmation)
+{
+    public string? IdempotencyKey { get; init; }
+}

@@ -23,6 +23,7 @@ public sealed class OperationAuditWriter(AgentConfigurationStoreOptions options)
             operationMode = entry.OperationMode,
             operationTarget = entry.OperationTarget,
             resultArtifactIds = entry.ResultArtifactIds,
+            maintenanceOutcome = entry.MaintenanceOutcome,
             correlationId = entry.Correlation,
         });
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);

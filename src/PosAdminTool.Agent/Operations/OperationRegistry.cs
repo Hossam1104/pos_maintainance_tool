@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
 using System.Threading.Channels;
 using PosAdminTool.Contracts.V1.Activity;
+using PosAdminTool.Contracts.V1.Maintenance;
 using PosAdminTool.Contracts.V1.Operations;
 
 namespace PosAdminTool.Agent.Operations;
@@ -372,6 +373,7 @@ public sealed class OperationRegistry
         private DateTimeOffset? _ended;
         private string? _errorCode;
         private object? _workItem;
+        private MaintenanceOperationOutcomeDto? _maintenanceOutcome;
         private bool _disposed;
 
         public Entry(
@@ -409,9 +411,11 @@ public sealed class OperationRegistry
                 "diagnostic" or "diagnostic-destructive" => ["services"],
                 "backup" => ["sql", "filesystem-cleanup"],
                 "restore" => ["sql", "services", "filesystem-cleanup"],
+                "cleanup" => ["services", "filesystem-cleanup"],
+                "branch-reset" => ["sql", "services"],
                 _ => ["sql", "services", "filesystem-cleanup", "downloader"],
             };
-            IsDestructive = type is "diagnostic-destructive" or "restore";
+            IsDestructive = type is "diagnostic-destructive" or "restore" or "cleanup" or "branch-reset";
             NeedsAudit = IsDestructive || type == "backup";
             Add("queued", "Operation queued.");
         }
@@ -488,6 +492,11 @@ public sealed class OperationRegistry
             get { lock (_gate) return _errorCode; }
         }
 
+        public MaintenanceOperationOutcomeDto? MaintenanceOutcome
+        {
+            get { lock (_gate) return _maintenanceOutcome; }
+        }
+
         public void Cancel()
         {
             lock (_gate)
@@ -554,6 +563,16 @@ public sealed class OperationRegistry
             }
         }
 
+        public void SetMaintenanceOutcome(MaintenanceOperationOutcomeDto outcome)
+        {
+            ArgumentNullException.ThrowIfNull(outcome);
+            lock (_gate)
+            {
+                if (_state is not (OperationState.Queued or OperationState.Running)) return;
+                _maintenanceOutcome = outcome;
+            }
+        }
+
         public void Complete(
             OperationState finalState,
             string? errorCode = null,
@@ -612,7 +631,8 @@ public sealed class OperationRegistry
                     [.. _resultArtifactIds],
                     _errorCode,
                     Correlation,
-                    DestinationReference);
+                    DestinationReference,
+                    _maintenanceOutcome);
             }
         }
 

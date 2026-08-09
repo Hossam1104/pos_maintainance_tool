@@ -88,8 +88,11 @@ is not returned through browser configuration DTOs.
 - `RestoreService` is now the POS-M02 server-owned restore workflow: bounded archive metadata and
   checksum/manifest inspection precedes private temporary extraction, SQL logical-file discovery
   and MOVE planning stay behind testable seams, and configuration overwrites use rollback-capable
-  atomic copies. `CleanupService` and `DbDownloadService` remain legacy capabilities awaiting
-  POS-M03/POS-M04 hardening; none of these changes authorizes standalone Angular UI.
+  atomic copies. POS-M03 adds the server-owned `MaintenanceService` cleanup/reset policy,
+  preview, challenge, recomputation, and explicit partial-outcome workflow; the retained
+  `CleanupService` is only a compatibility facade over that boundary. `DbDownloadService` remains
+  a legacy capability awaiting POS-M04 hardening; none of these changes authorizes standalone
+  Angular UI.
 - Configuration, branch verification, import, connection testing, and operation use cases remain
   application-level orchestration rather than browser logic.
 
@@ -142,10 +145,10 @@ endpoint groups include:
 - correlation IDs, RFC 9457 Problem Details, and sanitized errors;
 - service-owned configuration and DPAPI secret stores;
 - allowlisted file browsing and principal/purpose-bound single-use handles;
-- device/session/diagnostic, configuration, service-control, operation, activity, event, and backup
-  endpoints;
+- device/session/diagnostic, configuration, service-control, operation, activity, event, backup,
+  and maintenance endpoints;
 - `OperationRegistry`, `OperationWorker`, `ResourceLockSet`, `OperationAuditWriter`, and
-  `ArtifactCatalog`;
+  `ArtifactCatalog`, including bounded maintenance challenges and logical cleanup/reset outcomes;
 - service polling and service command workers;
 - `BackupService`, `RestoreService`, the physical backup/restore filesystem adapters, bounded
   restore uploads/challenges, and restore endpoint modules.
@@ -153,10 +156,11 @@ endpoint groups include:
 The Agent owns the request-to-privileged-operation boundary. Angular calls the Agent; Angular never
 executes SQL, Windows service, SMB, cleanup, restore, or privileged filesystem operations directly.
 
-POS-M02 now maps the secure `/api/v1/restores` upload, preview, and execute backend. The endpoint
-uses existing authorization, antiforgery, operation, idempotency, lock, cancellation, audit, and
-sanitized-error boundaries. Maintenance and Downloader endpoint groups remain deferred to POS-M03
-and POS-M04; no integrated frontend is authorized by this backend work.
+POS-M02 maps the secure `/api/v1/restores` upload, preview, and execute backend. POS-M03 now maps
+the backend-only `/api/v1/maintenance` cleanup-preview/execute and branch-reset-preview/execute
+endpoints through the same authorization, antiforgery, operation, idempotency, lock,
+cancellation, audit, and sanitized-error boundaries. Downloader remains deferred to POS-M04; no
+integrated frontend is authorized by this backend work.
 
 ## 6. Current Angular implementation
 
@@ -277,6 +281,14 @@ reserved while streams are in flight, uploads are released on rejection/cancella
 operation completion, challenges are short-lived and capped, restore work uses `sql`, `services`,
 and `filesystem-cleanup` locks, and no separate unbounded restore registry or cache was added.
 
+POS-M03 extends the operation engine to cleanup and branch-reset work. Cleanup uses `services` and
+`filesystem-cleanup` locks; branch reset uses `sql` and `services` locks. Each queued work item
+retains only the logical mode and preview fingerprint, while the worker reloads service-owned
+configuration and the application service recomputes policy immediately before each destructive
+seam. Terminal operation details and JSONL audit entries retain logical per-item attempted versus
+completed state, residue uncertainty, recovery guidance, and stable failure codes without host
+paths, raw SQL, credentials, or exception text.
+
 The ADR-approved in-memory architecture remains; no durable database or SQLite was introduced.
 
 ## 12. Backup architecture
@@ -309,7 +321,7 @@ directly.
 | --- | --- |
 | Runtime state grows without bound | POS-M01 closed the confirmed gap with injectable operation, event, activity, artifact, and file-handle retention; full Release validation passed 141 .NET tests |
 | Restore archive validation is weak | POS-M02 closes the Agent/backend gap with bounded pre-extraction ZIP inspection, manifest/checksum/branch/destination validation, server-derived preview/challenge recomputation, and fake-only tests; no real restore was executed |
-| Cleanup/reset safety is client/legacy driven | Legacy `CleanupService` expands and recursively deletes configured paths without the future policy boundary; POS-M03 backend only |
+| Cleanup/reset safety is client/legacy driven | POS-M03 closes the Agent boundary with canonical managed-root policy, server-derived preview/challenge, execute-time recomputation, locks, and explicit partial outcomes; retained WinUI compatibility calls fail closed when policy is not configured |
 | Downloader lacks Agent security/operation boundary | Legacy service has direct endpoint/SMB/credential behavior; POS-M04 |
 | LocalSystem managed-root and SMB Session 0 proof | Representative-device evidence remains required; do not guess |
 | Manual live-Agent Negotiate/SSE evidence | Not recorded as a current automated replacement for fake integration tests |
@@ -382,8 +394,22 @@ Restore tests and 24 Agent Restore/worker/audit tests; complete Release solution
 retained WinUI `win-x64` publish gate passed. All validation used fakes and temporary directories;
 no real SQL restore, RMS configuration overwrite, Windows service operation, or device-state
 mutation was executed. Findings addressed: HIGH-1, MEDIUM-1, MEDIUM-2, MEDIUM-3, and applicable
-LOW-1. `EARLY OPUS RESTORE FOLLOW-UP REVIEW REQUIRED` remains the next gate; this session does not
-declare that review gate cleared.
+LOW-1. The early Claude Opus 5 Restore follow-up was subsequently cleared by explicit owner
+authorization for POS-M03; POS-M03 did not broaden or redesign Restore.
+
+POS-M03 - Cleanup & Branch Reset Backend Safety is complete. The Agent now owns canonical managed
+path policy (containment, protected/install/data roots, environment expansion, drive-relative and
+UNC rules, reparse/junction/symlink inspection, and root-target rejection), server-derived cleanup
+and branch-reset previews, fresh principal-bound one-use challenges, typed confirmation,
+principal-scoped idempotency, conflicting resource locks, execute-time recomputation, and
+sanitized logical operation/audit evidence. Cleanup and SQL reset stages record per-item attempted
+versus completed truth and preserve residue/recovery guidance for partial or interrupted seams;
+service control, filesystem, and SQL execution remain behind injectable interfaces. Focused Release
+coverage passed 9 Application maintenance tests and 11 Agent maintenance/worker tests. Complete
+Release validation passed 210 .NET tests, the solution build passed with zero warnings/errors, and
+the retained WinUI `win-x64` publish passed. All POS-M03 validation used disposable fakes or
+temporary test infrastructure; no real file cleanup, database reset, Windows service control, or
+device-state mutation ran, and no Angular Maintenance UI was added.
 
 ## 15. RMS+ Support Hub ownership boundary
 
@@ -466,7 +492,7 @@ namespaces until the cross-project review chooses a final namespace and solution
 | `Domain/Interfaces/**` | KEEP/MOVE with POS module | These are the primary portability seams |
 | `Application/Services/BackupService.cs` | KEEP/ADAPT | Session 08 reference implementation and fake-test boundary |
 | `Application/Services/RestoreService.cs` and `Application/Restore/**` | KEEP/ADAPT after POS-M02 | Server-owned archive policy, SQL MOVE planning, config rollback, and fake-test seams are now available; reconcile host composition during merge |
-| `Application/Services/CleanupService.cs` | ADAPT only after POS-M03 | Legacy direct deletion is not merge-ready |
+| `Application/Services/CleanupService.cs` | KEEP/ADAPT after POS-M03 | Compatibility facade now delegates to the server-owned maintenance policy; Agent endpoints do not accept client paths |
 | `Application/Services/DbDownloadService.cs` | ADAPT only after POS-M04 | Preserve behavior while moving credentials/SMB behind Agent policy |
 | `Infrastructure/Windows/**`, `Smb/**`, `Backups/**`, `Configuration/**`, `Http/**` | MOVE under POS privileged backend | Windows targeting, service identity, DPAPI, and package collisions need explicit ownership |
 | `Web/src/app/app.*` and shell/shared UI | DO NOT COPY | RMS+ Support Hub owns final shell/design system |
@@ -538,7 +564,7 @@ Before any repository merge, explicitly audit:
 | --- | --- |
 | Session 09 restore backend/archive hardening | COMPLETE as POS-M02; keep backend/security requirements and no standalone Restore UI |
 | Session 10 Restore UI | DEFER; preserve behavioral requirements as Support Hub integration acceptance criteria |
-| Session 11 cleanup/reset | SPLIT: backend path policy, preview, challenge, locks, audit, and tests become POS-M03; standalone Maintenance UI deferred |
+| Session 11 cleanup/reset | SPLIT: backend path policy, preview, challenge, locks, audit, and tests are complete as POS-M03; standalone Maintenance UI deferred |
 | Session 12 DB Downloader | SPLIT: Agent/backend, SMB, SSRF, credential, cancellation, artifact, and identity work becomes POS-M04; standalone Downloader UI deferred |
 | Session 13 UI polish/accessibility/release | DO NOT EXECUTE as written; retain backend/security/reliability criteria, defer broad standalone frontend closure |
 | Session 14 installer/cutover | DEFER completely; retain WinUI, do not remove Windows App SDK, do not finalize standalone installer or production cutover |
@@ -569,9 +595,9 @@ Support Hub frontend integration.
 | POS-M02 | Complete | Backend restore/archive hardening only; focused restore tests, full Release solution gates, and retained WinUI publish passed; no real restore/config/service operation was executed |
 | POS-M02R | Complete | Corrective Restore outcome semantics; fail-closed SQL inspection, explicit partial/cancellation/rollback/restart outcomes, stable Agent/audit failure evidence, focused fake-only tests, 178 Release .NET tests, and retained WinUI publish passed |
 | POS-M02R2 | Complete | Restore terminal-result race closed; finalized service outcomes map directly through the Agent and remain stable under late cancellation, with focused 44 Application and 106 Agent tests, 182 Release .NET tests, and retained WinUI publish passed |
-| POS-M02R3 | Complete; early Opus Restore follow-up required | Interrupted SQL destructive truth, recovery-required partial semantics, worker-level Restore wiring, sanitized mode/target audit evidence, and positive bare-BAK branch evidence; focused 23 Application Restore and 24 Agent Restore/worker/audit tests, 190 Release .NET tests, and retained WinUI publish passed |
-| POS-M03 | Blocked pending early Opus Restore follow-up approval | Cleanup/reset backend safety only; do not execute until the Restore follow-up review clears the block and the owner authorizes the session |
-| POS-M04 | Pending POS-M01 | Downloader backend/SMB portability only |
+| POS-M02R3 | Complete; early Opus Restore follow-up passed | Interrupted SQL destructive truth, recovery-required partial semantics, worker-level Restore wiring, sanitized mode/target audit evidence, and positive bare-BAK branch evidence; focused 23 Application Restore and 24 Agent Restore/worker/audit tests, 190 Release .NET tests, and retained WinUI publish passed |
+| POS-M03 | Complete; owner-authorized after the early Opus Restore follow-up gate passed | Cleanup/reset backend safety only: canonical managed-path policy, server-derived preview/challenge, recomputation, locks, partial/residue truth, sanitized audit, and fake-only worker-path coverage; focused 9 Application and 11 Agent maintenance tests, 210 Release .NET tests, zero-warning solution build, and retained WinUI publish passed |
+| POS-M04 | Pending POS-M03 and owner authorization | Downloader backend/SMB portability only; not executed in POS-M03 |
 | POS-M05 | Pending POS-M02 through POS-M04 | Complete landing/collision audit; then `CLAUDE OPUS 5 REVIEW REQUIRED` |
 | R1 | Scheduled after POS-M05 | Claude Opus 5 review gate |
 | POS-M06 | Review-gated and owner-authorized only | Final candidate audit |

@@ -61,6 +61,9 @@ public sealed class AppSettings
 
     public string ReleasePath { get; set; } = @"C:\ProgramData\RMS_Plus\ReleaseNumber.txt";
 
+    /// <summary>Service-owned maintenance policy. It is never populated from a browser target.</summary>
+    public MaintenanceSettings Maintenance { get; set; } = new();
+
     public DbDownloaderSettings DbDownloader { get; set; } = new();
 
     public AppSettings Clone()
@@ -79,15 +82,16 @@ public sealed class AppSettings
             BackupFolder = BackupFolder,
             DbFilesPath = DbFilesPath,
             Release = Release,
-            Databases = [.. Databases],
-            Services = [.. Services],
-            FoldersToDelete = [.. FoldersToDelete],
+            Databases = Databases is null ? [] : [.. Databases],
+            Services = Services is null ? [] : [.. Services],
+            FoldersToDelete = FoldersToDelete is null ? [] : [.. FoldersToDelete],
             BranchConfigPath = BranchConfigPath,
             CashierGrpcConfigPath = CashierGrpcConfigPath,
             CashierUiConfigPath = CashierUiConfigPath,
             RmsInfoPath = RmsInfoPath,
             ReleasePath = ReleasePath,
-            DbDownloader = DbDownloader.Clone()
+            Maintenance = Maintenance?.Clone() ?? new MaintenanceSettings(),
+            DbDownloader = DbDownloader?.Clone() ?? new DbDownloaderSettings()
         };
     }
 }

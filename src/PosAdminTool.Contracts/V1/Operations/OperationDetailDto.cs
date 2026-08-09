@@ -1,3 +1,5 @@
+using PosAdminTool.Contracts.V1.Maintenance;
+
 namespace PosAdminTool.Contracts.V1.Operations;
 
 /// <summary>
@@ -21,4 +23,5 @@ public sealed record OperationDetailDto(
     IReadOnlyList<string> ResultArtifactIds,
     string? ErrorCode,
     string? CorrelationId,
-    string? ResolvedDestinationReference = null);
+    string? ResolvedDestinationReference = null,
+    MaintenanceOperationOutcomeDto? MaintenanceOutcome = null);

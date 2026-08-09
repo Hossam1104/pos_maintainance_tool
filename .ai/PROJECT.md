@@ -20,6 +20,11 @@ Read this file only when the task requires stable, non-obvious project knowledge
 - Browser contracts and errors must never reveal a secret or absolute host path. Host file selection uses allowlisted browse roots and principal/purpose-bound, single-use, five-minute opaque handles.
 - Agent configuration is service-owned under `%ProgramData%\DBS\PosAdminTool`; secrets are separate and protected with machine-scope Windows DPAPI. The retained WinUI profile configuration remains separate.
 - Long work belongs to a bounded in-memory Agent operation registry, outside request lifetime. REST is state truth, SSE is transport only, idempotency is principal-scoped, named locks serialize conflicts, and only destructive completions are appended to JSONL audit.
+- Agent maintenance cleanup/reset is server-owned: configured managed roots and SQL/table scope are
+  canonicalized and recomputed at execution, browser requests carry only logical IDs and fresh
+  one-use challenge evidence, and per-target attempted/completed/residue truth is retained in
+  operation details and sanitized audit records. Filesystem, SCM, and SQL seams remain injectable
+  for fake-only safety tests.
 - Agent restart intentionally loses in-flight jobs and file handles. Do not add SQLite, SignalR, PWA/service-worker behavior, IndexedDB, or queued browser mutations.
 - Keep WinUI buildable/runnable until the cross-project RMS+ Support Hub review and explicit owner-approved dedicated cutover. Its removal must be a dedicated change.
 

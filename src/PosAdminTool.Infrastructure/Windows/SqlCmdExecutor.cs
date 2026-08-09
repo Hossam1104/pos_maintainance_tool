@@ -8,7 +8,7 @@ using PosAdminTool.Domain.Models;
 
 namespace PosAdminTool.Infrastructure.Windows;
 
-public sealed partial class SqlCmdExecutor : IDatabaseService, IDatabaseRestoreVerifier
+public sealed partial class SqlCmdExecutor : IDatabaseService, IDatabaseRestoreVerifier, IMaintenanceDatabasePreview, IMaintenanceDatabaseReset
 {
     public async Task TestConnectionAsync(AppSettings settings, CancellationToken cancellationToken = default)
     {
@@ -43,24 +43,63 @@ public sealed partial class SqlCmdExecutor : IDatabaseService, IDatabaseRestoreV
 
     public async Task ResetBranchDataAsync(AppSettings settings, string branchCode, CancellationToken cancellationToken = default)
     {
-        const string sql = """
-            SET NOCOUNT ON;
-            BEGIN TRY
-                BEGIN TRAN;
+        await ResetBranchDataAsync(
+            settings,
+            DatabaseResolver.ResolveBranchDatabase(settings),
+            branchCode,
+            ["Sales", "CashierSessions", "InventoryMovements"],
+            cancellationToken).ConfigureAwait(false);
+    }
 
-                DELETE FROM Sales WHERE BranchCode = @branch_code;
-                DELETE FROM CashierSessions WHERE BranchCode = @branch_code;
-                DELETE FROM InventoryMovements WHERE BranchCode = @branch_code;
+    public async Task<IReadOnlyList<MaintenanceTableScope>> GetBranchResetScopeAsync(
+        AppSettings settings,
+        string databaseName,
+        string branchCode,
+        IReadOnlyList<string> tableNames,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = new SqlConnection(BuildConnectionString(settings, databaseName));
+        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
 
-                COMMIT TRAN;
-            END TRY
-            BEGIN CATCH
-                IF @@TRANCOUNT > 0 ROLLBACK TRAN;
-                THROW;
-            END CATCH;
-            """;
+        var result = new List<MaintenanceTableScope>();
+        foreach (var tableName in tableNames)
+        {
+            var quotedTable = QuoteTableName(tableName);
+            var sql = $"SELECT COUNT_BIG(*) FROM {quotedTable} WHERE BranchCode = @branch_code;";
+            await using var command = new SqlCommand(sql, connection) { CommandTimeout = 30 };
+            command.Parameters.Add("@branch_code", SqlDbType.NVarChar, 50).Value = branchCode;
+            var scalar = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+            result.Add(new MaintenanceTableScope(tableName, scalar is null or DBNull ? null : Convert.ToInt64(scalar, System.Globalization.CultureInfo.InvariantCulture)));
+        }
 
-        await using var connection = new SqlConnection(BuildConnectionString(settings));
+        return result;
+    }
+
+    public async Task ResetBranchDataAsync(
+        AppSettings settings,
+        string databaseName,
+        string branchCode,
+        IReadOnlyList<string> tableNames,
+        CancellationToken cancellationToken = default)
+    {
+        var deleteStatements = tableNames
+            .Select(tableName => $"DELETE FROM {QuoteTableName(tableName)} WHERE BranchCode = @branch_code;")
+            .ToArray();
+        if (deleteStatements.Length == 0) throw new InvalidOperationException("No reset tables were supplied.");
+
+        var sql = string.Concat(
+            "SET NOCOUNT ON;\n",
+            "BEGIN TRY\n",
+            "    BEGIN TRAN;\n",
+            string.Join(Environment.NewLine, deleteStatements.Select(statement => "    " + statement)),
+            "\n    COMMIT TRAN;\n",
+            "END TRY\n",
+            "BEGIN CATCH\n",
+            "    IF @@TRANCOUNT > 0 ROLLBACK TRAN;\n",
+            "    THROW;\n",
+            "END CATCH;");
+
+        await using var connection = new SqlConnection(BuildConnectionString(settings, databaseName));
         await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
         await using var command = new SqlCommand(sql, connection) { CommandTimeout = 120 };
         command.Parameters.Add("@branch_code", SqlDbType.NVarChar, 50).Value = branchCode;
@@ -193,6 +232,17 @@ public sealed partial class SqlCmdExecutor : IDatabaseService, IDatabaseRestoreV
 
         using var builder = new SqlCommandBuilder();
         return builder.QuoteIdentifier(databaseName);
+    }
+
+    private static string QuoteTableName(string tableName)
+    {
+        if (string.IsNullOrWhiteSpace(tableName) || !SafeIdentifierRegex().IsMatch(tableName))
+        {
+            throw new InvalidOperationException("Table name contains unsupported characters.");
+        }
+
+        using var builder = new SqlCommandBuilder();
+        return builder.QuoteIdentifier(tableName);
     }
 
     private static string BuildMoveClauses(string targetDatabase, IReadOnlyList<RestoreFileInfo> logicalFiles, string dbFilesPath)
