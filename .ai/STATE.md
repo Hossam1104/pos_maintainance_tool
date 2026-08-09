@@ -1,8 +1,7 @@
 # Current Project State
 
 - **Updated:** 2026-08-09
-- **Branch:** `pos-m02-restore-archive-hardening` during the authorized POS-M02 completion; merge to
-  `main` is the remaining Git handoff
+- **Branch:** `main` after the verified POS-M02 restore backend and archive hardening merge
 - **Release or milestone:** .NET 10 + Angular 22 migration; Sessions 00-08 complete; standalone Angular expansion frozen; POS preparation programme active
 
 ## Working State
