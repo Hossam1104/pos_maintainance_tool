@@ -30,4 +30,19 @@ public sealed class ResourceLockSetTests
 
         using var reacquired = await locks.AcquireAsync(["sql"], CancellationToken.None);
     }
+
+    [Fact]
+    public async Task RestoreResourceScopeConflictsWithSqlServiceAndCleanupWork()
+    {
+        var locks = new ResourceLockSet();
+        using var held = await locks.AcquireAsync(["sql", "services", "filesystem-cleanup"], CancellationToken.None);
+        using var cancellation = new CancellationTokenSource();
+        var waiting = locks.AcquireAsync(["filesystem-cleanup", "services", "sql"], cancellation.Token);
+
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await waiting);
+        held.Dispose();
+        using var reacquired = await locks.AcquireAsync(["sql", "services", "filesystem-cleanup"], CancellationToken.None);
+    }
 }

@@ -1,5 +1,7 @@
 using PosAdminTool.Agent.Artifacts;
 using PosAdminTool.Agent.Audit;
+using PosAdminTool.Agent.Restore;
+using PosAdminTool.Application.Restore;
 using PosAdminTool.Application.Services;
 using PosAdminTool.Contracts.V1.Common;
 using PosAdminTool.Contracts.V1.Operations;
@@ -13,6 +15,8 @@ public sealed class OperationWorker(
     ResourceLockSet locks,
     OperationAuditWriter audit,
     BackupService backupService,
+    RestoreService restoreService,
+    RestoreSourceResolver restoreSourceResolver,
     ArtifactCatalog artifacts,
     IHostEnvironment environment,
     ILogger<OperationWorker> logger) : BackgroundService
@@ -140,6 +144,52 @@ public sealed class OperationWorker(
                         _ => OperationState.Failed,
                     };
                 entry.Complete(state, state == OperationState.Failed ? "backup.failed" : state == OperationState.PartiallySucceeded ? "backup.partial_failure" : null);
+                await WriteAuditAsync().ConfigureAwait(false);
+                registry.Publish(entry);
+                return;
+            }
+
+            if (entry.Type == "restore" && entry.WorkItem is RestoreOperationWorkItem restoreWorkItem)
+            {
+                RestoreExecutionResult execution;
+                try
+                {
+                    var source = restoreSourceResolver.ResolveStoredSource(restoreWorkItem.Source, entry.Principal).ToDescriptor();
+                    execution = await restoreService.ExecuteAsync(
+                        restoreWorkItem.Settings,
+                        source,
+                        restoreWorkItem.Mode,
+                        restoreWorkItem.ExpectedFingerprint,
+                        operationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch
+                {
+                    execution = new RestoreExecutionResult(
+                        PosAdminTool.Domain.Models.OperationResult.Running("restore_database"),
+                        "restore.failed");
+                    execution.Operation.AddError("Restore failed while applying the server-owned plan.");
+                    execution.Operation.Finalize(PosAdminTool.Domain.Enums.OperationStatus.Failed);
+                }
+
+                foreach (var error in execution.Operation.Errors)
+                {
+                    entry.Report(execution.Operation.Status == PosAdminTool.Domain.Enums.OperationStatus.Cancelled ? 90 : 80, "warning", error);
+                }
+
+                var restoreState = entry.Token.IsCancellationRequested || stoppingToken.IsCancellationRequested
+                    ? OperationState.Cancelled
+                    : execution.Operation.Status switch
+                    {
+                        PosAdminTool.Domain.Enums.OperationStatus.Success => OperationState.Succeeded,
+                        PosAdminTool.Domain.Enums.OperationStatus.PartialSuccess => OperationState.PartiallySucceeded,
+                        PosAdminTool.Domain.Enums.OperationStatus.Cancelled => OperationState.Cancelled,
+                        _ => OperationState.Failed,
+                    };
+                entry.Complete(restoreState, restoreState == OperationState.Failed ? execution.FailureCode ?? "restore.failed" : null);
                 await WriteAuditAsync().ConfigureAwait(false);
                 registry.Publish(entry);
                 return;

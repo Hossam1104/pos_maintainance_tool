@@ -377,9 +377,10 @@ public sealed class OperationRegistry
             {
                 "diagnostic" or "diagnostic-destructive" => ["services"],
                 "backup" => ["sql", "filesystem-cleanup"],
+                "restore" => ["sql", "services", "filesystem-cleanup"],
                 _ => ["sql", "services", "filesystem-cleanup", "downloader"],
             };
-            IsDestructive = type == "diagnostic-destructive";
+            IsDestructive = type is "diagnostic-destructive" or "restore";
             NeedsAudit = IsDestructive || type == "backup";
             Add("queued", "Operation queued.");
         }
@@ -465,7 +466,7 @@ public sealed class OperationRegistry
                     Transition(OperationState.Cancelled);
                     _stage = "cancelled";
                     _ended = _timeProvider.GetUtcNow();
-                    _workItem = null;
+                    ReleaseWorkItemLocked();
                     Add("cancelled", "Operation cancelled.");
                 }
             }
@@ -481,7 +482,7 @@ public sealed class OperationRegistry
                     Transition(OperationState.Cancelled);
                     _stage = "cancelled";
                     _ended = _timeProvider.GetUtcNow();
-                    _workItem = null;
+                    ReleaseWorkItemLocked();
                     Add("cancelled", "Operation cancelled.");
                     return false;
                 }
@@ -538,7 +539,7 @@ public sealed class OperationRegistry
                 _stage = SanitizeStage(finalState.ToString().ToLowerInvariant());
                 _errorCode = finalState == OperationState.Cancelled ? null : SanitizeCode(errorCode);
                 _ended = _timeProvider.GetUtcNow();
-                _workItem = null;
+                ReleaseWorkItemLocked();
                 Add(_stage, finalState == OperationState.Cancelled ? "Operation cancelled." : "Operation completed.");
             }
         }
@@ -579,7 +580,7 @@ public sealed class OperationRegistry
 
         public void ReleaseWorkItem()
         {
-            lock (_gate) _workItem = null;
+            lock (_gate) ReleaseWorkItemLocked();
         }
 
         public void Dispose()
@@ -588,7 +589,7 @@ public sealed class OperationRegistry
             {
                 if (_disposed) return;
                 _disposed = true;
-                _workItem = null;
+                ReleaseWorkItemLocked();
             }
 
             _cancellation.Dispose();
@@ -604,6 +605,16 @@ public sealed class OperationRegistry
             }
 
             throw new InvalidOperationException("Invalid operation state transition.");
+        }
+
+        private void ReleaseWorkItemLocked()
+        {
+            if (_workItem is IDisposable disposable)
+            {
+                try { disposable.Dispose(); } catch { }
+            }
+
+            _workItem = null;
         }
 
         private void Add(string stage, string message)

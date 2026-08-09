@@ -2,12 +2,13 @@ using System.Data;
 using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Data.SqlClient;
+using PosAdminTool.Application.Restore;
 using PosAdminTool.Domain.Interfaces;
 using PosAdminTool.Domain.Models;
 
 namespace PosAdminTool.Infrastructure.Windows;
 
-public sealed partial class SqlCmdExecutor : IDatabaseService
+public sealed partial class SqlCmdExecutor : IDatabaseService, IDatabaseRestoreVerifier
 {
     public async Task TestConnectionAsync(AppSettings settings, CancellationToken cancellationToken = default)
     {
@@ -140,6 +141,19 @@ public sealed partial class SqlCmdExecutor : IDatabaseService
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<bool> VerifyRestoreAsync(
+        AppSettings settings,
+        string targetDatabase,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = "SELECT CASE WHEN DB_ID(@target_database) IS NULL THEN CAST(0 AS bit) ELSE CAST(1 AS bit) END;";
+        await using var connection = new SqlConnection(BuildConnectionString(settings, "master"));
+        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+        await using var command = new SqlCommand(sql, connection) { CommandTimeout = 15 };
+        command.Parameters.Add("@target_database", SqlDbType.NVarChar, 128).Value = targetDatabase;
+        return ReadBoolScalar(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false));
+    }
+
     public ValueTask DisposeAsync()
     {
         return ValueTask.CompletedTask;
@@ -183,22 +197,13 @@ public sealed partial class SqlCmdExecutor : IDatabaseService
 
     private static string BuildMoveClauses(string targetDatabase, IReadOnlyList<RestoreFileInfo> logicalFiles, string dbFilesPath)
     {
-        var clauses = new List<string>();
-        foreach (var file in logicalFiles)
-        {
-            var extension = file.FileType == "L" ? ".ldf" : ".mdf";
-            var suffix = file.FileType == "L" ? "_log" : string.Empty;
-            var physicalPath = Path.Combine(dbFilesPath, string.Concat(targetDatabase, suffix, extension));
-
-            clauses.Add(string.Concat(
+        var plan = new RestoreSqlPlanBuilder().Build(targetDatabase, dbFilesPath, logicalFiles);
+        return string.Join(", ", plan.Moves.Select(move => string.Concat(
                 "MOVE N'",
-                EscapeSqlLiteral(file.LogicalName),
+                EscapeSqlLiteral(move.LogicalName),
                 "' TO N'",
-                EscapeSqlLiteral(physicalPath),
-                "'"));
-        }
-
-        return string.Join(", ", clauses);
+                EscapeSqlLiteral(move.DestinationPath),
+                "'")));
     }
 
     private static string EscapeSqlLiteral(string value)

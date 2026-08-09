@@ -23,6 +23,10 @@ public sealed class AgentConfiguration
 
     public string BackupFolder { get; set; } = string.Empty;
 
+    // Server-owned database-file destination used by restore MOVE planning. It is never returned
+    // in browser configuration DTOs; restore previews expose safe destination filenames only.
+    public string DbFilesPath { get; set; } = string.Empty;
+
     // These are service-owned non-secret source locations. They are intentionally omitted from
     // the browser DTO; backup requests select one of the three stable component IDs instead.
     public string BranchConfigPath { get; set; } = string.Empty;
@@ -53,6 +57,7 @@ public sealed class AgentConfiguration
             ClientName = ClientName,
             ApiBaseUrl = ApiBaseUrl,
             BackupFolder = BackupFolder,
+            DbFilesPath = DbFilesPath,
             BranchConfigPath = BranchConfigPath,
             CashierGrpcConfigPath = CashierGrpcConfigPath,
             CashierUiConfigPath = CashierUiConfigPath,

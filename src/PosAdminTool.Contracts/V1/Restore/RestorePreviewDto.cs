@@ -14,4 +14,18 @@ public sealed record RestorePreviewDto(
     IReadOnlyList<string> ServicesToStop,
     long RequiredFreeSpaceBytes,
     IReadOnlyList<string> Warnings,
-    DateTimeOffset ExpiresAtUtc);
+    DateTimeOffset ExpiresAtUtc)
+{
+    /// <summary>Server truth; a rejected preview never receives an executable challenge.</summary>
+    public bool Ready { get; init; } = true;
+
+    /// <summary>Stable safe identifiers and filenames only; absolute host paths never cross the API.</summary>
+    public IReadOnlyList<RestoreMovePlanDto> SqlMovePlan { get; init; } = [];
+
+    /// <summary>Exact phrase the operator must type at execution time.</summary>
+    public string ConfirmationText { get; init; } = string.Empty;
+
+    public string? RejectionCode { get; init; }
+
+    public string? RejectionReason { get; init; }
+}

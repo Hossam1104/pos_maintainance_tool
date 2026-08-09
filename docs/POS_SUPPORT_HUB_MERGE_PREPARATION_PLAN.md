@@ -74,6 +74,10 @@ jobs, restore file information, operation results, and database resolution rules
 are behavior-neutral and can be reused by a future Support Hub backend composition after a collision
 review.
 
+POS-M02 adds the `IRestoreFileSystem` and optional `IDatabaseRestoreVerifier` seams without adding
+host-specific orchestration to Domain. `AgentConfiguration.DbFilesPath` remains service-owned and
+is not returned through browser configuration DTOs.
+
 ### Application
 
 `PosAdminTool.Application` owns use-case policy and orchestration over Domain interfaces:
@@ -81,9 +85,11 @@ review.
 - `BackupService` is the Session 08 server-adapted path. Filesystem access is behind
   `IBackupFileSystem`, preflight is server-owned, and staging/manifest/checksum behavior is tested
   with fakes.
-- `RestoreService`, `CleanupService`, and `DbDownloadService` are existing legacy/application
-  capabilities and are not yet equivalent to secure Agent workflows. Their unsafe or incomplete
-  edges are preparation work, not permission to expose the old behavior through Angular.
+- `RestoreService` is now the POS-M02 server-owned restore workflow: bounded archive metadata and
+  checksum/manifest inspection precedes private temporary extraction, SQL logical-file discovery
+  and MOVE planning stay behind testable seams, and configuration overwrites use rollback-capable
+  atomic copies. `CleanupService` and `DbDownloadService` remain legacy capabilities awaiting
+  POS-M03/POS-M04 hardening; none of these changes authorizes standalone Angular UI.
 - Configuration, branch verification, import, connection testing, and operation use cases remain
   application-level orchestration rather than browser logic.
 
@@ -95,6 +101,7 @@ review.
 - Windows Service Control Manager and privilege checks;
 - service-owned configuration files, atomic writes, legacy import, and machine-scope DPAPI secrets;
 - local backup filesystem operations;
+- the production restore filesystem adapter and non-destructive SQL restore verification adapter;
 - RMS backup-trigger HTTP calls;
 - SMB/UNC connections, path resolution, and remote backup repository behavior.
 
@@ -140,14 +147,16 @@ endpoint groups include:
 - `OperationRegistry`, `OperationWorker`, `ResourceLockSet`, `OperationAuditWriter`, and
   `ArtifactCatalog`;
 - service polling and service command workers;
-- `BackupService` and the physical backup filesystem adapter.
+- `BackupService`, `RestoreService`, the physical backup/restore filesystem adapters, bounded
+  restore uploads/challenges, and restore endpoint modules.
 
 The Agent owns the request-to-privileged-operation boundary. Angular calls the Agent; Angular never
 executes SQL, Windows service, SMB, cleanup, restore, or privileged filesystem operations directly.
 
-The Agent currently maps no secure Restore, Maintenance, or Downloader endpoint group. POS-M02,
-POS-M03, and POS-M04 must add backend capability and tests before any integrated frontend is
-considered.
+POS-M02 now maps the secure `/api/v1/restores` upload, preview, and execute backend. The endpoint
+uses existing authorization, antiforgery, operation, idempotency, lock, cancellation, audit, and
+sanitized-error boundaries. Maintenance and Downloader endpoint groups remain deferred to POS-M03
+and POS-M04; no integrated frontend is authorized by this backend work.
 
 ## 6. Current Angular implementation
 
@@ -263,6 +272,11 @@ The verified POS-M01 correction is:
 | Cancellation cleanup | Worker tokens link operation and shutdown cancellation; locks release on every acquisition failure; completed entries release work items | Backup temporary, staging, and unpublished post-move archives are cleaned with cancellation-independent cleanup |
 | Messages/audit | Operation messages and error codes are bounded/sanitized; audit remains destructive-operation-oriented JSONL | Audit writes use a non-cancelled completion token and never expose raw exception details |
 
+POS-M02 extends the same bounded architecture to restore state: upload slots and staged bytes are
+reserved while streams are in flight, uploads are released on rejection/cancellation/expiry/
+operation completion, challenges are short-lived and capped, restore work uses `sql`, `services`,
+and `filesystem-cleanup` locks, and no separate unbounded restore registry or cache was added.
+
 The ADR-approved in-memory architecture remains; no durable database or SQLite was introduced.
 
 ## 12. Backup architecture
@@ -294,7 +308,7 @@ directly.
 | Risk | Current status and preparation response |
 | --- | --- |
 | Runtime state grows without bound | POS-M01 closed the confirmed gap with injectable operation, event, activity, artifact, and file-handle retention; full Release validation passed 141 .NET tests |
-| Restore archive validation is weak | Legacy `RestoreService` extracts without the required archive defenses; POS-M02 backend only |
+| Restore archive validation is weak | POS-M02 closes the Agent/backend gap with bounded pre-extraction ZIP inspection, manifest/checksum/branch/destination validation, server-derived preview/challenge recomputation, and fake-only tests; no real restore was executed |
 | Cleanup/reset safety is client/legacy driven | Legacy `CleanupService` expands and recursively deletes configured paths without the future policy boundary; POS-M03 backend only |
 | Downloader lacks Agent security/operation boundary | Legacy service has direct endpoint/SMB/credential behavior; POS-M04 |
 | LocalSystem managed-root and SMB Session 0 proof | Representative-device evidence remains required; do not guess |
@@ -323,6 +337,16 @@ architecture:
    clearly labeled as historical, not current execution authority.
 7. Treat existing Restore/Cleanup/Downloader DTOs and legacy application services as seams to
    harden, not as permission to expose unsafe standalone UI.
+
+POS-M02 verified and closed the restore backend preparation gate. The retained backend now keeps
+browser uploads separate from principal/purpose-bound device browse handles; validates bounded ZIP
+metadata, hostile paths, reparse/symlink indicators, allowed content, manifest/checksum/branch
+evidence, SQL logical files, destinations, and free space before private extraction; and redoes the
+complete policy before challenge redemption and queued execution. Focused Release coverage passed
+17 Application restore/planning tests and 13 Agent restore/upload/challenge tests; the complete
+Release solution passed 170 .NET tests with zero failures, and the retained WinUI `win-x64` publish
+gate passed. Tests used disposable fakes and temporary directories only; no real database restore,
+RMS configuration overwrite, or Windows service stop was executed.
 
 ## 15. RMS+ Support Hub ownership boundary
 
@@ -404,7 +428,7 @@ namespaces until the cross-project review chooses a final namespace and solution
 | `Contracts/V1/**` | MOVE/ADAPT | Preserve DTO redaction, error codes, operation IDs, and version strategy |
 | `Domain/Interfaces/**` | KEEP/MOVE with POS module | These are the primary portability seams |
 | `Application/Services/BackupService.cs` | KEEP/ADAPT | Session 08 reference implementation and fake-test boundary |
-| `Application/Services/RestoreService.cs` | ADAPT only after POS-M02 | Legacy implementation is not merge-ready |
+| `Application/Services/RestoreService.cs` and `Application/Restore/**` | KEEP/ADAPT after POS-M02 | Server-owned archive policy, SQL MOVE planning, config rollback, and fake-test seams are now available; reconcile host composition during merge |
 | `Application/Services/CleanupService.cs` | ADAPT only after POS-M03 | Legacy direct deletion is not merge-ready |
 | `Application/Services/DbDownloadService.cs` | ADAPT only after POS-M04 | Preserve behavior while moving credentials/SMB behind Agent policy |
 | `Infrastructure/Windows/**`, `Smb/**`, `Backups/**`, `Configuration/**`, `Http/**` | MOVE under POS privileged backend | Windows targeting, service identity, DPAPI, and package collisions need explicit ownership |
@@ -475,7 +499,7 @@ Before any repository merge, explicitly audit:
 
 | Old direction | Disposition |
 | --- | --- |
-| Session 09 restore backend/archive hardening | KEEP valuable backend/security requirements as POS-M02; no standalone Restore UI |
+| Session 09 restore backend/archive hardening | COMPLETE as POS-M02; keep backend/security requirements and no standalone Restore UI |
 | Session 10 Restore UI | DEFER; preserve behavioral requirements as Support Hub integration acceptance criteria |
 | Session 11 cleanup/reset | SPLIT: backend path policy, preview, challenge, locks, audit, and tests become POS-M03; standalone Maintenance UI deferred |
 | Session 12 DB Downloader | SPLIT: Agent/backend, SMB, SSRF, credential, cancellation, artifact, and identity work becomes POS-M04; standalone Downloader UI deferred |
@@ -505,8 +529,8 @@ Support Hub frontend integration.
 | Item | Status | Gate / outcome |
 | --- | --- | --- |
 | POS-M01 | Complete | Runtime boundedness, cleanup, artifact lifecycle, focused tests, full Release validation, and retained WinUI publish passed |
-| POS-M02 | Pending POS-M01 | Backend restore/archive hardening only |
-| POS-M03 | Pending POS-M01 | Cleanup/reset backend safety only |
+| POS-M02 | Complete | Backend restore/archive hardening only; focused restore tests, full Release solution gates, and retained WinUI publish passed; no real restore/config/service operation was executed |
+| POS-M03 | Pending POS-M02 | Cleanup/reset backend safety only |
 | POS-M04 | Pending POS-M01 | Downloader backend/SMB portability only |
 | POS-M05 | Pending POS-M02 through POS-M04 | Complete landing/collision audit; then `CLAUDE OPUS 5 REVIEW REQUIRED` |
 | R1 | Scheduled after POS-M05 | Claude Opus 5 review gate |

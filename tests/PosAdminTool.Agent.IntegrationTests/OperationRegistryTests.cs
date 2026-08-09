@@ -204,6 +204,16 @@ public sealed class OperationRegistryTests
         Assert.Throws<InvalidOperationException>(() => entry.Complete(OperationState.Succeeded));
     }
 
+    [Fact]
+    public void RestoreEntriesAreDestructiveAuditedAndCarryAllConflictingResourceLocks()
+    {
+        var entry = new OperationRegistry.Entry("restore", "B001", "TEST\\admin", "c");
+
+        Assert.True(entry.IsDestructive);
+        Assert.True(entry.NeedsAudit);
+        Assert.Equal(["sql", "services", "filesystem-cleanup"], entry.Locks);
+    }
+
     private static async Task<OperationRegistry.Entry> ReadOneAsync(OperationRegistry registry)
     {
         await foreach (var entry in registry.ReadAllAsync(CancellationToken.None))

@@ -37,6 +37,7 @@ public sealed class AgentLegacyConfigurationService(
             current.ClientName = settings.ClientName;
             current.ApiBaseUrl = settings.ApiBaseUrl;
             current.BackupFolder = settings.BackupFolder;
+            current.DbFilesPath = settings.DbFilesPath;
             current.BranchConfigPath = settings.BranchConfigPath;
             current.CashierGrpcConfigPath = settings.CashierGrpcConfigPath;
             current.CashierUiConfigPath = settings.CashierUiConfigPath;
@@ -81,6 +82,9 @@ public sealed class AgentLegacyConfigurationService(
             ClientName = config.ClientName,
             ApiBaseUrl = config.ApiBaseUrl,
             BackupFolder = config.BackupFolder,
+            DbFilesPath = string.IsNullOrWhiteSpace(config.DbFilesPath)
+                ? new AppSettings().DbFilesPath
+                : config.DbFilesPath,
             BranchConfigPath = string.IsNullOrWhiteSpace(config.BranchConfigPath)
                 ? new AppSettings().BranchConfigPath
                 : config.BranchConfigPath,

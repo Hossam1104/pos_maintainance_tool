@@ -26,6 +26,19 @@ public sealed record RuntimeRetentionPolicy
 
     public TimeSpan FileHandleLifetime { get; init; } = TimeSpan.FromMinutes(5);
 
+    /// <summary>Bounded restore upload/challenge state; no restore request may create an unbounded cache.</summary>
+    public int MaxRestoreUploads { get; init; } = 32;
+
+    public long MaxRestoreStagedBytes { get; init; } = 128L * 1024 * 1024;
+
+    public long MaxRestoreUploadBytes { get; init; } = 64L * 1024 * 1024;
+
+    public TimeSpan RestoreUploadLifetime { get; init; } = TimeSpan.FromMinutes(15);
+
+    public int MaxRestoreChallenges { get; init; } = 256;
+
+    public TimeSpan RestoreChallengeLifetime { get; init; } = TimeSpan.FromMinutes(5);
+
     public static RuntimeRetentionPolicy Default { get; } = new();
 
     public void Validate()
@@ -39,5 +52,11 @@ public sealed record RuntimeRetentionPolicy
         if (ArtifactLifetime <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(ArtifactLifetime));
         if (MaxFileHandles < 1) throw new ArgumentOutOfRangeException(nameof(MaxFileHandles));
         if (FileHandleLifetime <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(FileHandleLifetime));
+        if (MaxRestoreUploads < 1) throw new ArgumentOutOfRangeException(nameof(MaxRestoreUploads));
+        if (MaxRestoreStagedBytes < 1) throw new ArgumentOutOfRangeException(nameof(MaxRestoreStagedBytes));
+        if (MaxRestoreUploadBytes < 1 || MaxRestoreUploadBytes > MaxRestoreStagedBytes) throw new ArgumentOutOfRangeException(nameof(MaxRestoreUploadBytes));
+        if (RestoreUploadLifetime <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(RestoreUploadLifetime));
+        if (MaxRestoreChallenges < 1) throw new ArgumentOutOfRangeException(nameof(MaxRestoreChallenges));
+        if (RestoreChallengeLifetime <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(RestoreChallengeLifetime));
     }
 }

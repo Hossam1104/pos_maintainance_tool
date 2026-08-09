@@ -1,7 +1,8 @@
 # Current Project State
 
 - **Updated:** 2026-08-09
-- **Branch:** `main` after the POS-M01 runtime boundedness merge
+- **Branch:** `pos-m02-restore-archive-hardening` during the authorized POS-M02 completion; merge to
+  `main` is the remaining Git handoff
 - **Release or milestone:** .NET 10 + Angular 22 migration; Sessions 00-08 complete; standalone Angular expansion frozen; POS preparation programme active
 
 ## Working State
@@ -16,7 +17,9 @@
   contracts, opaque browse handles, DPAPI-backed service secrets, operations/SSE/audit, and the
   Session 08 local backup workflow with principal-scoped artifact streaming. POS-M01 adds
   injectable bounded retention for operation state, idempotency, events, activity, artifacts, and
-  file handles, plus cancellation/resource/staging cleanup guarantees.
+  file handles, plus cancellation/resource/staging cleanup guarantees. POS-M02 adds the backend
+  restore upload, browse-handle, archive-policy, preview/challenge, operation, and execute seams;
+  standalone Angular Restore remains frozen.
 - The existing Angular implementation includes Agent-backed Overview, Device, Settings, Services,
   and Backups screens. Restore, Maintenance, Downloads, and Activity remain placeholder routes;
   standalone expansion is frozen for RMS+ Support Hub integration.
@@ -44,12 +47,33 @@
 - Focused checks passed: Agent integration 88 tests and Application 21 tests. Full Release solution
   validation passed 141 .NET tests; retained WinUI `win-x64` publish passed.
 
+## Verified POS-M02 Result
+
+- Restore sources remain distinct: bounded streamed uploads are capped and cleaned through the
+  existing retention model, while device files are selected only through principal/purpose-bound
+  opaque browse handles. In-flight upload slots and bytes are reserved, so concurrent staging
+  cannot exceed the configured count or byte bounds.
+- ZIP metadata, entry names, sizes, expanded totals, compression ratios, allowed extensions,
+  duplicate names, reparse/symlink indicators, manifest/schema/component mappings, checksums, and
+  branch evidence are validated before private temporary extraction. SQL logical-file discovery,
+  deterministic MOVE planning, server-owned configuration destinations, free-space checks, and
+  rollback-capable configuration copies are behind testable seams.
+- Execute-time policy is recomputed from server-owned settings/source state. The short-lived
+  one-use challenge is principal-bound and fingerprint-bound to the source identity, mode, branch,
+  target database, SQL MOVE plan, configuration overwrite set, services, archive/policy version,
+  and confirmation text. Restore operations use the existing idempotency, cancellation, audit,
+  resource-lock, and bounded operation architecture.
+- Focused Release coverage passed 17 Application restore/planning tests and 13 Agent
+  restore/upload/challenge tests. Complete Release solution validation passed 170 .NET tests with
+  zero failures; retained WinUI `win-x64` publish passed. Tests used disposable fakes and temporary
+  directories only; no real restore, RMS configuration overwrite, or Windows service stop ran.
+
 ## Active Programme
 
 - Canonical plan: `docs/POS_SUPPORT_HUB_MERGE_PREPARATION_PLAN.md`.
 - Canonical prompts: `docs/POS_SUPPORT_HUB_PREPARATION_SESSION_PROMPTS.md`.
-- `TASK.md` contains the complete POS-M02 prompt for the next owner authorization; POS-M01 is
-  complete. POS-M02/M03/M04 prepare restore, cleanup/reset, and downloader backends. POS-M05
+- `TASK.md` contains the complete POS-M03 prompt for the next owner authorization; POS-M01 and
+  POS-M02 are complete. POS-M03/M04 prepare cleanup/reset and downloader backends. POS-M05
   produces the landing/collision
   audit and requires Claude Opus 5 R1 review. POS-M06 is review-gated; R2 precedes any integration.
 - Repository merge, Angular integration, standalone installer cutover, and WinUI removal are not
@@ -64,7 +88,8 @@
   behavior still require safe representative-device evidence.
 - Manual live-Agent SSE and real browser Negotiate/admin evidence are not substitutes for the fake
   automated tests and remain operational evidence gaps.
-- Legacy Restore/Cleanup/Downloader capabilities remain unsafe or incomplete for Agent exposure;
-  use POS-M02 through POS-M04 only after their entry gates are met.
+- Legacy Cleanup/Downloader capabilities remain unsafe or incomplete for Agent exposure; POS-M03
+  and POS-M04 are still gated by their owner-authorized sessions. POS-M02 restore backend work is
+  complete, but representative-device LocalSystem/Session 0 evidence remains outstanding.
 - WinUI remains retained until the cross-project RMS+ Support Hub review and an explicit owner-approved
   dedicated cutover.

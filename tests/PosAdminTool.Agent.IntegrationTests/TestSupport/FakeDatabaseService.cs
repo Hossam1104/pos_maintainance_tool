@@ -4,9 +4,17 @@ using PosAdminTool.Domain.Models;
 namespace PosAdminTool.Agent.IntegrationTests.TestSupport;
 
 /// <summary>Filesystem-only database double used by Agent integration tests; it never invokes SQL.</summary>
-public sealed class FakeDatabaseService : IDatabaseService
+public sealed class FakeDatabaseService : IDatabaseService, IDatabaseRestoreVerifier
 {
     public List<(string DatabaseName, bool UseCompatibilityMode)> BackupCalls { get; } = [];
+
+    public List<(string DatabaseName, IReadOnlyList<RestoreFileInfo> LogicalFiles, string DbFilesPath)> RestoreCalls { get; } = [];
+
+    public IReadOnlyList<RestoreFileInfo> RestoreFileList { get; set; } = [];
+
+    public Exception? RestoreFailure { get; set; }
+
+    public bool RestoreVerificationResult { get; set; } = true;
 
     public Task TestConnectionAsync(AppSettings settings, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
@@ -31,7 +39,7 @@ public sealed class FakeDatabaseService : IDatabaseService
         AppSettings settings,
         string backupFilePath,
         CancellationToken cancellationToken = default) =>
-        Task.FromResult<IReadOnlyList<RestoreFileInfo>>([]);
+        Task.FromResult(RestoreFileList);
 
     public Task RestoreDatabaseAsync(
         AppSettings settings,
@@ -39,7 +47,19 @@ public sealed class FakeDatabaseService : IDatabaseService
         string backupFilePath,
         IReadOnlyList<RestoreFileInfo> logicalFiles,
         string dbFilesPath,
-        CancellationToken cancellationToken = default) => Task.CompletedTask;
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (RestoreFailure is not null) return Task.FromException(RestoreFailure);
+        RestoreCalls.Add((targetDatabase, logicalFiles, dbFilesPath));
+        return Task.CompletedTask;
+    }
+
+    public Task<bool> VerifyRestoreAsync(
+        AppSettings settings,
+        string targetDatabase,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(RestoreVerificationResult);
 
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 }
