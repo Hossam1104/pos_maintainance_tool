@@ -1,5 +1,6 @@
 using System.Net;
 using PosAdminTool.Domain.Exceptions;
+using PosAdminTool.Domain.Models;
 
 namespace PosAdminTool.Infrastructure.Http;
 
@@ -253,6 +254,7 @@ public sealed class SystemHostAddressResolver : IHostAddressResolver
         await Dns.GetHostAddressesAsync(host, cancellationToken).ConfigureAwait(false);
 }
 
-public sealed class BackupApiPolicyException(string code) : DownloaderTriggerException(code)
+public sealed class BackupApiPolicyException(string code)
+    : DownloaderTriggerException(code, DownloaderTriggerState.NotAttempted)
 {
 }

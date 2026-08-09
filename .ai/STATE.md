@@ -1,7 +1,7 @@
 # Current Project State
 
 - **Updated:** 2026-08-10
-- **Branch:** `main` after the verified POS-M04R downloader network/outcome corrective merge
+- **Branch:** `main` after the verified POS-M04R2 remote-trigger uncertainty corrective merge
 - **Release or milestone:** .NET 10 + Angular 22 migration; Sessions 00-08 complete; standalone Angular expansion frozen; POS preparation programme active
 
 ## Working State
@@ -20,90 +20,42 @@
 
 ## Verified Baseline and Earlier Gates
 
-- Session 08 baseline: 125 .NET tests, 8 Angular tests in 6 files, backup E2E, and retained WinUI
-  `win-x64` publish passed; no real SQL backup ran.
-- POS-M01 bounded runtime state and cleanup corrections passed 141 .NET tests and WinUI publish.
-- POS-M02 restore/archive hardening and corrective checkpoints POS-M02R/POS-M02R2/POS-M02R3 are
-  complete; POS-M02R3 passed 23 Application Restore tests, 24 Agent Restore/worker/audit tests,
-  190 full .NET tests, and WinUI publish with fake/temp-only infrastructure.
-- The early Claude Opus 5 Restore follow-up gate was cleared by explicit owner authorization before
-  POS-M03. POS-M03 did not redesign or broaden Restore.
+- Sessions 00-08 established the .NET 10/Angular 22 baseline; 125 .NET tests, Angular tests,
+  backup E2E, and retained WinUI publish passed without real SQL execution.
+- POS-M01, POS-M02/POS-M02R/POS-M02R2/POS-M02R3, POS-M03, and POS-M03R are complete with their
+  bounded-state, restore-safety, canonical-root, partial-outcome, and exact-target gates; all
+  evidence was fake/temp-only and the early Restore review gate was explicitly cleared.
 
-## Verified POS-M03 Result
+## Verified POS-M04 Through POS-M04R
 
-- `MaintenanceService` and Agent maintenance endpoints enforce canonical managed-root policy,
-  protected/install/data-root separation, environment and drive-relative/UNC validation,
-  reparse/junction/symlink defense, root-target rejection, server-derived previews, fresh
-  principal-bound one-use challenges, typed logical confirmation, principal-scoped idempotency,
-  conflicting resource locks, and execute-time recomputation.
-- Cleanup and branch-reset stages preserve per-stage/per-target attempted versus completed truth;
-  interrupted file/SQL seams are partial/recovery-required, with logical target IDs, stable failure
-  codes, residue evidence, and recovery guidance. Service, filesystem, and SQL calls remain behind
-  injectable interfaces; no absolute paths, credentials, raw SQL, or exception text enter browser or
-  audit evidence.
-- Focused Release coverage passed 9 Application maintenance tests and 11 Agent maintenance/
-  worker tests. Complete Release validation passed 210 .NET tests; solution build passed with zero
-  warnings/errors; retained WinUI `win-x64` publish passed. Tests used disposable fakes/temp
-  infrastructure only; no real cleanup, reset, service control, device mutation, or Angular
-  Maintenance UI work occurred.
+- POS-M04/M04R retain the server-owned downloader boundary, DPAPI secret isolation, bounded
+  operation/idempotency/audit, connection-bound DNS/SSRF validation, manual redirects, canonical
+  SMB ownership/path safety, stable archive discovery, opaque artifacts, and accepted-trigger
+  truth through later repository failure, partial completion, and cancellation.
+- Prior M04/M04R gates passed 247/257 full Release .NET tests, zero-warning builds, and retained
+  WinUI publish; no real endpoint, SMB share, service identity, device mutation, or Angular
+  Downloader UI evidence was used.
 
-## Verified POS-M03R Corrective Closure
+## Verified POS-M04R2 Remote Trigger Uncertainty Truth Closure
 
-- `MaintenancePathPolicy` now requires non-empty valid ManagedRoots, DataRoots, ProtectedRoots, and
-  InstallRoots for cleanup; a target or allowed reparse destination cannot contain or be contained
-  by a protected/install root, and rejection evidence remains path-free.
-- Branch reset now uses the server-resolved branch database as its only authority, verifies the
-  branch against that exact database before execution, and limits configured tables to the
-  code-owned historical `Sales`, `CashierSessions`, and `InventoryMovements` set; the legacy
-  unscoped reset fallback is not used.
-- Focused Release coverage passed 20 Application and 15 Agent maintenance/worker tests. Complete
-  Release validation passed 225 .NET tests; solution build passed with zero warnings/errors; the
-  retained WinUI `win-x64` publish passed. All checks used fakes/disposable infrastructure only;
-  no real cleanup, SQL reset, service control, device mutation, or Angular Maintenance UI work
-  occurred.
-
-## Verified POS-M04 Result
-
-- The Agent exposes only the backend `/api/v1/downloads/batches` trigger boundary: requests carry
-  validated logical branch codes/idempotency, work items carry server-owned settings, the RDB
-  password loads from DPAPI at execution time, and downloader operations use bounded locking,
-  cancellation, per-branch outcomes, and sanitized audit. Trigger HTTP uses manual redirects plus
-  connection-bound DNS policy; sockets reach only policy-approved addresses while logical
-  hostname/TLS semantics remain intact.
-- Downloader discovery preserves newest-folder selection, exact branch ZIP matching, bounded
-  stable-size observation, independent timeout/cancellation/failure truth, and partial outcomes.
-  Trigger HTTP uses approved manual-redirect/DNS/timeout SSRF policy; SMB uses canonical roots,
-  safe path revalidation, explicit ownership, `.partial` cleanup, and opaque artifact cataloging.
-- Focused Release coverage passed 4 new Application downloader tests, 14 Infrastructure
-  security/SMB tests, 4 Agent downloader-contract tests, 17 operation-registry tests, and 5
-  artifact-catalog tests. Complete Release validation passed 247 .NET tests; solution build passed
-  with zero warnings/errors; retained WinUI `win-x64` publish passed. All checks used fakes,
-  disposable adapters, or temporary local staging only; no production endpoint, real SMB share, or
-  LocalSystem/Session 0 evidence test ran.
-
-## Verified POS-M04R Corrective Closure
-
-- `ConnectionBoundSocketConnector` is the production `SocketsHttpHandler.ConnectCallback` seam: it
-  resolves at connection time, normalizes IPv4-mapped IPv6, rejects loopback/link-local/metadata,
-  unsafe private hostname answers, and mixed unsafe candidate sets before socket/HTTP bytes; the
-  logical endpoint remains intact for HTTP/TLS, and redirects are bounded and revalidated.
-- `DbDownloadService.RunWithOutcomeAsync` owns `NotAttempted`, `Failed`, and `Accepted` trigger
-  state. SMB/path/I/O failures cross the Domain `BackupRepositoryException` boundary, and the real
-  `OperationWorker` preserves accepted-trigger truth through repository failure, partial artifact
-  completion, and cancellation; REST/audit retain sanitized codes and opaque artifact IDs.
-- Focused Release coverage passed 5 new Infrastructure connection-bound DNS/SSRF tests, 1 new
-  Application lifecycle test, and 4 real Agent worker outcome tests. Complete Release validation
-  passed 257 .NET tests; solution build passed with zero warnings/errors; retained WinUI `win-x64`
-  publish passed. All checks used fakes, temporary streams, or disposable test infrastructure;
-  no real backup endpoint, SMB server, service identity, device mutation, or Angular Downloader UI
-  work occurred.
+- Dispatch history is explicit: pre-dispatch validation/cancellation/connection-bound SSRF is
+  `NotAttempted`; definitive rejection is `Failed`; positive acknowledgement is `Accepted`; and
+  post-dispatch cancellation, timeout, connection loss, response transport, or local response
+  policy failure is `OutcomeUnknown` with `downloader.trigger_outcome_unknown` and safe guidance.
+- REST/audit expose the explicit string-enum `TriggerState` while `TriggerAccepted` is derived;
+  unknown is terminal `Failed`, stops before SMB/artifacts, never auto-retries, and preserves
+  sanitized state/code. Local operation idempotency is not remote idempotency; no remote
+  job-status/reconciliation/trigger-idempotency capability is verified.
+- Three Infrastructure, one Application, one Agent worker, and one contract test were added;
+  complete Release validation passed 263 .NET tests, zero-warning solution build passed, and
+  retained WinUI `win-x64` publish passed using fakes/temp-only infrastructure.
 
 ## Active Programme
 
 - Canonical plan: `docs/POS_SUPPORT_HUB_MERGE_PREPARATION_PLAN.md`.
 - Canonical prompts: `docs/POS_SUPPORT_HUB_PREPARATION_SESSION_PROMPTS.md`.
 - `TASK.md` contains the complete POS-M05 landing/collision audit prompt pending owner authorization;
-  POS-M04R is complete, POS-M05 requires the Claude Opus 5 R1 review outcome before POS-M06, and
+  POS-M04R2 is complete, POS-M05 requires the Claude Opus 5 R1 review outcome before POS-M06, and
   POS-M06 is review-gated.
 - Repository merge beyond the authorized session lifecycle, Angular integration, standalone
   installer cutover, and WinUI removal are not otherwise authorized.
@@ -117,4 +69,7 @@
   an isolated non-production device/server must demonstrate WNetAddConnection2, enumeration,
   newest-batch discovery, ZIP read/download, cancellation/timeout cleanup, and scoped disconnect;
   fake tests do not replace it.
+- Remote trigger reconciliation/idempotency remains open: no independently verified remote
+  job-status or idempotency contract exists, so an unknown trigger must be checked remotely before
+  any operator-directed retry.
 - WinUI remains retained until cross-project RMS+ Support Hub review and explicit owner-approved dedicated cutover.

@@ -7,4 +7,12 @@ namespace PosAdminTool.Contracts.V1.Downloader;
 public sealed record DownloaderOperationOutcomeDto(
     IReadOnlyList<DownloaderBranchOutcomeDto> Branches,
     string? Serial,
-    bool TriggerAccepted);
+    DownloaderTriggerStateDto TriggerState,
+    string? OperatorGuidance = null)
+{
+    /// <summary>
+    /// Compatibility projection for existing consumers. It is never the sole representation of
+    /// an unknown trigger outcome; inspect <see cref="TriggerState"/> as well.
+    /// </summary>
+    public bool TriggerAccepted => TriggerState == DownloaderTriggerStateDto.Accepted;
+}

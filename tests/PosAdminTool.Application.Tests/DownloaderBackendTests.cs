@@ -119,8 +119,11 @@ public sealed class DownloaderBackendTests
 
     private sealed class FakeApiClient : IBackupApiClient
     {
-        public Task TriggerBackupAsync(string apiUrl, IReadOnlyList<string> branchCodes, CancellationToken cancellationToken = default) =>
-            Task.CompletedTask;
+        public Task<DownloaderTriggerResult> TriggerBackupAsync(
+            string apiUrl,
+            IReadOnlyList<string> branchCodes,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new DownloaderTriggerResult(DownloaderTriggerState.Accepted));
     }
 
     private sealed class FakeBackupRepository : IBackupRepository

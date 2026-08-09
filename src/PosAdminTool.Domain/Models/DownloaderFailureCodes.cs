@@ -9,6 +9,7 @@ public static class DownloaderFailureCodes
     public const string CredentialMissing = "downloader.credential_missing";
     public const string EndpointRejected = "downloader.endpoint_rejected";
     public const string TriggerFailed = "downloader.trigger_failed";
+    public const string TriggerOutcomeUnknown = "downloader.trigger_outcome_unknown";
     public const string BatchFolderTimeout = "downloader.batch_folder_timeout";
     public const string ZipTimeout = "downloader.zip_timeout";
     public const string StableSizeTimeout = "downloader.stable_size_timeout";
@@ -22,4 +23,10 @@ public static class DownloaderFailureCodes
     public const string Timeout = "downloader.timeout";
     public const string PartialFailure = "downloader.partial_failure";
     public const string CancelledAfterPartial = "downloader.cancelled_after_partial";
+}
+
+public static class DownloaderOperatorGuidance
+{
+    public const string TriggerOutcomeUnknown =
+        "The remote backup trigger outcome is unknown. Check the remote backup state before retrying.";
 }

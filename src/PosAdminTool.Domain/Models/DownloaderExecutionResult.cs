@@ -5,7 +5,17 @@ public enum DownloaderTriggerState
     NotAttempted,
     Failed,
     Accepted,
+    OutcomeUnknown,
 }
+
+/// <summary>
+/// Sanitized result from the remote backup-trigger seam. It contains only lifecycle truth and a
+/// stable failure code; transport details, URLs, paths, credentials, and exception text stay in
+/// Infrastructure.
+/// </summary>
+public sealed record DownloaderTriggerResult(
+    DownloaderTriggerState State,
+    string? FailureCode = null);
 
 /// <summary>
 /// Application-owned downloader lifecycle truth. The trigger milestone remains available after

@@ -21,7 +21,7 @@ public sealed class BackupApiClient : IBackupApiClient
         _addressResolver = addressResolver ?? new SystemHostAddressResolver();
     }
 
-    public async Task TriggerBackupAsync(
+    public async Task<DownloaderTriggerResult> TriggerBackupAsync(
         string apiUrl,
         IReadOnlyList<string> branchCodes,
         CancellationToken cancellationToken = default)
@@ -33,7 +33,7 @@ public sealed class BackupApiClient : IBackupApiClient
         }
         catch (ArgumentException)
         {
-            throw new BackupApiPolicyException(DownloaderFailureCodes.InvalidBranch);
+            return NotAttempted(DownloaderFailureCodes.InvalidBranch);
         }
 
         BackupApiEndpointPolicy policy;
@@ -44,21 +44,22 @@ public sealed class BackupApiClient : IBackupApiClient
             current = policy.ValidateInitial(apiUrl);
             await policy.ValidateResolvedAddressesAsync(current, _addressResolver, cancellationToken).ConfigureAwait(false);
         }
-        catch (BackupApiPolicyException)
+        catch (BackupApiPolicyException exception)
         {
-            throw;
+            return NotAttempted(exception.Code);
         }
         catch (OperationCanceledException)
         {
-            throw;
+            return NotAttempted();
         }
         catch
         {
-            throw new BackupApiPolicyException(DownloaderFailureCodes.EndpointRejected);
+            return NotAttempted(DownloaderFailureCodes.EndpointRejected);
         }
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(policy.RequestTimeout);
+        var anyDispatchBegun = false;
 
         for (var redirect = 0; ; redirect++)
         {
@@ -69,8 +70,11 @@ public sealed class BackupApiClient : IBackupApiClient
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/plain"));
 
             HttpResponseMessage response;
+            var dispatchBeforeRequest = anyDispatchBegun;
             try
             {
+                timeout.Token.ThrowIfCancellationRequested();
+                anyDispatchBegun = true;
                 response = await _httpClient.SendAsync(
                     request,
                     HttpCompletionOption.ResponseHeadersRead,
@@ -78,21 +82,25 @@ public sealed class BackupApiClient : IBackupApiClient
             }
             catch (OperationCanceledException)
             {
-                throw;
+                return anyDispatchBegun ? Unknown() : NotAttempted();
             }
             catch (Exception exception)
             {
                 if (TryFind(exception, out BackupApiPolicyException? policyException))
                 {
-                    throw new BackupApiPolicyException(policyException!.Code);
+                    return dispatchBeforeRequest
+                        ? Unknown()
+                        : NotAttempted(policyException!.Code);
                 }
 
                 if (TryFind(exception, out BackupApiRequestException? requestException))
                 {
-                    throw new BackupApiRequestException(requestException!.Code);
+                    return requestException!.TriggerState == DownloaderTriggerState.Failed
+                        ? Failed(requestException.Code)
+                        : Unknown();
                 }
 
-                throw new BackupApiRequestException(DownloaderFailureCodes.TriggerFailed);
+                return anyDispatchBegun ? Unknown() : NotAttempted(DownloaderFailureCodes.TriggerFailed);
             }
 
             using (response)
@@ -102,31 +110,55 @@ public sealed class BackupApiClient : IBackupApiClient
                 if (response.RequestMessage?.RequestUri is { } actualUri
                     && !string.Equals(actualUri.AbsoluteUri, current.AbsoluteUri, StringComparison.Ordinal))
                 {
-                    throw new BackupApiPolicyException("downloader.redirect_rejected");
+                    return Unknown();
                 }
 
                 if ((int)response.StatusCode is >= 300 and < 400)
                 {
                     if (redirect >= policy.MaxRedirects || response.Headers.Location is not { } location)
                     {
-                        throw new BackupApiPolicyException("downloader.redirect_rejected");
+                        return Unknown();
                     }
 
-                    current = policy.ValidateRedirect(current, location);
-                    await policy.ValidateResolvedAddressesAsync(current, _addressResolver, timeout.Token).ConfigureAwait(false);
+                    try
+                    {
+                        current = policy.ValidateRedirect(current, location);
+                        await policy.ValidateResolvedAddressesAsync(current, _addressResolver, timeout.Token).ConfigureAwait(false);
+                    }
+                    catch
+                    {
+                        // The first POST already received a response. Even when the next target is
+                        // rejected safely, the Agent cannot prove whether the remote side effect
+                        // occurred, so do not collapse this into a definitive rejection.
+                        return Unknown();
+                    }
+
                     continue;
                 }
 
-                if (!response.IsSuccessStatusCode
-                    || response.Content.Headers.ContentLength is > 64 * 1024)
+                if (!response.IsSuccessStatusCode)
                 {
-                    throw new BackupApiRequestException(DownloaderFailureCodes.TriggerFailed);
+                    return Failed(DownloaderFailureCodes.TriggerFailed);
                 }
 
-                return;
+                if (response.Content.Headers.ContentLength is > 64 * 1024)
+                {
+                    return Unknown();
+                }
+
+                return new DownloaderTriggerResult(DownloaderTriggerState.Accepted);
             }
         }
     }
+
+    private static DownloaderTriggerResult NotAttempted(string? failureCode = null) =>
+        new(DownloaderTriggerState.NotAttempted, failureCode);
+
+    private static DownloaderTriggerResult Failed(string failureCode) =>
+        new(DownloaderTriggerState.Failed, failureCode);
+
+    private static DownloaderTriggerResult Unknown() =>
+        new(DownloaderTriggerState.OutcomeUnknown, DownloaderFailureCodes.TriggerOutcomeUnknown);
 
     private static bool TryFind<T>(Exception exception, out T? match)
         where T : Exception
@@ -157,6 +189,9 @@ public sealed class BackupApiClient : IBackupApiClient
     }
 }
 
-public sealed class BackupApiRequestException(string code) : DownloaderTriggerException(code)
+public sealed class BackupApiRequestException(
+    string code,
+    DownloaderTriggerState triggerState = DownloaderTriggerState.OutcomeUnknown)
+    : DownloaderTriggerException(code, triggerState)
 {
 }

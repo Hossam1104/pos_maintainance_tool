@@ -33,8 +33,11 @@ Read this file only when the task requires stable, non-obvious project knowledge
   artifact IDs. The trigger HTTP adapter uses an approved endpoint/manual-redirect/DNS policy plus
   a connection-bound `SocketsHttpHandler.ConnectCallback`; the SMB adapter enforces canonical
   roots, scoped connection ownership, safe filenames, and partial file cleanup. Application
-  downloader execution exposes an explicit trigger milestone and stable repository failure codes.
-  Downloader operation and audit evidence is logical and path/credential-free.
+  downloader execution exposes explicit `NotAttempted`, `Failed`, `Accepted`, and
+  `OutcomeUnknown` trigger states and stable failure codes. A post-dispatch unknown trigger is a
+  safe terminal outcome with no automatic retry or SMB discovery; `TriggerAccepted` is only a
+  derived compatibility projection. Downloader operation and audit evidence is logical,
+  path/credential-free, and includes sanitized unknown-outcome guidance.
 - Agent restart intentionally loses in-flight jobs and file handles. Do not add SQLite, SignalR, PWA/service-worker behavior, IndexedDB, or queued browser mutations.
 - Keep WinUI buildable/runnable until the cross-project RMS+ Support Hub review and explicit owner-approved dedicated cutover. Its removal must be a dedicated change.
 
@@ -56,7 +59,9 @@ Read this file only when the task requires stable, non-obvious project knowledge
 - RMS backup API — triggers multi-branch backup work through the connection-bound transport;
   interfaces in `src/PosAdminTool.Domain/Interfaces`, adapter in
   `src/PosAdminTool.Infrastructure/Http/BackupApiClient.cs`. Endpoint and credentials remain
-  configuration, never shared memory.
+  configuration, never shared memory. No verified remote job-status, reconciliation, or trigger
+  idempotency contract is currently available; local Agent operation idempotency must not be
+  treated as remote idempotency.
 - SMB/UNC — discovers/downloads produced archives using the server-owned configured scope and
   explicit credentials when required; `src/PosAdminTool.Infrastructure/Smb/`. Connection ownership
   and partial cleanup are fake-tested, and adapter failures are translated to stable Domain codes,

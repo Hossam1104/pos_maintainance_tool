@@ -434,7 +434,12 @@ public sealed class OperationWorker(
         catch (OperationCanceledException) when (operationToken.IsCancellationRequested || stoppingToken.IsCancellationRequested)
         {
             MarkCancelled(branches);
-            return BuildDownloaderResult(branches, null, triggerAccepted: false, operationToken, stoppingToken);
+            return BuildDownloaderResult(
+                branches,
+                null,
+                DownloaderTriggerState.NotAttempted,
+                operationToken,
+                stoppingToken);
         }
 
         // A configured username requires the matching service-owned secret. When neither is
@@ -450,7 +455,12 @@ public sealed class OperationWorker(
                 item.ErrorMessage = "The RDB credential is not configured.";
             }
 
-            return BuildDownloaderResult(branches, null, triggerAccepted: false, operationToken, stoppingToken);
+            return BuildDownloaderResult(
+                branches,
+                null,
+                DownloaderTriggerState.NotAttempted,
+                operationToken,
+                stoppingToken);
         }
 
         var settings = new DbDownloaderSettings
@@ -480,39 +490,46 @@ public sealed class OperationWorker(
         catch (OperationCanceledException) when (operationToken.IsCancellationRequested || stoppingToken.IsCancellationRequested)
         {
             MarkCancelled(branches);
-            return BuildDownloaderResult(branches, null, triggerAccepted: false, operationToken, stoppingToken);
+            return BuildDownloaderResult(
+                branches,
+                null,
+                DownloaderTriggerState.NotAttempted,
+                operationToken,
+                stoppingToken);
         }
         catch
         {
             foreach (var item in branches)
             {
                 item.Status = BranchBackupStatus.Failed;
-                item.FailureCode = DownloaderFailureCodes.TriggerFailed;
-                item.ErrorMessage = "The backup trigger could not be completed.";
+                item.FailureCode = DownloaderFailureCodes.TriggerOutcomeUnknown;
+                item.ErrorMessage = DownloaderOperatorGuidance.TriggerOutcomeUnknown;
             }
 
             return BuildDownloaderResult(
                 branches,
                 null,
-                triggerAccepted: false,
+                DownloaderTriggerState.OutcomeUnknown,
                 operationToken,
                 stoppingToken,
-                DownloaderFailureCodes.TriggerFailed);
+                DownloaderFailureCodes.TriggerOutcomeUnknown);
         }
 
-        if (!execution.TriggerAccepted)
+        if (execution.TriggerState != DownloaderTriggerState.Accepted)
         {
             return BuildDownloaderResult(
                 execution.Job.Items,
                 execution.Job.Serial,
-                triggerAccepted: false,
+                execution.TriggerState,
                 operationToken,
                 stoppingToken,
-                execution.FailureCode ?? DownloaderFailureCodes.TriggerFailed);
+                execution.FailureCode ?? (execution.TriggerState == DownloaderTriggerState.OutcomeUnknown
+                    ? DownloaderFailureCodes.TriggerOutcomeUnknown
+                    : DownloaderFailureCodes.TriggerFailed));
         }
 
         var job = execution.Job;
-        PublishDownloaderProgress(entry, job, null, triggerAccepted: true);
+        PublishDownloaderProgress(entry, job, null, DownloaderTriggerState.Accepted);
         var stagingRoot = Path.Combine(configurationOptions.RootDirectory, "artifacts", "downloader", entry.Id);
         try
         {
@@ -530,7 +547,7 @@ public sealed class OperationWorker(
             return BuildDownloaderResult(
                 job.Items,
                 job.Serial,
-                triggerAccepted: true,
+                DownloaderTriggerState.Accepted,
                 operationToken,
                 stoppingToken,
                 execution.FailureCode ?? DownloaderFailureCodes.InvalidConfiguration);
@@ -560,7 +577,7 @@ public sealed class OperationWorker(
                         CalculateOverallProgress(job.Items, item, value),
                         "downloader",
                         $"{item.BranchCode}: downloading archive.");
-                    entry.SetDownloaderOutcome(BuildOutcome(job.Items, job.Serial, triggerAccepted: true));
+                    entry.SetDownloaderOutcome(BuildOutcome(job.Items, job.Serial, DownloaderTriggerState.Accepted));
                     registry.Publish(entry);
                 });
                 await downloadService.DownloadAsync(
@@ -569,7 +586,7 @@ public sealed class OperationWorker(
                     branchFolder,
                     progress,
                     downloadTimeout.Token,
-                    changed => PublishDownloaderProgress(entry, job, changed, triggerAccepted: true)).ConfigureAwait(false);
+                    changed => PublishDownloaderProgress(entry, job, changed, DownloaderTriggerState.Accepted)).ConfigureAwait(false);
 
                 if (string.IsNullOrWhiteSpace(item.LocalDownloadPath) || !File.Exists(item.LocalDownloadPath))
                 {
@@ -588,7 +605,7 @@ public sealed class OperationWorker(
                     Convert.ToHexString(await ComputeSha256Async(item.LocalDownloadPath, downloadTimeout.Token).ConfigureAwait(false)),
                     timeProvider.GetUtcNow());
                 item.ArtifactId = metadata.ArtifactId;
-                PublishDownloaderProgress(entry, job, item, triggerAccepted: true);
+                PublishDownloaderProgress(entry, job, item, DownloaderTriggerState.Accepted);
             }
             catch (OperationCanceledException) when (downloadTimeout.IsCancellationRequested
                 && !operationToken.IsCancellationRequested
@@ -598,7 +615,7 @@ public sealed class OperationWorker(
                 item.Status = BranchBackupStatus.TimedOut;
                 item.FailureCode = DownloaderFailureCodes.Timeout;
                 item.ErrorMessage = "The branch download timed out.";
-                PublishDownloaderProgress(entry, job, item, triggerAccepted: true);
+                PublishDownloaderProgress(entry, job, item, DownloaderTriggerState.Accepted);
             }
             catch (OperationCanceledException) when (operationToken.IsCancellationRequested || stoppingToken.IsCancellationRequested)
             {
@@ -615,7 +632,7 @@ public sealed class OperationWorker(
                 item.Status = BranchBackupStatus.Failed;
                 item.FailureCode = DownloaderFailureCodes.ArtifactCatalogFull;
                 item.ErrorMessage = "The Agent artifact retention limit was reached.";
-                PublishDownloaderProgress(entry, job, item, triggerAccepted: true);
+                PublishDownloaderProgress(entry, job, item, DownloaderTriggerState.Accepted);
             }
             catch
             {
@@ -623,14 +640,14 @@ public sealed class OperationWorker(
                 item.Status = BranchBackupStatus.Failed;
                 item.FailureCode = item.FailureCode ?? DownloaderFailureCodes.ArtifactPublicationFailed;
                 item.ErrorMessage = "The branch archive could not be published.";
-                PublishDownloaderProgress(entry, job, item, triggerAccepted: true);
+                PublishDownloaderProgress(entry, job, item, DownloaderTriggerState.Accepted);
             }
         }
 
         return BuildDownloaderResult(
             job.Items,
             job.Serial,
-            triggerAccepted: true,
+            DownloaderTriggerState.Accepted,
             operationToken,
             stoppingToken,
             execution.FailureCode);
@@ -640,14 +657,14 @@ public sealed class OperationWorker(
         OperationRegistry.Entry entry,
         BackupJob? job,
         BranchBackupItem? changed,
-        bool triggerAccepted)
+        DownloaderTriggerState triggerState)
     {
         if (job is null)
         {
             return;
         }
 
-        var outcome = BuildOutcome(job.Items, job.Serial, triggerAccepted);
+        var outcome = BuildOutcome(job.Items, job.Serial, triggerState);
         entry.SetDownloaderOutcome(outcome);
         if (changed is not null)
         {
@@ -673,7 +690,7 @@ public sealed class OperationWorker(
         current.FailureCode = changed.FailureCode;
         current.ArtifactId = changed.ArtifactId;
         current.LastObservedSizeBytes = changed.LastObservedSizeBytes;
-        entry.SetDownloaderOutcome(BuildOutcome(mirror, null, triggerAccepted: true));
+        entry.SetDownloaderOutcome(BuildOutcome(mirror, null, DownloaderTriggerState.Accepted));
         entry.Report(
             CalculateOverallProgress(mirror, current),
             "downloader",
@@ -684,7 +701,7 @@ public sealed class OperationWorker(
     private static DownloaderWorkerResult BuildDownloaderResult(
         IReadOnlyList<BranchBackupItem> items,
         string? serial,
-        bool triggerAccepted,
+        DownloaderTriggerState triggerState,
         CancellationToken operationToken,
         CancellationToken stoppingToken,
         string? failureCode = null)
@@ -698,7 +715,12 @@ public sealed class OperationWorker(
 
         OperationState state;
         string? errorCode;
-        if (completed == items.Count && items.Count > 0)
+        if (triggerState == DownloaderTriggerState.OutcomeUnknown)
+        {
+            state = OperationState.Failed;
+            errorCode = failureCode ?? DownloaderFailureCodes.TriggerOutcomeUnknown;
+        }
+        else if (completed == items.Count && items.Count > 0)
         {
             state = OperationState.Succeeded;
             errorCode = null;
@@ -726,13 +748,13 @@ public sealed class OperationWorker(
                 : failureCode ?? DownloaderFailureCodes.TriggerFailed;
         }
 
-        return new DownloaderWorkerResult(BuildOutcome(items, serial, triggerAccepted), state, errorCode, items.Where(item => item.ArtifactId is not null).Select(item => item.ArtifactId!).ToList());
+        return new DownloaderWorkerResult(BuildOutcome(items, serial, triggerState), state, errorCode, items.Where(item => item.ArtifactId is not null).Select(item => item.ArtifactId!).ToList());
     }
 
     private static DownloaderOperationOutcomeDto BuildOutcome(
         IReadOnlyList<BranchBackupItem> items,
         string? serial,
-        bool triggerAccepted) =>
+        DownloaderTriggerState triggerState) =>
         new(
             items.Select(item => new DownloaderBranchOutcomeDto(
                 item.BranchCode,
@@ -741,7 +763,19 @@ public sealed class OperationWorker(
                 item.FailureCode,
                 item.ArtifactId)).ToList(),
             serial,
-            triggerAccepted);
+            MapTriggerState(triggerState),
+            triggerState == DownloaderTriggerState.OutcomeUnknown
+                ? DownloaderOperatorGuidance.TriggerOutcomeUnknown
+                : null);
+
+    private static DownloaderTriggerStateDto MapTriggerState(DownloaderTriggerState state) => state switch
+    {
+        DownloaderTriggerState.NotAttempted => DownloaderTriggerStateDto.NotAttempted,
+        DownloaderTriggerState.Failed => DownloaderTriggerStateDto.Failed,
+        DownloaderTriggerState.Accepted => DownloaderTriggerStateDto.Accepted,
+        DownloaderTriggerState.OutcomeUnknown => DownloaderTriggerStateDto.OutcomeUnknown,
+        _ => DownloaderTriggerStateDto.OutcomeUnknown,
+    };
 
     private static DownloaderBranchState MapBranchState(BranchBackupStatus status) => status switch
     {

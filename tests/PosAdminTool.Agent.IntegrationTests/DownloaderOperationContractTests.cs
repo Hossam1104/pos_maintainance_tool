@@ -26,7 +26,7 @@ public sealed class DownloaderOperationContractTests
                 new("B02", DownloaderBranchState.Failed, 100, "downloader.download_failed")
             ],
             "12345",
-            true));
+            DownloaderTriggerStateDto.Accepted));
 
         var outcome = entry.ToDto().DownloaderOutcome;
 
@@ -52,12 +52,38 @@ public sealed class DownloaderOperationContractTests
         entry.SetDownloaderOutcome(new DownloaderOperationOutcomeDto(
             [new("B01", DownloaderBranchState.Completed, 100, null, "0123456789abcdef0123456789abcdef")],
             null,
-            true));
+            DownloaderTriggerStateDto.Accepted));
 
         var dto = entry.ToDto();
 
         Assert.Equal("0123456789abcdef0123456789abcdef", dto.DownloaderOutcome!.Branches[0].ArtifactId);
         Assert.DoesNotContain("\\", System.Text.Json.JsonSerializer.Serialize(dto.DownloaderOutcome));
+    }
+
+    [Fact]
+    public void DownloaderOperation_ExposesUnknownTriggerStateAndSanitizesGuidance()
+    {
+        var entry = new PosAdminTool.Agent.Operations.OperationRegistry.Entry(
+            "downloader",
+            "B01",
+            "TESTDOMAIN\\admin",
+            "correlation");
+
+        Assert.True(entry.TryStart());
+        entry.SetDownloaderOutcome(new DownloaderOperationOutcomeDto(
+            [new("B01", DownloaderBranchState.Failed, 100, "downloader.trigger_outcome_unknown", null)],
+            null,
+            DownloaderTriggerStateDto.OutcomeUnknown,
+            "Check password=secret at C:\\private\\remote before retrying."));
+
+        var outcome = entry.ToDto().DownloaderOutcome;
+
+        Assert.NotNull(outcome);
+        Assert.Equal(DownloaderTriggerStateDto.OutcomeUnknown, outcome!.TriggerState);
+        Assert.False(outcome.TriggerAccepted);
+        Assert.Contains("before retrying", outcome.OperatorGuidance, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("secret", outcome.OperatorGuidance, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("C:\\private", outcome.OperatorGuidance, StringComparison.OrdinalIgnoreCase);
     }
 }
 

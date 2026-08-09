@@ -8,21 +8,24 @@ public sealed class FakeDownloaderApiClient : IBackupApiClient
 {
     public Exception? TriggerFailure { get; set; }
 
+    public DownloaderTriggerResult? TriggerResult { get; set; }
+
     public int TriggerCalls { get; private set; }
 
-    public Task TriggerBackupAsync(
+    public Task<DownloaderTriggerResult> TriggerBackupAsync(
         string apiUrl,
         IReadOnlyList<string> branchCodes,
         CancellationToken cancellationToken = default)
     {
         TriggerCalls++;
         if (TriggerFailure is not null) throw TriggerFailure;
-        return Task.CompletedTask;
+        return Task.FromResult(TriggerResult ?? new DownloaderTriggerResult(DownloaderTriggerState.Accepted));
     }
 
     public void Reset()
     {
         TriggerFailure = null;
+        TriggerResult = null;
         TriggerCalls = 0;
     }
 }

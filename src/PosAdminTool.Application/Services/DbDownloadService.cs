@@ -69,22 +69,72 @@ public sealed partial class DbDownloadService
         try
         {
             progress?.Report($"Triggering backup job for {job.Items.Count} branch(es)...");
-            await _apiClient.TriggerBackupAsync(settings.ApiUrl, normalizedBranches, cancellationToken).ConfigureAwait(false);
+            var trigger = await _apiClient.TriggerBackupAsync(
+                settings.ApiUrl,
+                normalizedBranches,
+                cancellationToken).ConfigureAwait(false);
+
+            if (trigger.State != DownloaderTriggerState.Accepted)
+            {
+                if (trigger.State == DownloaderTriggerState.NotAttempted
+                    && cancellationToken.IsCancellationRequested
+                    && trigger.FailureCode is null)
+                {
+                    MarkCancelled(job.Items, onItemChanged);
+                }
+                else
+                {
+                    var failureCode = trigger.FailureCode
+                        ?? (trigger.State == DownloaderTriggerState.OutcomeUnknown
+                            ? DownloaderFailureCodes.TriggerOutcomeUnknown
+                            : DownloaderFailureCodes.TriggerFailed);
+                    var message = trigger.State == DownloaderTriggerState.OutcomeUnknown
+                        ? DownloaderOperatorGuidance.TriggerOutcomeUnknown
+                        : "The backup trigger was rejected.";
+                    MarkFailed(job.Items, failureCode, message, onItemChanged);
+                    return new DownloaderExecutionResult(job, trigger.State, failureCode);
+                }
+
+                return new DownloaderExecutionResult(job, trigger.State);
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            MarkCancelled(job.Items, onItemChanged);
-            return new DownloaderExecutionResult(job, DownloaderTriggerState.NotAttempted);
+            // The typed trigger result is responsible for proving pre-dispatch cancellation. A
+            // bare cancellation escaping an implementation cannot prove that the POST was never
+            // dispatched, so preserve truthful uncertainty at this boundary.
+            MarkFailed(
+                job.Items,
+                DownloaderFailureCodes.TriggerOutcomeUnknown,
+                DownloaderOperatorGuidance.TriggerOutcomeUnknown,
+                onItemChanged);
+            return new DownloaderExecutionResult(
+                job,
+                DownloaderTriggerState.OutcomeUnknown,
+                DownloaderFailureCodes.TriggerOutcomeUnknown);
         }
         catch (DownloaderTriggerException exception)
         {
-            MarkFailed(job.Items, exception.Code, "The backup trigger was rejected.", onItemChanged);
-            return new DownloaderExecutionResult(job, DownloaderTriggerState.Failed, exception.Code);
+            var failureCode = exception.TriggerState == DownloaderTriggerState.OutcomeUnknown
+                ? DownloaderFailureCodes.TriggerOutcomeUnknown
+                : exception.Code;
+            var message = exception.TriggerState == DownloaderTriggerState.OutcomeUnknown
+                ? DownloaderOperatorGuidance.TriggerOutcomeUnknown
+                : "The backup trigger was rejected.";
+            MarkFailed(job.Items, failureCode, message, onItemChanged);
+            return new DownloaderExecutionResult(job, exception.TriggerState, failureCode);
         }
         catch
         {
-            MarkFailed(job.Items, DownloaderFailureCodes.TriggerFailed, "The backup trigger could not be completed.", onItemChanged);
-            return new DownloaderExecutionResult(job, DownloaderTriggerState.Failed, DownloaderFailureCodes.TriggerFailed);
+            MarkFailed(
+                job.Items,
+                DownloaderFailureCodes.TriggerOutcomeUnknown,
+                DownloaderOperatorGuidance.TriggerOutcomeUnknown,
+                onItemChanged);
+            return new DownloaderExecutionResult(
+                job,
+                DownloaderTriggerState.OutcomeUnknown,
+                DownloaderFailureCodes.TriggerOutcomeUnknown);
         }
 
         foreach (var item in job.Items)

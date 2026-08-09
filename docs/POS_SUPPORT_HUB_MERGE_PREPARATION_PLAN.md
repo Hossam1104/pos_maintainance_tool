@@ -316,6 +316,18 @@ The application returns an explicit `DownloaderExecutionResult` with `NotAttempt
 codes, and the real Agent worker preserves accepted-trigger truth through repository failure,
 partial artifact publication, and cancellation. Focused transport and worker tests use fakes only.
 
+POS-M04R2 closes the remaining remote-trigger lifecycle truth gap. The trigger seam now marks the
+dispatch boundary explicitly: pre-dispatch validation, cancellation, and connection-bound SSRF
+rejection remain `NotAttempted`; only a definitive rejected response is `Failed`; positive API
+acknowledgement is `Accepted`; and cancellation, timeout, connection loss, response transport
+failure, or local response-policy failure after dispatch is `OutcomeUnknown`. The browser contract
+and sanitized audit carry the explicit trigger state plus safe guidance, while `TriggerAccepted`
+remains only a derived compatibility projection. Unknown trigger outcomes terminate safely before
+SMB discovery, publish no artifact, do not retry automatically, and use the stable
+`downloader.trigger_outcome_unknown` code. Local principal-scoped operation idempotency does not
+provide remote API idempotency; no verified remote job-status, reconciliation, or trigger
+idempotency contract is available in this repository.
+
 The ADR-approved in-memory architecture remains; no durable database or SQLite was introduced.
 
 ## 12. Backup architecture
@@ -353,6 +365,7 @@ No real RMS endpoint, SMB share, or LocalSystem/Session 0 proof ran in POS-M04 o
 | Restore archive validation is weak | POS-M02 closes the Agent/backend gap with bounded pre-extraction ZIP inspection, manifest/checksum/branch/destination validation, server-derived preview/challenge recomputation, and fake-only tests; no real restore was executed |
 | Cleanup/reset safety is client/legacy driven | POS-M03 and POS-M03R close the Agent boundary with canonical managed-root policy, required safety-root boundaries, symmetric protected/install overlap and reparse checks, server-derived preview/challenge, execute-time recomputation, locks, explicit partial outcomes, exact-target branch verification, and code-owned SQL scope; retained WinUI compatibility calls fail closed when policy is not configured |
 | Downloader service-identity portability | POS-M04/POS-M04R harden the Agent boundary, connection-bound trigger transport, outcome semantics, and fake portability seams; representative LocalSystem/Session 0 SMB proof remains required |
+| Remote trigger reconciliation/idempotency | POS-M04R2 records `OutcomeUnknown` after a dispatched trigger cannot be confirmed and prevents automatic retry; local operation idempotency is not remote idempotency, and no verified remote job-status/reconciliation contract is available |
 | LocalSystem managed-root and SMB Session 0 proof | Representative-device evidence remains required; do not guess |
 | Manual live-Agent Negotiate/SSE evidence | Not recorded as a current automated replacement for fake integration tests |
 | Frontend duplication during merge | Standalone Angular expansion is frozen; Support Hub owns final frontend |
@@ -484,6 +497,19 @@ worker tests passed; complete Release validation passed 257 .NET tests, the solu
 with zero warnings/errors, and retained WinUI `win-x64` publish passed. All evidence used fakes,
 temporary streams, or temporary test infrastructure only; ADR-012 LocalSystem/Session 0 SMB
 representative-device evidence remains open.
+
+POS-M04R2 - Remote Trigger Uncertainty Truth Closure is complete. The trigger dispatch boundary
+now distinguishes pre-dispatch rejection, definitive remote rejection, positive acknowledgement,
+and post-dispatch uncertainty. Cancellation, timeout, connection loss, response transport failure,
+and local response-policy failure after dispatch map to `OutcomeUnknown` with the sanitized
+`downloader.trigger_outcome_unknown` code; unknown outcomes stop before SMB discovery and artifact
+publication, and the explicit state plus retry guidance survives REST, operation retention, and
+audit. Three new Infrastructure dispatch/transport tests, one Application no-SMB lifecycle test,
+one Agent worker REST/audit test, and one contract sanitization test were added; complete Release
+validation passed 263 .NET tests, the solution build passed with zero warnings/errors, and the
+retained WinUI `win-x64` publish passed. All evidence used fakes, temporary streams, or temporary
+test infrastructure only; ADR-012 LocalSystem/Session 0 SMB representative-device evidence and
+remote trigger reconciliation/idempotency capability remain unverified.
 
 ## 15. RMS+ Support Hub ownership boundary
 
@@ -674,7 +700,8 @@ Support Hub frontend integration.
 | POS-M03R | Complete; corrective closure after POS-M03 | Required cleanup safety-root boundaries, symmetric protected/install overlap including allowed reparse destinations, exact server-approved branch database verification, and code-owned historical reset-table scope; focused 20 Application and 15 Agent maintenance/worker tests, 225 Release .NET tests, zero-warning solution build, and retained WinUI publish passed; fake/disposable-only with no real mutation |
 | POS-M04 | Complete; owner-authorized | Downloader backend/SMB portability only; focused downloader/security/operation/artifact coverage, 247 Release .NET tests, zero-warning solution build, and retained WinUI publish passed; ADR-012 LocalSystem/Session 0 representative-device gate remains open |
 | POS-M04R | Complete; owner-authorized corrective closure | Connection-bound trigger SSRF policy, explicit post-trigger outcome truth, stable repository failure boundary, five Infrastructure transport tests, one Application lifecycle test, four real Agent worker tests, 257 Release .NET tests, zero-warning solution build, and retained WinUI publish passed; no real endpoint/SMB/Session 0 evidence |
-| POS-M05 | Pending POS-M04R | Complete landing/collision audit; then `CLAUDE OPUS 5 REVIEW REQUIRED` |
+| POS-M04R2 | Complete; owner-authorized corrective closure | Explicit pre/post-dispatch trigger truth with `OutcomeUnknown`, safe terminal/no-SMB/no-retry behavior, browser/audit state and guidance, six focused new tests, 263 Release .NET tests, zero-warning solution build, and retained WinUI publish passed; ADR-012 and remote reconciliation/idempotency gates remain open |
+| POS-M05 | Pending POS-M04R2 | Complete landing/collision audit; then `CLAUDE OPUS 5 REVIEW REQUIRED` |
 | R1 | Scheduled after POS-M05 | Claude Opus 5 review gate |
 | POS-M06 | Review-gated and owner-authorized only | Final candidate audit |
 | R2 | Scheduled after POS-M06 | Claude Opus 5 review before integration |

@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using PosAdminTool.Domain.Models;
 using PosAdminTool.Infrastructure.Http;
 using PosAdminTool.Infrastructure.Smb;
 
@@ -20,7 +21,8 @@ public sealed class DownloaderSecurityTests
         var handler = new CountingHandler();
         var client = new BackupApiClient(new HttpClient(handler), new FixedResolver(IPAddress.Parse("198.51.100.10")));
 
-        await Assert.ThrowsAsync<BackupApiPolicyException>(() => client.TriggerBackupAsync(endpoint, ["B01"]));
+        var result = await client.TriggerBackupAsync(endpoint, ["B01"]);
+        Assert.Equal(DownloaderTriggerState.NotAttempted, result.State);
         Assert.Equal(0, handler.RequestCount);
     }
 
@@ -30,8 +32,9 @@ public sealed class DownloaderSecurityTests
         var handler = new CountingHandler(HttpStatusCode.OK);
         var client = new BackupApiClient(new HttpClient(handler), new FixedResolver(IPAddress.Parse("10.0.0.10")));
 
-        await client.TriggerBackupAsync("https://10.0.0.10/trigger", ["B01"]);
+        var result = await client.TriggerBackupAsync("https://10.0.0.10/trigger", ["B01"]);
 
+        Assert.Equal(DownloaderTriggerState.Accepted, result.State);
         Assert.Equal(1, handler.RequestCount);
     }
 
@@ -41,7 +44,8 @@ public sealed class DownloaderSecurityTests
         var handler = new CountingHandler();
         var client = new BackupApiClient(new HttpClient(handler), new FixedResolver(IPAddress.Parse("10.0.0.10")));
 
-        await Assert.ThrowsAsync<BackupApiPolicyException>(() => client.TriggerBackupAsync("https://backup.example/trigger", ["B01"]));
+        var result = await client.TriggerBackupAsync("https://backup.example/trigger", ["B01"]);
+        Assert.Equal(DownloaderTriggerState.NotAttempted, result.State);
         Assert.Equal(0, handler.RequestCount);
     }
 
@@ -51,7 +55,8 @@ public sealed class DownloaderSecurityTests
         var handler = new CountingHandler(HttpStatusCode.Redirect, new Uri("https://127.0.0.1/metadata"));
         var client = new BackupApiClient(new HttpClient(handler), new FixedResolver(IPAddress.Parse("198.51.100.10")));
 
-        await Assert.ThrowsAsync<BackupApiPolicyException>(() => client.TriggerBackupAsync("https://198.51.100.10/trigger", ["B01"]));
+        var result = await client.TriggerBackupAsync("https://198.51.100.10/trigger", ["B01"]);
+        Assert.Equal(DownloaderTriggerState.OutcomeUnknown, result.State);
         Assert.Equal(1, handler.RequestCount);
     }
 
@@ -64,9 +69,9 @@ public sealed class DownloaderSecurityTests
         using var client = new HttpClient(BackupApiHttpMessageHandlerFactory.Create(transport));
         var api = new BackupApiClient(client, resolver);
 
-        await Assert.ThrowsAsync<BackupApiPolicyException>(() =>
-            api.TriggerBackupAsync("http://backup.example/trigger", ["B01"]));
+        var result = await api.TriggerBackupAsync("http://backup.example/trigger", ["B01"]);
 
+        Assert.Equal(DownloaderTriggerState.NotAttempted, result.State);
         Assert.Equal(0, socket.ConnectCalls);
         Assert.Equal(2, resolver.ResolveCalls);
         Assert.Equal(0, socket.TotalRequestBytes);
@@ -83,9 +88,9 @@ public sealed class DownloaderSecurityTests
         using var client = new HttpClient(BackupApiHttpMessageHandlerFactory.Create(transport));
         var api = new BackupApiClient(client, resolver);
 
-        await Assert.ThrowsAsync<BackupApiPolicyException>(() =>
-            api.TriggerBackupAsync("http://backup.example/trigger", ["B01"]));
+        var result = await api.TriggerBackupAsync("http://backup.example/trigger", ["B01"]);
 
+        Assert.Equal(DownloaderTriggerState.NotAttempted, result.State);
         Assert.Equal(0, socket.ConnectCalls);
         Assert.Equal(0, socket.TotalRequestBytes);
     }
@@ -101,9 +106,9 @@ public sealed class DownloaderSecurityTests
         using var client = new HttpClient(BackupApiHttpMessageHandlerFactory.Create(transport));
         var api = new BackupApiClient(client, resolver);
 
-        await Assert.ThrowsAsync<BackupApiPolicyException>(() =>
-            api.TriggerBackupAsync("http://backup.example/trigger", ["B01"]));
+        var result = await api.TriggerBackupAsync("http://backup.example/trigger", ["B01"]);
 
+        Assert.Equal(DownloaderTriggerState.NotAttempted, result.State);
         Assert.Equal(0, socket.ConnectCalls);
         Assert.Equal(0, socket.TotalRequestBytes);
     }
@@ -123,9 +128,9 @@ public sealed class DownloaderSecurityTests
         using var client = new HttpClient(BackupApiHttpMessageHandlerFactory.Create(transport));
         var api = new BackupApiClient(client, resolver);
 
-        await Assert.ThrowsAsync<BackupApiPolicyException>(() =>
-            api.TriggerBackupAsync("http://backup.example/trigger", ["B01"]));
+        var result = await api.TriggerBackupAsync("http://backup.example/trigger", ["B01"]);
 
+        Assert.Equal(DownloaderTriggerState.OutcomeUnknown, result.State);
         Assert.Equal(1, socket.ConnectCalls);
         Assert.Equal(4, resolver.ResolveCalls);
     }
@@ -142,11 +147,72 @@ public sealed class DownloaderSecurityTests
         using var client = new HttpClient(BackupApiHttpMessageHandlerFactory.Create(transport));
         var api = new BackupApiClient(client, resolver);
 
-        await api.TriggerBackupAsync("http://backup.example/trigger", ["B01"]);
+        var result = await api.TriggerBackupAsync("http://backup.example/trigger", ["B01"]);
 
+        Assert.Equal(DownloaderTriggerState.Accepted, result.State);
         Assert.Equal(1, socket.ConnectCalls);
         Assert.True(socket.TotalRequestBytes > 0);
         Assert.Equal(2, resolver.ResolveCalls);
+    }
+
+    [Fact]
+    public async Task CancellationBeforeDispatch_IsNotAttemptedAndSendsNoRequest()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var handler = new CountingHandler();
+        var client = new BackupApiClient(
+            new HttpClient(handler),
+            new FixedResolver(IPAddress.Parse("198.51.100.10")));
+
+        var result = await client.TriggerBackupAsync(
+            "https://198.51.100.10/trigger",
+            ["B01"],
+            cancellation.Token);
+
+        Assert.Equal(DownloaderTriggerState.NotAttempted, result.State);
+        Assert.Null(result.FailureCode);
+        Assert.Equal(0, handler.RequestCount);
+    }
+
+    [Fact]
+    public async Task CancellationAfterDispatch_IsOutcomeUnknownWithStableCode()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var handler = new DispatchThenCancelHandler();
+        var client = new BackupApiClient(
+            new HttpClient(handler),
+            new FixedResolver(IPAddress.Parse("198.51.100.10")));
+
+        var trigger = client.TriggerBackupAsync(
+            "https://198.51.100.10/trigger",
+            ["B01"],
+            cancellation.Token);
+        await handler.DispatchStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        cancellation.Cancel();
+
+        var result = await trigger;
+
+        Assert.True(handler.RequestBytesSent);
+        Assert.Equal(DownloaderTriggerState.OutcomeUnknown, result.State);
+        Assert.Equal(DownloaderFailureCodes.TriggerOutcomeUnknown, result.FailureCode);
+    }
+
+    [Fact]
+    public async Task TransportFailureAfterDispatch_IsOutcomeUnknownWithStableCode()
+    {
+        var handler = new ThrowAfterDispatchHandler();
+        var client = new BackupApiClient(
+            new HttpClient(handler),
+            new FixedResolver(IPAddress.Parse("198.51.100.10")));
+
+        var result = await client.TriggerBackupAsync(
+            "https://198.51.100.10/trigger",
+            ["B01"]);
+
+        Assert.True(handler.RequestBytesSent);
+        Assert.Equal(DownloaderTriggerState.OutcomeUnknown, result.State);
+        Assert.Equal(DownloaderFailureCodes.TriggerOutcomeUnknown, result.FailureCode);
     }
 
     [Fact]
@@ -224,6 +290,37 @@ public sealed class DownloaderSecurityTests
             var response = new HttpResponseMessage(statusCode) { RequestMessage = request };
             if (location is not null) response.Headers.Location = location;
             return Task.FromResult(response);
+        }
+    }
+
+    private sealed class DispatchThenCancelHandler : HttpMessageHandler
+    {
+        public TaskCompletionSource DispatchStarted { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public bool RequestBytesSent { get; private set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            RequestBytesSent = true;
+            DispatchStarted.TrySetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            throw new OperationCanceledException(cancellationToken);
+        }
+    }
+
+    private sealed class ThrowAfterDispatchHandler : HttpMessageHandler
+    {
+        public bool RequestBytesSent { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            RequestBytesSent = true;
+            throw new HttpRequestException("transport details must not cross the trigger boundary");
         }
     }
 

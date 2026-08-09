@@ -600,7 +600,8 @@ public sealed class OperationRegistry
                         .Take(64)
                         .ToList(),
                     SanitizeLogicalEvidence(outcome.Serial),
-                    outcome.TriggerAccepted);
+                    outcome.TriggerState,
+                    outcome.OperatorGuidance is null ? null : SanitizeMessage(outcome.OperatorGuidance));
             }
         }
 

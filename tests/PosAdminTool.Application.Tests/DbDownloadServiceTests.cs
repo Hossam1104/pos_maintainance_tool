@@ -110,6 +110,30 @@ public sealed class DbDownloadServiceTests
     }
 
     [Fact]
+    public async Task RunWithOutcomeAsync_UnknownTriggerStopsBeforeSmbAndPreservesGuidance()
+    {
+        var repository = new FakeBackupRepository();
+        var api = new FakeApiClient
+        {
+            Result = new DownloaderTriggerResult(
+                DownloaderTriggerState.OutcomeUnknown,
+                DownloaderFailureCodes.TriggerOutcomeUnknown)
+        };
+        var service = new DbDownloadService(api, repository);
+
+        var execution = await service.RunWithOutcomeAsync(
+            new DbDownloaderSettings { BackupRootFolder = @"D:\DbBackups", TimeoutSeconds = 10 },
+            ["P087"]);
+
+        Assert.Equal(DownloaderTriggerState.OutcomeUnknown, execution.TriggerState);
+        Assert.Equal(DownloaderFailureCodes.TriggerOutcomeUnknown, execution.FailureCode);
+        Assert.Equal(BranchBackupStatus.Failed, execution.Job.Items.Single().Status);
+        Assert.Equal(DownloaderFailureCodes.TriggerOutcomeUnknown, execution.Job.Items.Single().FailureCode);
+        Assert.Contains("before retrying", execution.Job.Items.Single().ErrorMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, repository.ListDirectoriesCalls);
+    }
+
+    [Fact]
     public async Task DownloadAsyncMarksItemDownloadedAndUsesRepository()
     {
         var repository = new FakeBackupRepository();
@@ -126,10 +150,14 @@ public sealed class DbDownloadServiceTests
 
     private sealed class FakeApiClient : IBackupApiClient
     {
-        public Task TriggerBackupAsync(string apiUrl, IReadOnlyList<string> branchCodes, CancellationToken cancellationToken = default)
-        {
-            return Task.CompletedTask;
-        }
+        public DownloaderTriggerResult Result { get; init; } =
+            new(DownloaderTriggerState.Accepted);
+
+        public Task<DownloaderTriggerResult> TriggerBackupAsync(
+            string apiUrl,
+            IReadOnlyList<string> branchCodes,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(Result);
     }
 
     private sealed class FakeBackupRepository : IBackupRepository
@@ -144,8 +172,11 @@ public sealed class DbDownloadServiceTests
 
         public List<(string RemotePath, string LocalPath)> Downloaded { get; } = [];
 
+        public int ListDirectoriesCalls { get; private set; }
+
         public Task<IReadOnlyList<RemoteEntryInfo>> ListDirectoriesAsync(RemoteConnectionInfo connection, string rootFolder, CancellationToken cancellationToken = default)
         {
+            ListDirectoriesCalls++;
             if (ListDirectoriesException is not null) throw ListDirectoriesException;
             return Task.FromResult((IReadOnlyList<RemoteEntryInfo>)Directories);
         }

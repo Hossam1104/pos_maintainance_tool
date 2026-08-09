@@ -1,6 +1,11 @@
 namespace PosAdminTool.Domain.Interfaces;
 
+using PosAdminTool.Domain.Models;
+
 public interface IBackupApiClient
 {
-    Task TriggerBackupAsync(string apiUrl, IReadOnlyList<string> branchCodes, CancellationToken cancellationToken = default);
+    Task<DownloaderTriggerResult> TriggerBackupAsync(
+        string apiUrl,
+        IReadOnlyList<string> branchCodes,
+        CancellationToken cancellationToken = default);
 }
