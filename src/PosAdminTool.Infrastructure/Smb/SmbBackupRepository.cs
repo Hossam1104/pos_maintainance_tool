@@ -1,5 +1,6 @@
 using PosAdminTool.Domain.Interfaces;
 using PosAdminTool.Domain.Models;
+using PosAdminTool.Domain.Exceptions;
 
 namespace PosAdminTool.Infrastructure.Smb;
 
@@ -18,28 +19,39 @@ public sealed class SmbBackupRepository : IBackupRepository
         return Task.Run(
             () =>
             {
-                var approvedRoot = SmbPathResolver.ValidateCanonicalRoot(connection.ApprovedRootFolder ?? rootFolder);
-                var requestedRoot = SmbPathResolver.ValidateDrivePath(rootFolder);
-                if (!SmbPathResolver.IsWithinRoot(requestedRoot, approvedRoot))
+                try
                 {
-                    throw new SmbPathPolicyException("downloader.smb_root_rejected");
+                    var approvedRoot = SmbPathResolver.ValidateCanonicalRoot(connection.ApprovedRootFolder ?? rootFolder);
+                    var requestedRoot = SmbPathResolver.ValidateDrivePath(rootFolder);
+                    if (!SmbPathResolver.IsWithinRoot(requestedRoot, approvedRoot))
+                    {
+                        throw new SmbPathPolicyException("downloader.smb_root_rejected");
+                    }
+
+                    var uncRoot = SmbPathResolver.ToUncPath(connection.ServerIp, requestedRoot, approvedRoot);
+                    using var scope = SmbConnectionScope.Connect(
+                        SmbPathResolver.ToUncShareRoot(connection.ServerIp, approvedRoot),
+                        connection.Username,
+                        connection.Password);
+
+                    if (!Directory.Exists(uncRoot))
+                    {
+                        return (IReadOnlyList<RemoteEntryInfo>)[];
+                    }
+
+                    var entries = Directory.GetDirectories(uncRoot)
+                        .Select(path => ToEntryInfo(requestedRoot, uncRoot, path, isDirectory: true))
+                        .ToList();
+                    return (IReadOnlyList<RemoteEntryInfo>)entries;
                 }
-
-                var uncRoot = SmbPathResolver.ToUncPath(connection.ServerIp, requestedRoot, approvedRoot);
-                using var scope = SmbConnectionScope.Connect(
-                    SmbPathResolver.ToUncShareRoot(connection.ServerIp, approvedRoot),
-                    connection.Username,
-                    connection.Password);
-
-                if (!Directory.Exists(uncRoot))
+                catch (OperationCanceledException)
                 {
-                    return (IReadOnlyList<RemoteEntryInfo>)[];
+                    throw;
                 }
-
-                var entries = Directory.GetDirectories(uncRoot)
-                    .Select(path => ToEntryInfo(requestedRoot, uncRoot, path, isDirectory: true))
-                    .ToList();
-                return (IReadOnlyList<RemoteEntryInfo>)entries;
+                catch (Exception exception)
+                {
+                    throw TranslateRepositoryFailure(exception);
+                }
             },
             cancellationToken);
     }
@@ -52,28 +64,39 @@ public sealed class SmbBackupRepository : IBackupRepository
         return Task.Run(
             () =>
             {
-                var approvedRoot = SmbPathResolver.ValidateCanonicalRoot(connection.ApprovedRootFolder ?? folder);
-                var requestedFolder = SmbPathResolver.ValidateDrivePath(folder);
-                if (!SmbPathResolver.IsWithinRoot(requestedFolder, approvedRoot))
+                try
                 {
-                    throw new SmbPathPolicyException("downloader.smb_root_rejected");
+                    var approvedRoot = SmbPathResolver.ValidateCanonicalRoot(connection.ApprovedRootFolder ?? folder);
+                    var requestedFolder = SmbPathResolver.ValidateDrivePath(folder);
+                    if (!SmbPathResolver.IsWithinRoot(requestedFolder, approvedRoot))
+                    {
+                        throw new SmbPathPolicyException("downloader.smb_root_rejected");
+                    }
+
+                    var uncFolder = SmbPathResolver.ToUncPath(connection.ServerIp, requestedFolder, approvedRoot);
+                    using var scope = SmbConnectionScope.Connect(
+                        SmbPathResolver.ToUncShareRoot(connection.ServerIp, approvedRoot),
+                        connection.Username,
+                        connection.Password);
+
+                    if (!Directory.Exists(uncFolder))
+                    {
+                        return (IReadOnlyList<RemoteEntryInfo>)[];
+                    }
+
+                    var entries = Directory.GetFiles(uncFolder)
+                        .Select(path => ToEntryInfo(requestedFolder, uncFolder, path, isDirectory: false))
+                        .ToList();
+                    return (IReadOnlyList<RemoteEntryInfo>)entries;
                 }
-
-                var uncFolder = SmbPathResolver.ToUncPath(connection.ServerIp, requestedFolder, approvedRoot);
-                using var scope = SmbConnectionScope.Connect(
-                    SmbPathResolver.ToUncShareRoot(connection.ServerIp, approvedRoot),
-                    connection.Username,
-                    connection.Password);
-
-                if (!Directory.Exists(uncFolder))
+                catch (OperationCanceledException)
                 {
-                    return (IReadOnlyList<RemoteEntryInfo>)[];
+                    throw;
                 }
-
-                var entries = Directory.GetFiles(uncFolder)
-                    .Select(path => ToEntryInfo(requestedFolder, uncFolder, path, isDirectory: false))
-                    .ToList();
-                return (IReadOnlyList<RemoteEntryInfo>)entries;
+                catch (Exception exception)
+                {
+                    throw TranslateRepositoryFailure(exception);
+                }
             },
             cancellationToken);
     }
@@ -85,68 +108,95 @@ public sealed class SmbBackupRepository : IBackupRepository
         IProgress<double>? progress = null,
         CancellationToken cancellationToken = default)
     {
-        var approvedRoot = SmbPathResolver.ValidateCanonicalRoot(connection.ApprovedRootFolder ?? Path.GetPathRoot(remoteFilePath) ?? remoteFilePath);
-        var validatedRemoteFile = SmbPathResolver.ValidateRemoteFilePath(remoteFilePath, approvedRoot);
-        var uncFile = SmbPathResolver.ToUncPath(connection.ServerIp, validatedRemoteFile, approvedRoot);
-        using var scope = SmbConnectionScope.Connect(
-            SmbPathResolver.ToUncShareRoot(connection.ServerIp, approvedRoot),
-            connection.Username,
-            connection.Password);
-
-        var fullLocalPath = ValidateLocalDestination(localFilePath);
-        var partialPath = fullLocalPath + ".partial";
-        TryDeletePartial(partialPath);
-
+        string? partialPath = null;
         try
         {
-            await using (var source = new FileStream(
-                uncFile,
-                FileMode.Open,
-                FileAccess.Read,
-                FileShare.Read,
-                bufferSize: 81920,
-                options: FileOptions.SequentialScan | FileOptions.Asynchronous))
-            await using (var destination = new FileStream(
-                partialPath,
-                FileMode.CreateNew,
-                FileAccess.Write,
-                FileShare.None,
-                bufferSize: 81920,
-                options: FileOptions.SequentialScan | FileOptions.Asynchronous))
+            var approvedRoot = SmbPathResolver.ValidateCanonicalRoot(connection.ApprovedRootFolder ?? Path.GetPathRoot(remoteFilePath) ?? remoteFilePath);
+            var validatedRemoteFile = SmbPathResolver.ValidateRemoteFilePath(remoteFilePath, approvedRoot);
+            var uncFile = SmbPathResolver.ToUncPath(connection.ServerIp, validatedRemoteFile, approvedRoot);
+            using var scope = SmbConnectionScope.Connect(
+                SmbPathResolver.ToUncShareRoot(connection.ServerIp, approvedRoot),
+                connection.Username,
+                connection.Password);
+
+            var fullLocalPath = ValidateLocalDestination(localFilePath);
+            partialPath = fullLocalPath + ".partial";
+            TryDeletePartial(partialPath);
+
+            try
             {
-                var totalBytes = source.Length;
-                var buffer = new byte[81920];
-                long copied = 0;
-                int read;
-                while ((read = await source.ReadAsync(buffer.AsMemory(), cancellationToken).ConfigureAwait(false)) > 0)
+                await using (var source = new FileStream(
+                    uncFile,
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.Read,
+                    bufferSize: 81920,
+                    options: FileOptions.SequentialScan | FileOptions.Asynchronous))
+                await using (var destination = new FileStream(
+                    partialPath,
+                    FileMode.CreateNew,
+                    FileAccess.Write,
+                    FileShare.None,
+                    bufferSize: 81920,
+                    options: FileOptions.SequentialScan | FileOptions.Asynchronous))
                 {
-                    await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
-                    copied += read;
-                    if (totalBytes > 0)
+                    var totalBytes = source.Length;
+                    var buffer = new byte[81920];
+                    long copied = 0;
+                    int read;
+                    while ((read = await source.ReadAsync(buffer.AsMemory(), cancellationToken).ConfigureAwait(false)) > 0)
                     {
-                        progress?.Report((double)copied / totalBytes);
+                        await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
+                        copied += read;
+                        if (totalBytes > 0)
+                        {
+                            progress?.Report((double)copied / totalBytes);
+                        }
                     }
                 }
-            }
 
-            if (File.Exists(fullLocalPath))
+                if (File.Exists(fullLocalPath))
+                {
+                    throw new IOException("The destination already contains a published archive.");
+                }
+
+                File.Move(partialPath, fullLocalPath, overwrite: false);
+            }
+            catch (OperationCanceledException)
             {
-                throw new IOException("The destination already contains a published archive.");
+                TryDeletePartial(partialPath);
+                throw;
             }
-
-            File.Move(partialPath, fullLocalPath, overwrite: false);
+            catch
+            {
+                TryDeletePartial(partialPath);
+                throw new BackupRepositoryException(DownloaderFailureCodes.DownloadFailed);
+            }
         }
         catch (OperationCanceledException)
         {
-            TryDeletePartial(partialPath);
+            if (partialPath is not null) TryDeletePartial(partialPath);
             throw;
         }
-        catch
+        catch (BackupRepositoryException)
         {
-            TryDeletePartial(partialPath);
-            throw new IOException("The branch archive could not be transferred.");
+            if (partialPath is not null) TryDeletePartial(partialPath);
+            throw;
+        }
+        catch (Exception exception)
+        {
+            if (partialPath is not null) TryDeletePartial(partialPath);
+            throw TranslateRepositoryFailure(exception);
         }
     }
+
+    private static BackupRepositoryException TranslateRepositoryFailure(Exception exception) => exception switch
+    {
+        BackupRepositoryException repositoryException => repositoryException,
+        SmbPathPolicyException pathException => new BackupRepositoryException(pathException.Code),
+        SmbConnectionException connectionException => new BackupRepositoryException(connectionException.Code),
+        _ => new BackupRepositoryException(DownloaderFailureCodes.SmbRepositoryFailed),
+    };
 
     private static RemoteEntryInfo ToEntryInfo(string logicalParent, string uncParent, string uncPath, bool isDirectory)
     {

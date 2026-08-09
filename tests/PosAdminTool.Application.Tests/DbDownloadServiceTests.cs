@@ -1,5 +1,6 @@
 using PosAdminTool.Application.Services;
 using PosAdminTool.Domain.Enums;
+using PosAdminTool.Domain.Exceptions;
 using PosAdminTool.Domain.Interfaces;
 using PosAdminTool.Domain.Models;
 
@@ -88,6 +89,27 @@ public sealed class DbDownloadServiceTests
     }
 
     [Fact]
+    public async Task RunWithOutcomeAsync_PreservesAcceptedTriggerWhenRepositoryFails()
+    {
+        var repository = new FakeBackupRepository
+        {
+            ListDirectoriesException = new BackupRepositoryException(DownloaderFailureCodes.SmbConnectionFailed)
+        };
+        var service = new DbDownloadService(new FakeApiClient(), repository);
+        var settings = new DbDownloaderSettings { BackupRootFolder = @"D:\DbBackups", TimeoutSeconds = 10 };
+
+        var execution = await service.RunWithOutcomeAsync(settings, ["P087", "P091"]);
+
+        Assert.True(execution.TriggerAccepted);
+        Assert.Equal(DownloaderFailureCodes.SmbConnectionFailed, execution.FailureCode);
+        Assert.All(execution.Job.Items, item =>
+        {
+            Assert.Equal(BranchBackupStatus.Failed, item.Status);
+            Assert.Equal(DownloaderFailureCodes.SmbConnectionFailed, item.FailureCode);
+        });
+    }
+
+    [Fact]
     public async Task DownloadAsyncMarksItemDownloadedAndUsesRepository()
     {
         var repository = new FakeBackupRepository();
@@ -112,6 +134,10 @@ public sealed class DbDownloadServiceTests
 
     private sealed class FakeBackupRepository : IBackupRepository
     {
+        public Exception? ListDirectoriesException { get; init; }
+
+        public Exception? ListFilesException { get; init; }
+
         public List<RemoteEntryInfo> Directories { get; } = [];
 
         public Dictionary<string, List<RemoteEntryInfo>> FilesByFolder { get; } = [];
@@ -120,11 +146,13 @@ public sealed class DbDownloadServiceTests
 
         public Task<IReadOnlyList<RemoteEntryInfo>> ListDirectoriesAsync(RemoteConnectionInfo connection, string rootFolder, CancellationToken cancellationToken = default)
         {
+            if (ListDirectoriesException is not null) throw ListDirectoriesException;
             return Task.FromResult((IReadOnlyList<RemoteEntryInfo>)Directories);
         }
 
         public Task<IReadOnlyList<RemoteEntryInfo>> ListFilesAsync(RemoteConnectionInfo connection, string folder, CancellationToken cancellationToken = default)
         {
+            if (ListFilesException is not null) throw ListFilesException;
             var files = FilesByFolder.TryGetValue(folder, out var value) ? value : [];
             return Task.FromResult((IReadOnlyList<RemoteEntryInfo>)files);
         }

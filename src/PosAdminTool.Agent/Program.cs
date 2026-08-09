@@ -90,7 +90,8 @@ builder.Services.AddSingleton<IRestoreSqlPlanBuilder, RestoreSqlPlanBuilder>();
 builder.Services.AddSingleton<BackupService>();
 builder.Services.AddSingleton<IHostAddressResolver, SystemHostAddressResolver>();
 builder.Services.AddHttpClient<IBackupApiClient, BackupApiClient>()
-    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+    .ConfigurePrimaryHttpMessageHandler(services =>
+        BackupApiHttpMessageHandlerFactory.Create(services.GetRequiredService<IHostAddressResolver>()));
 builder.Services.AddSingleton<IBackupRepository, SmbBackupRepository>();
 builder.Services.AddSingleton<DbDownloadService>();
 builder.Services.AddSingleton<RestoreService>();

@@ -2,7 +2,7 @@
 
 > **ACTIVE canonical programme document.** This plan supersedes the future-execution direction of
 > `docs/NET10_ANGULAR22_MIGRATION_PLAN.md` after completed Session 08. It describes the verified
-> repository state at the 2026-08-09 reconciliation and the work required before a possible,
+> repository state at the 2026-08-10 reconciliation and the work required before a possible,
 > owner-approved cross-project integration.
 
 > The POS repository remains separate. No repository merge, Angular integration, standalone
@@ -150,8 +150,9 @@ endpoint groups include:
 - `OperationRegistry`, `OperationWorker`, `ResourceLockSet`, `OperationAuditWriter`, and
   `ArtifactCatalog`, including bounded maintenance challenges, logical cleanup/reset outcomes, and
   principal-scoped downloader artifact capabilities;
-- the server-owned downloader trigger policy, manual redirect/DNS validation, SMB repository,
-  scoped connection ownership, and sanitized per-branch operation outcomes;
+- the server-owned downloader trigger policy, manual redirects, connection-bound DNS/SSRF
+  validation, SMB repository, scoped connection ownership, application-owned trigger milestones,
+  and sanitized per-branch operation outcomes;
 - service polling and service command workers;
 - `BackupService`, `RestoreService`, the physical backup/restore filesystem adapters, bounded
   restore uploads/challenges, and restore endpoint modules.
@@ -306,6 +307,15 @@ Agent secret store at execution time. Completed archives are registered only thr
 principal-scoped `ArtifactCatalog`, and operation/audit evidence contains no SMB paths, local
 staging paths, credentials, or raw exception text.
 
+POS-M04R closes the two verified downloader correctness gaps without changing the approved
+architecture. The production trigger transport uses a direct `SocketsHttpHandler.ConnectCallback`
+that resolves and validates the actual connection target, normalizes IPv4-mapped IPv6, and opens
+the socket only to an approved address while retaining the logical hostname for HTTP/TLS semantics.
+The application returns an explicit `DownloaderExecutionResult` with `NotAttempted`, `Failed`, or
+`Accepted` trigger state; repository adapters translate SMB/path/I/O failures to stable Domain
+codes, and the real Agent worker preserves accepted-trigger truth through repository failure,
+partial artifact publication, and cancellation. Focused transport and worker tests use fakes only.
+
 The ADR-approved in-memory architecture remains; no durable database or SQLite was introduced.
 
 ## 12. Backup architecture
@@ -333,7 +343,7 @@ work must follow this server-owned, fake-testable boundary rather than adapting 
 directly. POS-M04 preserves the reusable downloader discovery/matching/stability behavior while
 adding server-owned trigger SSRF policy, manual redirect validation, DNS address checks, canonical
 SMB roots, scoped connection ownership, partial-file cleanup, and opaque artifact publication.
-No real RMS endpoint, SMB share, or LocalSystem/Session 0 proof ran in POS-M04.
+No real RMS endpoint, SMB share, or LocalSystem/Session 0 proof ran in POS-M04 or POS-M04R.
 
 ## 13. Known risks
 
@@ -342,7 +352,7 @@ No real RMS endpoint, SMB share, or LocalSystem/Session 0 proof ran in POS-M04.
 | Runtime state grows without bound | POS-M01 closed the confirmed gap with injectable operation, event, activity, artifact, and file-handle retention; full Release validation passed 141 .NET tests |
 | Restore archive validation is weak | POS-M02 closes the Agent/backend gap with bounded pre-extraction ZIP inspection, manifest/checksum/branch/destination validation, server-derived preview/challenge recomputation, and fake-only tests; no real restore was executed |
 | Cleanup/reset safety is client/legacy driven | POS-M03 and POS-M03R close the Agent boundary with canonical managed-root policy, required safety-root boundaries, symmetric protected/install overlap and reparse checks, server-derived preview/challenge, execute-time recomputation, locks, explicit partial outcomes, exact-target branch verification, and code-owned SQL scope; retained WinUI compatibility calls fail closed when policy is not configured |
-| Downloader service-identity portability | POS-M04 hardens the Agent boundary and fake portability seams; representative LocalSystem/Session 0 SMB proof remains required |
+| Downloader service-identity portability | POS-M04/POS-M04R harden the Agent boundary, connection-bound trigger transport, outcome semantics, and fake portability seams; representative LocalSystem/Session 0 SMB proof remains required |
 | LocalSystem managed-root and SMB Session 0 proof | Representative-device evidence remains required; do not guess |
 | Manual live-Agent Negotiate/SSE evidence | Not recorded as a current automated replacement for fake integration tests |
 | Frontend duplication during merge | Standalone Angular expansion is frozen; Support Hub owns final frontend |
@@ -459,6 +469,21 @@ Application downloader tests, 14 Infrastructure security/SMB tests, 4 Agent down
 tests, 17 operation-registry tests, and 5 artifact-catalog tests; complete Release validation
 passed 247 .NET tests, the solution build passed with zero warnings/errors, and the retained WinUI
 `win-x64` publish passed.
+
+POS-M04R - Downloader Connection-Bound SSRF & Post-Trigger Outcome Truth is complete. The trigger
+transport now binds DNS policy to the actual socket through `SocketsHttpHandler.ConnectCallback`:
+preflight and connection-time resolution reject unsafe/private hostname answers, IPv4-mapped
+IPv6 unsafe addresses fail closed, and manual redirects receive the same revalidation without
+disabling TLS certificate validation. `DbDownloadService.RunWithOutcomeAsync` owns the trigger
+milestone and translates post-acceptance repository failures through the Domain
+`BackupRepositoryException` boundary; `OperationWorker` uses that result instead of inferring
+trigger truth from normal return/exception flow. Real worker-path tests verify rejected triggers,
+accepted-then-SMB failure, independent partial artifact outcomes, cancellation, REST, and audit
+truth. Five new Infrastructure transport tests, one Application lifecycle test, and four Agent
+worker tests passed; complete Release validation passed 257 .NET tests, the solution build passed
+with zero warnings/errors, and retained WinUI `win-x64` publish passed. All evidence used fakes,
+temporary streams, or temporary test infrastructure only; ADR-012 LocalSystem/Session 0 SMB
+representative-device evidence remains open.
 
 ## 15. RMS+ Support Hub ownership boundary
 
@@ -648,7 +673,8 @@ Support Hub frontend integration.
 | POS-M03 | Complete; owner-authorized after the early Opus Restore follow-up gate passed | Cleanup/reset backend safety only: canonical managed-path policy, server-derived preview/challenge, recomputation, locks, partial/residue truth, sanitized audit, and fake-only worker-path coverage; focused 9 Application and 11 Agent maintenance tests, 210 Release .NET tests, zero-warning solution build, and retained WinUI publish passed |
 | POS-M03R | Complete; corrective closure after POS-M03 | Required cleanup safety-root boundaries, symmetric protected/install overlap including allowed reparse destinations, exact server-approved branch database verification, and code-owned historical reset-table scope; focused 20 Application and 15 Agent maintenance/worker tests, 225 Release .NET tests, zero-warning solution build, and retained WinUI publish passed; fake/disposable-only with no real mutation |
 | POS-M04 | Complete; owner-authorized | Downloader backend/SMB portability only; focused downloader/security/operation/artifact coverage, 247 Release .NET tests, zero-warning solution build, and retained WinUI publish passed; ADR-012 LocalSystem/Session 0 representative-device gate remains open |
-| POS-M05 | Pending POS-M02 through POS-M04 | Complete landing/collision audit; then `CLAUDE OPUS 5 REVIEW REQUIRED` |
+| POS-M04R | Complete; owner-authorized corrective closure | Connection-bound trigger SSRF policy, explicit post-trigger outcome truth, stable repository failure boundary, five Infrastructure transport tests, one Application lifecycle test, four real Agent worker tests, 257 Release .NET tests, zero-warning solution build, and retained WinUI publish passed; no real endpoint/SMB/Session 0 evidence |
+| POS-M05 | Pending POS-M04R | Complete landing/collision audit; then `CLAUDE OPUS 5 REVIEW REQUIRED` |
 | R1 | Scheduled after POS-M05 | Claude Opus 5 review gate |
 | POS-M06 | Review-gated and owner-authorized only | Final candidate audit |
 | R2 | Scheduled after POS-M06 | Claude Opus 5 review before integration |

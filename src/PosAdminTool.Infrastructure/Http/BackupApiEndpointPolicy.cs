@@ -1,4 +1,5 @@
 using System.Net;
+using PosAdminTool.Domain.Exceptions;
 
 namespace PosAdminTool.Infrastructure.Http;
 
@@ -95,6 +96,23 @@ public sealed class BackupApiEndpointPolicy
         }
     }
 
+    /// <summary>
+    /// Applies the same address policy at the instant a socket is opened. A private address is
+    /// valid only when the logical connection host itself is an explicit IP literal; a hostname
+    /// that resolves to private space is never accepted by the transport.
+    /// </summary>
+    public static bool IsPermittedConnectionAddress(string host, IPAddress address)
+    {
+        var normalized = NormalizeAddress(address);
+        if (IsBlockedAddress(normalized))
+        {
+            return false;
+        }
+
+        return !IsPrivateAddress(normalized)
+            || !address.IsIPv4MappedToIPv6 && TryParseHostLiteral(host, out _);
+    }
+
     private static Uri ValidateSyntax(Uri uri, Uri approvedEndpoint, bool isRedirect)
     {
         if (!uri.IsAbsoluteUri
@@ -153,20 +171,19 @@ public sealed class BackupApiEndpointPolicy
 
     private static bool IsPermittedAddress(IPAddress address, Uri target, Uri approvedEndpoint)
     {
-        var normalized = address.IsIPv4MappedToIPv6 ? address.MapToIPv4() : address;
-        if (IPAddress.IsLoopback(normalized)
-            || normalized.Equals(IPAddress.Any)
-            || normalized.Equals(IPAddress.IPv6Any)
-            || normalized.IsIPv6LinkLocal
-            || normalized.IsIPv6Multicast
-            || IsMetadataAddress(normalized)
-            || IsIpv4LinkLocal(normalized))
+        var normalized = NormalizeAddress(address);
+        if (IsBlockedAddress(normalized))
         {
             return false;
         }
 
         if (IsPrivateAddress(normalized))
         {
+            if (address.IsIPv4MappedToIPv6)
+            {
+                return false;
+            }
+
             // A private RMS endpoint is allowed only because this exact target was explicitly
             // configured server-side as a literal address. A hostname that happens to resolve to
             // RFC1918 space is rejected so DNS cannot turn a public-looking endpoint into an SSRF
@@ -177,6 +194,21 @@ public sealed class BackupApiEndpointPolicy
 
         return true;
     }
+
+    private static IPAddress NormalizeAddress(IPAddress address) =>
+        address.IsIPv4MappedToIPv6 ? address.MapToIPv4() : address;
+
+    private static bool IsBlockedAddress(IPAddress normalized) =>
+        IPAddress.IsLoopback(normalized)
+        || normalized.Equals(IPAddress.Any)
+        || normalized.Equals(IPAddress.IPv6Any)
+        || normalized.IsIPv6LinkLocal
+        || normalized.IsIPv6Multicast
+        || IsMetadataAddress(normalized)
+        || IsIpv4LinkLocal(normalized);
+
+    private static bool TryParseHostLiteral(string host, out IPAddress? address) =>
+        IPAddress.TryParse(host.Trim('[', ']'), out address);
 
     private static bool IsPrivateAddress(IPAddress address)
     {
@@ -221,7 +253,6 @@ public sealed class SystemHostAddressResolver : IHostAddressResolver
         await Dns.GetHostAddressesAsync(host, cancellationToken).ConfigureAwait(false);
 }
 
-public sealed class BackupApiPolicyException(string code) : InvalidOperationException("The backup endpoint policy rejected the request.")
+public sealed class BackupApiPolicyException(string code) : DownloaderTriggerException(code)
 {
-    public string Code { get; } = code;
 }

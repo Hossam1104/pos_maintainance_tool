@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using PosAdminTool.Domain.Exceptions;
 using PosAdminTool.Domain.Enums;
 using PosAdminTool.Domain.Interfaces;
 using PosAdminTool.Domain.Models;
@@ -35,6 +36,26 @@ public sealed partial class DbDownloadService
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        return (await RunWithOutcomeAsync(
+            settings,
+            branchCodes,
+            onItemChanged,
+            progress,
+            cancellationToken).ConfigureAwait(false)).Job;
+    }
+
+    /// <summary>
+    /// Runs trigger and discovery while preserving the accepted-trigger milestone across every
+    /// later repository, download, and cancellation outcome. The compatibility <see cref="RunAsync"/>
+    /// method returns only the job; Agent execution uses this richer result.
+    /// </summary>
+    public async Task<DownloaderExecutionResult> RunWithOutcomeAsync(
+        DbDownloaderSettings settings,
+        IReadOnlyList<string> branchCodes,
+        Action<BranchBackupItem>? onItemChanged = null,
+        IProgress<string>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
         DownloaderInputPolicy.ValidateSettings(settings);
         var normalizedBranches = DownloaderInputPolicy.NormalizeBranchCodes(branchCodes);
         var job = new BackupJob(normalizedBranches, _timeProvider);
@@ -49,13 +70,31 @@ public sealed partial class DbDownloadService
         {
             progress?.Report($"Triggering backup job for {job.Items.Count} branch(es)...");
             await _apiClient.TriggerBackupAsync(settings.ApiUrl, normalizedBranches, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            MarkCancelled(job.Items, onItemChanged);
+            return new DownloaderExecutionResult(job, DownloaderTriggerState.NotAttempted);
+        }
+        catch (DownloaderTriggerException exception)
+        {
+            MarkFailed(job.Items, exception.Code, "The backup trigger was rejected.", onItemChanged);
+            return new DownloaderExecutionResult(job, DownloaderTriggerState.Failed, exception.Code);
+        }
+        catch
+        {
+            MarkFailed(job.Items, DownloaderFailureCodes.TriggerFailed, "The backup trigger could not be completed.", onItemChanged);
+            return new DownloaderExecutionResult(job, DownloaderTriggerState.Failed, DownloaderFailureCodes.TriggerFailed);
+        }
 
-            foreach (var item in job.Items)
-            {
-                item.Status = BranchBackupStatus.Triggered;
-                Notify(item, onItemChanged);
-            }
+        foreach (var item in job.Items)
+        {
+            item.Status = BranchBackupStatus.Triggered;
+            Notify(item, onItemChanged);
+        }
 
+        try
+        {
             var batchFolder = await DiscoverBatchFolderAsync(
                 connection,
                 settings.BackupRootFolder,
@@ -75,7 +114,7 @@ public sealed partial class DbDownloadService
                 }
 
                 progress?.Report("The backup batch did not appear before the timeout.");
-                return job;
+                return new DownloaderExecutionResult(job, DownloaderTriggerState.Accepted);
             }
 
             job.BatchFolderPath = batchFolder.FullPath;
@@ -152,6 +191,12 @@ public sealed partial class DbDownloadService
                 }
             }
 
+            if (cancellationToken.IsCancellationRequested)
+            {
+                MarkCancelled(job.Items, onItemChanged);
+                return new DownloaderExecutionResult(job, DownloaderTriggerState.Accepted);
+            }
+
             foreach (var item in pending)
             {
                 item.Status = BranchBackupStatus.TimedOut;
@@ -163,19 +208,32 @@ public sealed partial class DbDownloadService
                 progress?.Report($"{item.BranchCode}: timed out waiting for a ready archive.");
             }
 
-            return job;
+            return new DownloaderExecutionResult(job, DownloaderTriggerState.Accepted);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            foreach (var item in job.Items.Where(item => !IsTerminal(item.Status)))
-            {
-                item.Status = BranchBackupStatus.Cancelled;
-                item.FailureCode = DownloaderFailureCodes.DownloadCancelled;
-                item.ErrorMessage = "The downloader operation was cancelled.";
-                Notify(item, onItemChanged);
-            }
-
-            return job;
+            MarkCancelled(job.Items, onItemChanged);
+            return new DownloaderExecutionResult(job, DownloaderTriggerState.Accepted);
+        }
+        catch (BackupRepositoryException exception)
+        {
+            MarkFailed(
+                job.Items,
+                exception.Code,
+                "The backup repository could not be accessed.",
+                onItemChanged,
+                preserveReady: true);
+            return new DownloaderExecutionResult(job, DownloaderTriggerState.Accepted, exception.Code);
+        }
+        catch
+        {
+            MarkFailed(
+                job.Items,
+                DownloaderFailureCodes.SmbRepositoryFailed,
+                "The backup repository could not be accessed.",
+                onItemChanged,
+                preserveReady: true);
+            return new DownloaderExecutionResult(job, DownloaderTriggerState.Accepted, DownloaderFailureCodes.SmbRepositoryFailed);
         }
     }
 
@@ -233,6 +291,14 @@ public sealed partial class DbDownloadService
             item.Status = BranchBackupStatus.Cancelled;
             item.FailureCode = DownloaderFailureCodes.DownloadCancelled;
             item.ErrorMessage = "The branch download was cancelled.";
+            Notify(item, onItemChanged);
+            throw;
+        }
+        catch (BackupRepositoryException exception)
+        {
+            item.Status = BranchBackupStatus.Failed;
+            item.FailureCode = exception.Code;
+            item.ErrorMessage = "The backup repository could not be accessed.";
             Notify(item, onItemChanged);
             throw;
         }
@@ -335,6 +401,36 @@ public sealed partial class DbDownloadService
         or BranchBackupStatus.Failed
         or BranchBackupStatus.TimedOut
         or BranchBackupStatus.Cancelled;
+
+    private static void MarkCancelled(
+        IEnumerable<BranchBackupItem> items,
+        Action<BranchBackupItem>? onItemChanged)
+    {
+        foreach (var item in items.Where(item => !IsTerminal(item.Status)))
+        {
+            item.Status = BranchBackupStatus.Cancelled;
+            item.FailureCode = DownloaderFailureCodes.DownloadCancelled;
+            item.ErrorMessage = "The downloader operation was cancelled.";
+            Notify(item, onItemChanged);
+        }
+    }
+
+    private static void MarkFailed(
+        IEnumerable<BranchBackupItem> items,
+        string failureCode,
+        string errorMessage,
+        Action<BranchBackupItem>? onItemChanged,
+        bool preserveReady = false)
+    {
+        foreach (var item in items.Where(item => !IsTerminal(item.Status)
+            && (!preserveReady || item.Status != BranchBackupStatus.Ready)))
+        {
+            item.Status = BranchBackupStatus.Failed;
+            item.FailureCode = failureCode;
+            item.ErrorMessage = errorMessage;
+            Notify(item, onItemChanged);
+        }
+    }
 
     private static bool IsZipForBranch(string fileName, string branchCode) =>
         DownloaderInputPolicy.IsSafeArchiveFileName(fileName)

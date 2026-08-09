@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http;
+using System.Text;
 using PosAdminTool.Infrastructure.Http;
 using PosAdminTool.Infrastructure.Smb;
 
@@ -52,6 +53,100 @@ public sealed class DownloaderSecurityTests
 
         await Assert.ThrowsAsync<BackupApiPolicyException>(() => client.TriggerBackupAsync("https://198.51.100.10/trigger", ["B01"]));
         Assert.Equal(1, handler.RequestCount);
+    }
+
+    [Fact]
+    public async Task ConnectionBoundTransport_RejectsPublicPreflightToPrivateRebindBeforeAnySocket()
+    {
+        var resolver = new SequenceResolver(IPAddress.Parse("198.51.100.10"), IPAddress.Loopback);
+        var socket = new RecordingSocketConnector();
+        var transport = new ConnectionBoundSocketConnector(resolver, socket.ConnectAsync);
+        using var client = new HttpClient(BackupApiHttpMessageHandlerFactory.Create(transport));
+        var api = new BackupApiClient(client, resolver);
+
+        await Assert.ThrowsAsync<BackupApiPolicyException>(() =>
+            api.TriggerBackupAsync("http://backup.example/trigger", ["B01"]));
+
+        Assert.Equal(0, socket.ConnectCalls);
+        Assert.Equal(2, resolver.ResolveCalls);
+        Assert.Equal(0, socket.TotalRequestBytes);
+    }
+
+    [Fact]
+    public async Task ConnectionBoundTransport_RejectsMappedIpv4LoopbackAtConnectionTime()
+    {
+        var resolver = new SequenceResolver(
+            IPAddress.Parse("198.51.100.10"),
+            IPAddress.Parse("::ffff:127.0.0.1"));
+        var socket = new RecordingSocketConnector();
+        var transport = new ConnectionBoundSocketConnector(resolver, socket.ConnectAsync);
+        using var client = new HttpClient(BackupApiHttpMessageHandlerFactory.Create(transport));
+        var api = new BackupApiClient(client, resolver);
+
+        await Assert.ThrowsAsync<BackupApiPolicyException>(() =>
+            api.TriggerBackupAsync("http://backup.example/trigger", ["B01"]));
+
+        Assert.Equal(0, socket.ConnectCalls);
+        Assert.Equal(0, socket.TotalRequestBytes);
+    }
+
+    [Fact]
+    public async Task ConnectionBoundTransport_RejectsMappedIpv4PrivateAddressAtConnectionTime()
+    {
+        var resolver = new SequenceResolver(
+            IPAddress.Parse("198.51.100.10"),
+            IPAddress.Parse("::ffff:10.0.0.10"));
+        var socket = new RecordingSocketConnector();
+        var transport = new ConnectionBoundSocketConnector(resolver, socket.ConnectAsync);
+        using var client = new HttpClient(BackupApiHttpMessageHandlerFactory.Create(transport));
+        var api = new BackupApiClient(client, resolver);
+
+        await Assert.ThrowsAsync<BackupApiPolicyException>(() =>
+            api.TriggerBackupAsync("http://backup.example/trigger", ["B01"]));
+
+        Assert.Equal(0, socket.ConnectCalls);
+        Assert.Equal(0, socket.TotalRequestBytes);
+    }
+
+    [Fact]
+    public async Task ConnectionBoundTransport_RevalidatesARedirectBeforeOpeningItsSocket()
+    {
+        var resolver = new SequenceResolver(
+            IPAddress.Parse("198.51.100.10"),
+            IPAddress.Parse("198.51.100.10"),
+            IPAddress.Parse("198.51.100.10"),
+            IPAddress.Parse("10.0.0.10"));
+        var socket = new RecordingSocketConnector(_ =>
+            new FakeHttpStream(
+                "HTTP/1.1 302 Found\r\nLocation: http://backup.example/next\r\nConnection: close\r\nContent-Length: 0\r\n\r\n"));
+        var transport = new ConnectionBoundSocketConnector(resolver, socket.ConnectAsync);
+        using var client = new HttpClient(BackupApiHttpMessageHandlerFactory.Create(transport));
+        var api = new BackupApiClient(client, resolver);
+
+        await Assert.ThrowsAsync<BackupApiPolicyException>(() =>
+            api.TriggerBackupAsync("http://backup.example/trigger", ["B01"]));
+
+        Assert.Equal(1, socket.ConnectCalls);
+        Assert.Equal(4, resolver.ResolveCalls);
+    }
+
+    [Fact]
+    public async Task ConnectionBoundTransport_AllowsAnApprovedEndpointThroughTheProductionCallback()
+    {
+        var resolver = new SequenceResolver(
+            IPAddress.Parse("198.51.100.10"),
+            IPAddress.Parse("198.51.100.10"));
+        var socket = new RecordingSocketConnector(_ =>
+            new FakeHttpStream("HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Length: 0\r\n\r\n"));
+        var transport = new ConnectionBoundSocketConnector(resolver, socket.ConnectAsync);
+        using var client = new HttpClient(BackupApiHttpMessageHandlerFactory.Create(transport));
+        var api = new BackupApiClient(client, resolver);
+
+        await api.TriggerBackupAsync("http://backup.example/trigger", ["B01"]);
+
+        Assert.Equal(1, socket.ConnectCalls);
+        Assert.True(socket.TotalRequestBytes > 0);
+        Assert.Equal(2, resolver.ResolveCalls);
     }
 
     [Fact]
@@ -136,6 +231,102 @@ public sealed class DownloaderSecurityTests
     {
         public Task<IReadOnlyList<IPAddress>> ResolveAsync(string host, CancellationToken cancellationToken = default) =>
             Task.FromResult((IReadOnlyList<IPAddress>)addresses);
+    }
+
+    private sealed class SequenceResolver(params IPAddress[] addresses) : IHostAddressResolver
+    {
+        private readonly Queue<IPAddress> _addresses = new(addresses);
+        private IPAddress _last = addresses[^1];
+
+        public int ResolveCalls { get; private set; }
+
+        public Task<IReadOnlyList<IPAddress>> ResolveAsync(string host, CancellationToken cancellationToken = default)
+        {
+            ResolveCalls++;
+            if (_addresses.Count > 0) _last = _addresses.Dequeue();
+            return Task.FromResult((IReadOnlyList<IPAddress>)[_last]);
+        }
+    }
+
+    private sealed class RecordingSocketConnector(Func<int, FakeHttpStream>? streamFactory = null)
+    {
+        private readonly Func<int, FakeHttpStream> _streamFactory = streamFactory ?? (_ =>
+            new FakeHttpStream("HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Length: 0\r\n\r\n"));
+
+        public int ConnectCalls { get; private set; }
+
+        public int TotalRequestBytes { get; private set; }
+
+        public ValueTask<Stream> ConnectAsync(IPAddress address, int port, CancellationToken cancellationToken)
+        {
+            ConnectCalls++;
+            var stream = _streamFactory(ConnectCalls);
+            stream.BytesWritten += count => TotalRequestBytes += count;
+            return ValueTask.FromResult<Stream>(stream);
+        }
+    }
+
+    private sealed class FakeHttpStream(string response) : Stream
+    {
+        private readonly byte[] _response = Encoding.ASCII.GetBytes(response);
+        private int _offset;
+
+        public event Action<int>? BytesWritten;
+
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => true;
+        public override long Length => _response.Length;
+        public override long Position
+        {
+            get => _offset;
+            set => throw new NotSupportedException();
+        }
+
+        public override void Flush() { }
+
+        public override Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            var read = Math.Min(count, _response.Length - _offset);
+            if (read <= 0) return 0;
+            Array.Copy(_response, _offset, buffer, offset, read);
+            _offset += read;
+            return read;
+        }
+
+        public override int Read(Span<byte> buffer)
+        {
+            var read = Math.Min(buffer.Length, _response.Length - _offset);
+            if (read <= 0) return 0;
+            _response.AsSpan(_offset, read).CopyTo(buffer);
+            _offset += read;
+            return read;
+        }
+
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
+            Task.FromResult(Read(buffer, offset, count));
+
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult(Read(buffer.Span));
+
+        public override void Write(byte[] buffer, int offset, int count) => BytesWritten?.Invoke(count);
+
+        public override void Write(ReadOnlySpan<byte> buffer) => BytesWritten?.Invoke(buffer.Length);
+
+        public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
+            Task.Run(() => BytesWritten?.Invoke(count), cancellationToken);
+
+        public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            BytesWritten?.Invoke(buffer.Length);
+            return ValueTask.CompletedTask;
+        }
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override void SetLength(long value) => throw new NotSupportedException();
     }
 
     private sealed class FakeSmbApi : ISmbConnectionApi

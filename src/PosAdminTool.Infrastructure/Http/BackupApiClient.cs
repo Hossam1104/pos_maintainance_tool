@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using PosAdminTool.Domain.Exceptions;
 using PosAdminTool.Domain.Interfaces;
 using PosAdminTool.Domain.Models;
 
@@ -79,8 +80,18 @@ public sealed class BackupApiClient : IBackupApiClient
             {
                 throw;
             }
-            catch
+            catch (Exception exception)
             {
+                if (TryFind(exception, out BackupApiPolicyException? policyException))
+                {
+                    throw new BackupApiPolicyException(policyException!.Code);
+                }
+
+                if (TryFind(exception, out BackupApiRequestException? requestException))
+                {
+                    throw new BackupApiRequestException(requestException!.Code);
+                }
+
                 throw new BackupApiRequestException(DownloaderFailureCodes.TriggerFailed);
             }
 
@@ -116,9 +127,36 @@ public sealed class BackupApiClient : IBackupApiClient
             }
         }
     }
+
+    private static bool TryFind<T>(Exception exception, out T? match)
+        where T : Exception
+    {
+        if (exception is T typed)
+        {
+            match = typed;
+            return true;
+        }
+
+        if (exception is AggregateException aggregate)
+        {
+            foreach (var inner in aggregate.InnerExceptions)
+            {
+                if (TryFind(inner, out match))
+                {
+                    return true;
+                }
+            }
+        }
+        else if (exception.InnerException is not null && TryFind(exception.InnerException, out match))
+        {
+            return true;
+        }
+
+        match = null;
+        return false;
+    }
 }
 
-public sealed class BackupApiRequestException(string code) : InvalidOperationException("The backup request failed.")
+public sealed class BackupApiRequestException(string code) : DownloaderTriggerException(code)
 {
-    public string Code { get; } = code;
 }

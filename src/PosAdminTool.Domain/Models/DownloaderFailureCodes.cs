@@ -16,6 +16,7 @@ public static class DownloaderFailureCodes
     public const string DownloadCancelled = "downloader.download_cancelled";
     public const string SmbRootRejected = "downloader.smb_root_rejected";
     public const string SmbConnectionFailed = "downloader.smb_connection_failed";
+    public const string SmbRepositoryFailed = "downloader.smb_repository_failed";
     public const string ArtifactCatalogFull = "downloader.artifact_catalog_full";
     public const string ArtifactPublicationFailed = "downloader.artifact_publication_failed";
     public const string Timeout = "downloader.timeout";
