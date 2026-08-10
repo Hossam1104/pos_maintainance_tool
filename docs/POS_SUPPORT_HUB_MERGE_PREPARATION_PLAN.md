@@ -514,16 +514,17 @@ remote trigger reconciliation/idempotency capability remain unverified.
 ## 15. POS-M05 reviewed repository baselines and evidence
 
 POS-M05 was a documentation-only landing and collision audit. POS-M05R adds the corrective
-runtime, repository-cleanliness, and integration-contract closure recorded below. No POS source,
-generated Angular output, or Support Hub file was moved or modified. The initial R1 read-only
+runtime, repository-cleanliness, and integration-contract closure recorded below. POS-M05/M05R did
+not move or modify POS source, generated Angular output, or Support Hub files. POS-M06 made only two
+narrow frozen-Angular lint-hygiene corrections; it did not add a feature or modify Support Hub. The initial R1 read-only
 review was at Support Hub `36a0eaa4d42a7dc1c2cb92df4daadc35f7abe5f0`; Support Hub `main` advanced
 before closure, so the live counterpart document and capability model were re-read at the current
 head below on 2026-08-10:
 
 | Repository | Remote | Local checkout | Exact reviewed `main` head | Review state |
 | --- | --- | --- | --- | --- |
-| POS maintenance tool | `Hossam1104/pos_maintainance_tool` | `D:\AI Tools\DBS\pos_maintainance_tool` | `810658467f77b0e2a37aa4a28a66ee3df6519933` | Clean and synchronized before the POS-M05 branch was created |
-| RMS+ Support Hub | `Hossam1104/Rms-Support-Hub` | `D:\AI Tools\DBS\Rms-Support-Hub` | `4e56beb2d6a83694e937bf91ceb2c46153a7352f` | Live remote `main` verified at this SHA; local checkout was at the same commit with a pre-existing uncommitted `frontend/src/app/features/order-requests/components/filter-bar.component.ts` change; read-only review only, no Support Hub files changed by POS-M05R |
+| POS maintenance tool | `Hossam1104/pos_maintainance_tool` | `D:\AI Tools\DBS\pos_maintainance_tool` | `d73d0d9d2c2ea5b6138b261a31b08f20185dbb44` | Clean and synchronized before the POS-M06 branch was created |
+| RMS+ Support Hub | `Hossam1104/Rms-Support-Hub` | `D:\AI Tools\DBS\Rms-Support-Hub` | `2a4a38aba2113f30c5751eb7b1fbf8a6cb13a91b` | Current remote `main` verified at this SHA; local checkout was clean and synchronized; read-only review only, no Support Hub files changed by POS-M06 |
 
 The Support Hub checkout is not the historical placeholder-only snapshot described by the early
 POS intake note. At the reviewed head it contains a real .NET 10 backend with
@@ -658,9 +659,9 @@ privilege, runtime state, configuration, generated output, UI ownership, or test
 
 ### 18.5 POS-M05R R1 corrections and explicit dispositions
 
-The current live Support Hub document and source were read read-only at Support Hub `main`
-`4e56beb2d6a83694e937bf91ceb2c46153a7352f` after the live branch advanced from the initial R1
-head `36a0eaa4d42a7dc1c2cb92df4daadc35f7abe5f0`. The canonical cross-project disposition is:
+The current live Support Hub document and source were read read-only at clean, synchronized Support
+Hub `main` `2a4a38aba2113f30c5751eb7b1fbf8a6cb13a91b` after its independent Order Requests/date-picker
+frontend work. The canonical cross-project disposition is:
 
 - **Support Hub readiness document:** `VALID AS SUPPORT-HUB-SIDE INTEGRATION INPUT`.
 - **Its direct Core/Data/Api placement recommendations:** `SUPERSEDED FOR PRIVILEGED POS EXECUTION BY CROSS-PROJECT SECURITY REVIEW`.
@@ -791,19 +792,41 @@ centralize, or regenerate dependencies.
     has a real placeholder and backend. The intake is historical; it must not be used to skip the
     actual code/route/package/security audit.
 
-### 22.2 Open evidence gates preserved by POS-M05
+### 22.2 Open evidence gates preserved through POS-M06
 
 | Gate | Status and evidence requirement |
 | --- | --- |
 | ADR-012 LocalSystem / Session 0 SMB | OPEN. A representative isolated Windows device/server must prove managed-root behavior, `WNetAddConnection2`, SMB enumeration, newest-batch discovery, ZIP read/download, cancellation/timeout cleanup, and scoped disconnect under the proposed service identity. Fake tests do not close this gate. |
 | Remote trigger reconciliation/idempotency | OPEN / UNVERIFIED. No verified remote job-status, reconciliation, or remote idempotency contract exists. Local Agent idempotency is not remote idempotency; `OutcomeUnknown` is a real post-dispatch state and operator-directed retry requires remote evidence. |
-| HTTP rejection semantics | CORRECTIONS IMPLEMENTED — FOLLOW-UP REVIEW REQUIRED. No authoritative remote response contract was found. Every received non-success response after dispatch now maps to terminal `OutcomeUnknown` with `downloader.trigger_outcome_unknown`; 2xx remains `Accepted`, pre-dispatch rejection remains `NotAttempted`, and no automatic retry/SMB/artifact path follows unknown. Remote reconciliation/idempotency remains `OPEN / UNVERIFIED`. |
+| HTTP rejection semantics | CORRECTIONS IMPLEMENTED — R1 FOLLOW-UP PASSED. No authoritative remote response contract was found. Every received non-success response after dispatch maps to terminal `OutcomeUnknown` with `downloader.trigger_outcome_unknown`; 2xx remains `Accepted`, pre-dispatch rejection remains `NotAttempted`, and no automatic retry/SMB/artifact path follows unknown. Remote reconciliation/idempotency remains `OPEN / UNVERIFIED`. |
 | Live Agent operational evidence | OPEN. Live loopback, Windows Negotiate/local-admin, antiforgery, SSE, and browser evidence remain unavailable in the preparation environment. |
 | SQL/SCM/restore/maintenance/downloader reality | OPEN. Existing evidence is fake/temp/disposable-only; no real destructive SQL, service, SMB, endpoint, or production operation was executed. |
 | Support Hub integration topology | OPEN. Separate Agent versus shared host/proxy, deployment/service identity, API route/transport, browser auth/CORS/HTTPS, configuration, and audit ownership are not approved. |
 | WinUI retention | OPEN BY DESIGN. WinUI remains present and must remain publishable until explicit cross-project review and a dedicated owner-approved cutover. |
 
-### 22.3 Decisions that cannot be made by POS-M05
+### 22.3 POS-M06 final evidence audit
+
+The final audit passed the preparation gates below. `PASS` means the source, architecture,
+contracts, tests, and repository evidence are sufficient for a merge-ready candidate; it does not
+close the representative-device, live-Agent, remote-reconciliation, or cross-project deployment
+gates listed in section 22.2.
+
+| Audit area | POS-M06 result and evidence |
+| --- | --- |
+| Domain/Application portability | PASS. Domain/Application target `net10.0` and contain no ASP.NET, Windows UI, service-control, DPAPI, SMB, or SQL-client host dependencies; privileged behavior remains behind ports. |
+| Infrastructure isolation | PASS. SQL, SCM, filesystem, SMB, HTTP, configuration, DPAPI, and backup/restore adapters remain in Windows-targeted Infrastructure and are composed only by the Agent/WinUI boundaries. Real SQL/SCM/SMB evidence remains open. |
+| Agent security | PASS for preparation evidence. Loopback binding, Negotiate/local-Administrators policy, antiforgery, correlation, CSP, redaction, safe Problem Details, and Development-only runtime OpenAPI are covered by source and focused tests; live browser/Windows evidence remains open. |
+| Operation runtime boundedness | PASS. Registry, principal-scoped idempotency, events, activity, artifacts, file handles, locks, cancellation, worker cleanup, retention, and sanitized audit are bounded and covered by the 277-test Release suite. |
+| Restore safety and truth | PASS for fake/temp-only evidence. Archive inspection, manifest/checksum policy, preview/challenge/execute-time recomputation, locks, cancellation, rollback/recovery truth, and post-restore verification remain server-owned; no real restore was executed. |
+| Maintenance safety and truth | PASS for fake/temp-only evidence. Managed-root/protected-root/reparse policy, server-derived preview/challenge, execute-time recomputation, locks, exact-target SQL scope, audit, and partial outcomes remain enforced; no real mutation was executed. |
+| Downloader SSRF/SMB/trigger truth | PASS for fake/disposable-only evidence. Connection-bound SSRF/redirect checks, credential isolation, cancellation, artifacts, SMB ownership, and `NotAttempted`/`Accepted`/`OutcomeUnknown` truth are covered; ADR-012 and remote reconciliation remain open. |
+| Configuration, secrets, and redaction | PASS. Service-owned ACL-restricted configuration, machine-scope DPAPI secrets, write-only browser secret fields, logical IDs, and sanitized operation/audit messages prevent browser path/secret leakage. |
+| Contracts and generated files | PASS. Versioned V1 DTOs, string-enum/camelCase serialization, Problem Details extensions, contract-shape tests, build-generated OpenAPI, and ignored generated client output are consistent; no generated file is hand-edited or tracked. |
+| Repository hygiene and landing map | PASS. Current tracked source has zero `.artifacts`, traces, `bin`, `obj`, Angular `dist`, `node_modules`, or generated OpenAPI/client paths; the file-level landing/collision map is recorded and standalone Angular expansion is frozen. |
+| Retained WinUI | PASS. `PosAdminTool.WinUI` remains in the solution and the required `win-x64` Release publish completed successfully. Removal remains open by design. |
+| Documentation and Git consistency | PASS. POS `main` and Support Hub `main` were independently resolved clean and synchronized; current state, plan, history, task gate, open evidence, and no-merge boundary are aligned. |
+
+### 22.4 Cross-project decisions remaining after POS-M06
 
 The following require an owner-approved cross-project review and are not silently resolved by this
 audit: separate `PosAgent` process versus shared Support Hub host; final project and namespace
@@ -812,7 +835,7 @@ HTTPS, and loopback enforcement; SQL client/data-access ownership; configuration
 ACL ownership; logging and audit sink/retention; Windows service/install names and ports; Agent
 deployment topology; operation/artifact/resource ownership; OpenAPI and generated-client
 destination; Angular feature route and capability mapping; test fixture/project ownership; package
-and lockfile policy; asset/font/icon licensing; and the Opus R1 HTTP rejection semantics question.
+and lockfile policy; asset/font/icon licensing; and the Claude Opus 5 R2 pre-integration review.
 
 ## 23. Deferred standalone work
 
@@ -829,7 +852,7 @@ and lockfile policy; asset/font/icon licensing; and the Opus R1 HTTP rejection s
 
 POS may be called a **merge-ready candidate** only when POS-M01 through POS-M05 are complete,
 Claude Opus 5 R1 has reviewed the result and its findings are addressed or explicitly accepted,
-and POS-M06 passes its review-gated audit. The candidate must demonstrate:
+and POS-M06 passes its review-gated audit. POS-M06 has now passed. The candidate must demonstrate:
 
 - portable Domain/Application boundaries and isolated privileged Infrastructure;
 - loopback Agent authentication/authorization, redaction, secret isolation, and contract stability;
@@ -857,16 +880,19 @@ Support Hub frontend integration.
 | POS-M04 | Complete; owner-authorized | Downloader backend/SMB portability only; focused downloader/security/operation/artifact coverage, 247 Release .NET tests, zero-warning solution build, and retained WinUI publish passed; ADR-012 LocalSystem/Session 0 representative-device gate remains open |
 | POS-M04R | Complete; owner-authorized corrective closure | Connection-bound trigger SSRF policy, explicit post-trigger outcome truth, stable repository failure boundary, five Infrastructure transport tests, one Application lifecycle test, four real Agent worker tests, 257 Release .NET tests, zero-warning solution build, and retained WinUI publish passed; no real endpoint/SMB/Session 0 evidence |
 | POS-M04R2 | Complete; owner-authorized corrective closure | Explicit pre/post-dispatch trigger truth with `OutcomeUnknown`, safe terminal/no-SMB/no-retry behavior, browser/audit state and guidance, six focused new tests, 263 Release .NET tests, zero-warning solution build, and retained WinUI publish passed; ADR-012 and remote reconciliation/idempotency gates remain open |
-| POS-M05 | Complete; owner-authorized | Exact POS/Support Hub baseline review, actual Support Hub structure inspection, project/file landing map, namespace/dependency/DI/config/security/test/generated/resource/build collision audit, residual gates, and cross-project decision list recorded. Claude Opus 5 R1 review is required. |
-| POS-M05R | Complete; owner-authorized corrective closure | R1 safety, repository-cleanliness, and integration-contract corrections: post-dispatch non-success HTTP responses are terminal `OutcomeUnknown`; focused Infrastructure/Worker/OpenAPI tests added; full Release validation passed 277 .NET tests, a 0-warning solution build, and retained WinUI publish; 405 tracked `.artifacts/` files totaling 164,321,637 bytes and tracked root traces removed; live Support Hub readiness/capability ownership, raw-error/session-identity boundaries, SQL TLS disclosure, health/OpenAPI behavior, clean snapshot strategy, and open gates recorded. Claude Opus 5 follow-up review remains required. |
-| R1 | Corrections implemented — follow-up review required | Claude Opus 5 follow-up review of the corrected landing/collision audit, HTTP response semantics, repository cleanliness, and all open evidence gates |
-| POS-M06 | Blocked; Claude Opus 5 R1 follow-up review required; authorization not granted | Do not execute until the R1 follow-up review confirms closure and the owner explicitly authorizes continuation |
-| R2 | Scheduled after POS-M06 | Claude Opus 5 review before any integration authorization |
-| Repository merge | POS session merge authorized; cross-project merge not authorized | POS-M05R may merge its corrective session branch into POS `main` under the authorized session workflow. RMS+ Support Hub remains untouched; no cross-project repository merge is authorized. |
+| POS-M05 | Complete; owner-authorized | Exact POS/Support Hub baseline review, actual Support Hub structure inspection, project/file landing map, namespace/dependency/DI/config/security/test/generated/resource/build collision audit, residual gates, and cross-project decision list recorded. Claude Opus 5 R1 review subsequently passed before POS-M06. |
+| POS-M05R | Complete; owner-authorized corrective closure | R1 safety, repository-cleanliness, and integration-contract corrections: post-dispatch non-success HTTP responses are terminal `OutcomeUnknown`; focused Infrastructure/Worker/OpenAPI tests added; full Release validation passed 277 .NET tests, a 0-warning solution build, and retained WinUI publish; 405 tracked `.artifacts/` files totaling 164,321,637 bytes and tracked root traces removed; live Support Hub readiness/capability ownership, raw-error/session-identity boundaries, SQL TLS disclosure, health/OpenAPI behavior, clean snapshot strategy, and open gates recorded. Claude Opus 5 R1 follow-up review passed. |
+| R1 | Complete — follow-up PASS | Claude Opus 5 R1 follow-up review confirmed closure of the corrected landing/collision audit, HTTP response semantics, repository cleanliness, and open evidence-gate treatment; owner authorization was then supplied for POS-M06. |
+| POS-M06 | Complete; merge-ready candidate | Final audit passed the preparation gates; Release build/test/publish, Angular unit/lint/build/backup-E2E, generated-output, memory, cleanliness, and diff checks passed. Representative-device, live-Agent, remote-reconciliation, and cross-project topology evidence remain explicitly open. |
+| R2 | Required before integration; no execution authorized | Claude Opus 5 R2 final pre-integration review of the POS-M06 candidate and all open evidence/cross-project decisions |
+| Repository merge | POS session merge complete; cross-project merge not authorized | The owner-authorized POS-M06 session branch was merged to POS `main`. RMS+ Support Hub remains untouched; no cross-project repository merge is authorized. |
 
 At successful POS-M06 completion, stop with:
 
 ```text
+POS-M06:
+COMPLETE
+
 POS PREPARATION:
 COMPLETE
 
@@ -882,6 +908,22 @@ RETAINED UNTIL CROSS-PROJECT DECISION
 REPOSITORY MERGE:
 NOT AUTHORIZED
 
+RMS+ SUPPORT HUB INTEGRATION:
+NOT AUTHORIZED
+
+CLAUDE OPUS 5 R2:
+REQUIRED BEFORE INTEGRATION
+
+ADR-012 LOCAL SYSTEM / SESSION 0 SMB:
+OPEN
+
+REMOTE TRIGGER RECONCILIATION / REMOTE IDEMPOTENCY:
+OPEN / UNVERIFIED
+
+SUPPORT HUB FINAL DEPLOYMENT / PROXY TOPOLOGY:
+OPEN
+
 NEXT:
-WAIT FOR RMS+ SUPPORT HUB SESSION 08 AND CROSS-PROJECT REVIEW
+CLAUDE OPUS 5 R2 FINAL PRE-INTEGRATION REVIEW,
+THEN OWNER-APPROVED CROSS-PROJECT INTEGRATION PLANNING
 ```

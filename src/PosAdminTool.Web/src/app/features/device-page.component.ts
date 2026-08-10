@@ -9,6 +9,6 @@ import { AgentApi, Capability, Connectivity, Identity } from '../core/agent-api.
 `, })
 export class DevicePageComponent implements OnInit {
   private readonly api = inject(AgentApi); protected readonly identity = signal<Identity | null>(null); protected readonly connectivity = signal<Connectivity | null>(null); protected readonly capability = signal<Capability | null>(null);
-  async ngOnInit(): Promise<void> { try { const [identity, connectivity, capability] = await Promise.all([this.api.get<Identity>('/device/identity'), this.api.get<Connectivity>('/device/connectivity'), this.api.get<Capability>('/device/capabilities')]); this.identity.set(identity); this.connectivity.set(connectivity); this.capability.set(capability); } catch { } }
+  async ngOnInit(): Promise<void> { try { const [identity, connectivity, capability] = await Promise.all([this.api.get<Identity>('/device/identity'), this.api.get<Connectivity>('/device/connectivity'), this.api.get<Capability>('/device/capabilities')]); this.identity.set(identity); this.connectivity.set(connectivity); this.capability.set(capability); } catch { /* Device diagnostics are best-effort. */ } }
   protected roots(value: Capability): string { return value.browseRoots.length ? value.browseRoots.map((root) => root.displayName).join(', ') : 'None configured'; }
 }

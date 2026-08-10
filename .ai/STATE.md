@@ -1,8 +1,8 @@
 # Current Project State
 
 - **Updated:** 2026-08-10
-- **Branch:** `main` after the verified POS-M05R corrective-closure merge
-- **Release or milestone:** .NET 10 + Angular 22 migration; Sessions 00-08 and POS-M01 through POS-M05R complete; standalone Angular expansion frozen; Claude Opus 5 R1 follow-up review required before POS-M06
+- **Branch:** `main` after the verified POS-M06 final-audit merge
+- **Release or milestone:** .NET 10 + Angular 22 migration; POS-M01 through POS-M06 complete; POS is a merge-ready candidate; standalone Angular expansion frozen; Claude Opus 5 R2 review required before integration
 
 ## Working State
 
@@ -63,8 +63,8 @@
 - The canonical preparation plan records the detailed project/file landing map, exact package and
   framework baselines, ownership/collision analysis, and explicit cross-project decisions; the
   recommended separate Windows POS Agent topology remains undecided.
-- POS-M05 was planning-only; `TASK.md` keeps POS-M06 blocked pending the R1 follow-up. POS-M06 was
-  not executed; RMS+ Support Hub integration remains unauthorized.
+- POS-M05 was planning-only; POS-M06 completed the final candidate audit with RMS+ Support Hub
+  integration still unauthorized.
 
 ## Verified POS-M05R R1 corrective closure
 
@@ -85,22 +85,19 @@
   (156.71 MiB); those files and tracked `host_trace.txt`/`trace.txt` were removed without history
   rewriting. Root ignore rules now prevent recurrence; clean source snapshot/import is preferred and
   raw history merge is prohibited.
-- The live Support Hub `main` advanced from the initial R1 head `36a0eaa4d42a7dc1c2cb92df4daadc35f7abe5f0`
-  to `4e56beb2d6a83694e937bf91ceb2c46153a7352f`; the readiness document and capability model were
-  re-read read-only at the current head. Its direct Core/Data/Api placement is superseded for
-  privileged POS execution; a separate Windows POS Agent remains recommended and final
-  proxy/origin/deployment topology remains a cross-project decision. Its raw exception envelope
-  and browser session cookie are not safe POS Problem Details or POS identity boundaries. The
-  Support Hub checkout has a pre-existing uncommitted order-request UI change and was not modified.
+- POS-M06 re-resolved the read-only Support Hub `main` at `2a4a38aba2113f30c5751eb7b1fbf8a6cb13a91b`;
+  its checkout was clean and synchronized. The readiness document remains `READY WITH FINDINGS`,
+  the `/tools/pos-maintenance` page is informational with no POS backend, separate Windows POS
+  Agent remains recommended, and final proxy/origin/deployment topology remains a cross-project decision.
 
 ## Active Programme
 
 - Canonical plan: `docs/POS_SUPPORT_HUB_MERGE_PREPARATION_PLAN.md`.
 - Canonical prompts: `docs/POS_SUPPORT_HUB_PREPARATION_SESSION_PROMPTS.md`.
-- `TASK.md` contains the complete POS-M06 final-candidate prompt with status
-  `BLOCKED - CLAUDE OPUS 5 R1 FOLLOW-UP REVIEW REQUIRED`; POS-M01 through POS-M05R are complete,
-  the R1 follow-up review is still required, and POS-M06 is not authorized.
-- Repository merge beyond the authorized session lifecycle, Angular integration, standalone installer cutover, and WinUI removal are not otherwise authorized.
+- `TASK.md` stages `CLAUDE OPUS 5 R2 FINAL PRE-INTEGRATION REVIEW` with `REVIEW REQUIRED / NO
+  EXECUTION AUTHORIZED`; POS-M06 is complete and its audit evidence is recorded in the canonical plan.
+- The POS-M06 session branch was merged to POS `main`; cross-project merge, Angular integration,
+  standalone installer cutover, and WinUI removal remain unauthorized.
 
 ## Known Risks and Gates
 
@@ -114,7 +111,6 @@
 - Remote trigger reconciliation/idempotency remains open: no independently verified remote
   job-status or idempotency contract exists, so an unknown trigger must be checked remotely before
   any operator-directed retry.
-- Claude Opus 5 R1 follow-up review must review the corrected POS-M05 landing/collision map, the
-  separate-Agent versus shared-host recommendation, package/route/error/security collisions,
-  conservative HTTP rejection semantics, and repository cleanup before any POS-M06 authorization.
+- Claude Opus 5 R2 must review the completed POS-M06 candidate and all open evidence/cross-project
+  decisions before any integration planning or execution.
 - WinUI remains retained until cross-project RMS+ Support Hub review and explicit owner-approved dedicated cutover.
