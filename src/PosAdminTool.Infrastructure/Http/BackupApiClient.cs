@@ -138,7 +138,11 @@ public sealed class BackupApiClient : IBackupApiClient
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    return Failed(DownloaderFailureCodes.TriggerFailed);
+                    // The POST has been dispatched, but the repository has no authoritative RMS
+                    // response contract proving that a non-success status is side-effect-free.
+                    // Status-code conventions alone cannot establish that the remote job was not
+                    // created, so preserve the truthful unknown outcome and stop the workflow.
+                    return Unknown();
                 }
 
                 if (response.Content.Headers.ContentLength is > 64 * 1024)

@@ -1,10 +1,10 @@
 # Current Task
 
 - **Task ID:** POS-M06
-- **Status:** BLOCKED — CLAUDE OPUS 5 REVIEW REQUIRED
+- **Status:** BLOCKED — CLAUDE OPUS 5 R1 FOLLOW-UP REVIEW REQUIRED
 - **Role:** Implement
 - **Source:** `docs/POS_SUPPORT_HUB_PREPARATION_SESSION_PROMPTS.md`
-- **Authorization:** Not granted. POS-M06 must not begin until Claude Opus 5 R1 review has completed and the owner explicitly authorizes continuation.
+- **Authorization:** Not granted. POS-M06 must not begin until the Claude Opus 5 R1 follow-up review confirms the corrective findings are closed and the owner explicitly authorizes continuation.
 
 ## Authorized Session Prompt
 

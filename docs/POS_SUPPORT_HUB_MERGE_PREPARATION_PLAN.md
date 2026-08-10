@@ -513,14 +513,17 @@ remote trigger reconciliation/idempotency capability remain unverified.
 
 ## 15. POS-M05 reviewed repository baselines and evidence
 
-POS-M05 is a documentation-only landing and collision audit. No POS source, generated Angular
-output, or Support Hub file was moved or modified. The audit was performed against the following
-exact `main` heads on 2026-08-10:
+POS-M05 was a documentation-only landing and collision audit. POS-M05R adds the corrective
+runtime, repository-cleanliness, and integration-contract closure recorded below. No POS source,
+generated Angular output, or Support Hub file was moved or modified. The initial R1 read-only
+review was at Support Hub `36a0eaa4d42a7dc1c2cb92df4daadc35f7abe5f0`; Support Hub `main` advanced
+before closure, so the live counterpart document and capability model were re-read at the current
+head below on 2026-08-10:
 
 | Repository | Remote | Local checkout | Exact reviewed `main` head | Review state |
 | --- | --- | --- | --- | --- |
 | POS maintenance tool | `Hossam1104/pos_maintainance_tool` | `D:\AI Tools\DBS\pos_maintainance_tool` | `810658467f77b0e2a37aa4a28a66ee3df6519933` | Clean and synchronized before the POS-M05 branch was created |
-| RMS+ Support Hub | `Hossam1104/Rms-Support-Hub` | `D:\AI Tools\DBS\Rms-Support-Hub` | `954b35698f5778386ad45826589f2a1ed7dff108` | Remote `main` verified at this SHA; local checkout was read-only at the same commit on `ui/online-orders-opus-redesign` with pre-existing uncommitted changes; no files changed by POS-M05 |
+| RMS+ Support Hub | `Hossam1104/Rms-Support-Hub` | `D:\AI Tools\DBS\Rms-Support-Hub` | `4e56beb2d6a83694e937bf91ceb2c46153a7352f` | Live remote `main` verified at this SHA; local checkout was at the same commit with a pre-existing uncommitted `frontend/src/app/features/order-requests/components/filter-bar.component.ts` change; read-only review only, no Support Hub files changed by POS-M05R |
 
 The Support Hub checkout is not the historical placeholder-only snapshot described by the early
 POS intake note. At the reviewed head it contains a real .NET 10 backend with
@@ -537,6 +540,16 @@ development origin, OpenAPI, Dapper-backed module repositories, and a configurab
 verification switch. Its frontend owns the shell, navigation, shared UI primitives, tokens,
 branding, and the POS placeholder route. These facts make a privileged POS Agent boundary a
 cross-project architecture decision rather than a safe file-copy operation.
+
+`docs/POS_MAINTENANCE_INTEGRATION_READINESS.md` is a live counterpart document at the current
+Support Hub `main`, not merely historical intake. It is valid as Support-Hub-side integration
+input. Its direct Core/Data/Api placement recommendations are superseded for privileged POS
+execution by the cross-project security review: a separate Windows POS Agent remains the
+recommended privileged topology, while the final proxy/origin/deployment arrangement needs a
+cross-project decision. The same readiness document records that the machine-local Agent is a
+new architecture decision, Support Hub currently has no Agent identity/authorization boundary,
+no generic execution surface is permitted, and POS must not silently widen the existing
+outbound TLS bypass.
 
 ## 16. RMS+ Support Hub ownership boundary and recommended topology
 
@@ -604,7 +617,7 @@ privilege, runtime state, configuration, generated output, UI ownership, or test
 | Current location | Intended landing / owner | Disposition | Namespace/deps/DI/config/security/test/generated/resource/build/migration notes |
 | --- | --- | --- | --- |
 | `src/PosAdminTool.Infrastructure/Configuration/**` | POS Windows infrastructure module | MOVE DURING MERGE | `ServiceOwnedDirectoryProvisioner`, JSON stores, migration/import, atomic writes, DPAPI secret store, and config service keep service-owned `%ProgramData%` paths, ACLs, and machine-scope secret separation. Register once in the POS host; no Support Hub `appsettings` or browser secret path may replace it. Preserve Infrastructure tests. |
-| `src/PosAdminTool.Infrastructure/Windows/SqlCmdExecutor.cs` | POS SQL adapter | MOVE DURING MERGE | Uses `Microsoft.Data.SqlClient` 6.1.6 and explicit `SqlConnection`/`SqlCommand` plans. Keep server-identity and fail-closed SQL inspection evidence; do not silently convert to Support Hub’s Dapper repository model. ADR-012 service-identity evidence remains open. |
+| `src/PosAdminTool.Infrastructure/Windows/SqlCmdExecutor.cs` | POS SQL adapter | MOVE DURING MERGE | Uses `Microsoft.Data.SqlClient` 6.1.6 and explicit `SqlConnection`/`SqlCommand` plans. Keep server-identity and fail-closed SQL inspection evidence; do not silently convert to Support Hub’s Dapper repository model. Existing `TrustServerCertificate = true` is a POS-owned SQL TLS decision requiring review before deployment to untrusted networks; it is not equivalent to the strict connection-bound HTTP trigger TLS boundary. ADR-012 service-identity evidence remains open. |
 | `src/PosAdminTool.Infrastructure/Windows/WindowsServiceManager.cs`, `AdminPrivilegeManager.cs`, `ConnectivityMonitor.cs` | POS Windows/SCM adapters | MOVE DURING MERGE | Windows-only process/service control, administrator checks, and connectivity belong behind Agent/WinUI DI. No current Support Hub Core/Data/API project has equivalent Windows target or privilege boundary. Preserve fake SCM tests and representative live-SCM gate. |
 | `src/PosAdminTool.Infrastructure/Smb/**` | POS SMB adapter | MOVE DURING MERGE | Preserve canonical roots, scoped `WNetAddConnection2`/`WNetCancelConnection2` ownership, safe filenames, connection disposal, partial cleanup, and Session 0 evidence requirements. Keep exact packages and Windows TFM; do not merge into general Support Hub Data. |
 | `src/PosAdminTool.Infrastructure/Http/**` | POS connection-bound HTTP adapter | MOVE DURING MERGE | Preserve endpoint policy, manual redirects, DNS/address validation at connection time, connection-bound sockets, timeout/cancellation, and stable repository failure codes. Do not substitute Support Hub’s `ApiClient` or its current `Outbound:VerifyTls=false` default without a security decision. |
@@ -617,7 +630,7 @@ privilege, runtime state, configuration, generated output, UI ownership, or test
 | `src/PosAdminTool.Contracts/V1/Common/**` | Isolated POS API contract namespace | KEEP WITH RENAME | Keep `ErrorCodes`, `ProblemDetailsExtensionKeys`, `FreshnessState`, paging, evidence, camelCase/string-enum, and RFC Problem Details rules. Avoid collision with Support Hub’s existing error envelope and flat DTO namespaces. Contract serialization/shape tests remain mandatory. |
 | `src/PosAdminTool.Contracts/V1/Operations/**`, `Activity/**`, `Artifacts/**`, `Session/**` | POS Agent protocol contract area | KEEP WITH RENAME | Preserve bounded operation state, event/activity/artifact IDs, session/antiforgery DTOs, correlation and redaction rules. Artifact IDs and opaque file handles remain principal/purpose scoped; no host paths or secrets. |
 | `src/PosAdminTool.Contracts/V1/Backups/**`, `Restore/**`, `Maintenance/**`, `Downloader/**`, `Files/**`, `Services/**`, `Configuration/**`, `Device/**` | POS capability contract modules | KEEP WITH RENAME | Keep stable logical request shapes and outcome states. Route prefix/version and error-envelope adaptation are cross-project decisions; generated output must be regenerated from the approved destination contract. |
-| `src/PosAdminTool.Agent/Program.cs` | Separate POS Agent composition root, or explicitly approved shared host | NEEDS CROSS-PROJECT DECISION | Current POS root configures loopback Kestrel, Negotiate/local-admin policy, antiforgery, CSP/correlation, OpenAPI, static fallback, all POS DI, workers, and service-safe content root. Current Support Hub `Program.cs` has different middleware, CORS, TLS, and service registration. Do not combine roots in M05. |
+| `src/PosAdminTool.Agent/Program.cs` | Separate POS Agent composition root, or explicitly approved shared host | NEEDS CROSS-PROJECT DECISION | Current POS root configures loopback Kestrel, Negotiate/local-admin policy, antiforgery, CSP/correlation, OpenAPI, static fallback, all POS DI, workers, and service-safe content root. Runtime OpenAPI is mapped only in Development after POS-M05R; build-time `Microsoft.Extensions.ApiDescription.Server` generation remains enabled for the Angular client flow. `/health/live` and `/health/ready` remain unauthenticated loopback liveness/readiness probes with only fixed status values (`live`/`ready`); they do not expose environment, service names, paths, credentials, or privileged state. Current Support Hub `Program.cs` has different middleware, CORS, TLS, and service registration. Do not combine roots in M05. |
 | `src/PosAdminTool.Agent/Authorization/**`, `Antiforgery/**`, `Correlation/**` | POS Agent security boundary | ADAPT DURING MERGE | Preserve local Administrators authorization, same-origin/loopback assumptions, mutation antiforgery, correlation headers, CSP, and safe Problem Details. Support Hub currently has no equivalent Negotiate/antiforgery setup; security must be additive and reviewed. |
 | `src/PosAdminTool.Agent/Operations/**` | One POS operation engine in the approved host | ADAPT DURING MERGE | `OperationRegistry`, worker/work items, `ResourceLockSet`, retention, principal-scoped idempotency, cancellation, event state, and sanitized messages must have a single DI owner. Do not duplicate it beside Support Hub draft state or introduce SQLite/SignalR. |
 | `src/PosAdminTool.Agent/Endpoints/**` | POS endpoint module or separate Agent controllers | ADAPT DURING MERGE | Preserve endpoint-specific auth/antiforgery and `/api/v1` contracts for compatibility until route review. Reconcile Support Hub controller namespace, `/api/modules/**` topology, exception envelope, middleware order, CORS, and OpenAPI ownership. |
@@ -632,12 +645,52 @@ privilege, runtime state, configuration, generated output, UI ownership, or test
 | `src/PosAdminTool.Web/src/app/app.*`, `routes.ts`, `core/**`, `shared/**`, `styles.scss` | Support Hub `frontend/src/app` shell/shared ownership | DO NOT COPY - SUPPORT HUB ALREADY OWNS IT | Support Hub’s Angular route topology, tool registry/model, shared UI, tokens, typography, motion, assets, and error/interceptor conventions are authoritative. POS `app.config`, shell DI, visual system, and global styles are reference only. |
 | `src/PosAdminTool.Web/src/app/core/agent-api.service.ts` | Support Hub POS transport adapter after API decision | REFERENCE ONLY | POS CSRF bootstrap, `/api/v1`, SSE, artifact URLs, and Problem Details behavior inform the adapter. Browser auth, same-origin/CORS, route prefix, local Agent origin, and error-envelope mapping must be approved before implementation. |
 | `src/PosAdminTool.Web/src/app/features/**` | Support Hub POS feature area after UX/contract review | REFERENCE ONLY | Device, settings, services, backups, and placeholder behavior provide capability acceptance evidence. Do not duplicate POS global navigation, cards, fonts, icons, or feature backlog; Support Hub owns the final integrated components and tests. |
+| `frontend/src/app/core/models/pos-capability.model.ts` (Support Hub) | Support Hub frontend capability metadata | DO NOT COPY - SUPPORT HUB ALREADY OWNS IT | The existing `diagnostics`, `backup-restore`, `configuration`, `windows-services`, and `environment-connectivity` categories are useful destination-side planning metadata. They do not replace POS backend contracts, authorization, operation, audit, or privileged execution boundaries. |
 | `src/PosAdminTool.Web/openapi/**`, `src/PosAdminTool.Web/src/app/core/api/generated/**` | Destination-generated API output only | REFERENCE ONLY | These paths are generated/ignored and must not be hand-edited or copied. Regenerate only after the final Agent/API composition and route contract are approved. |
 | `src/PosAdminTool.Web/package.json`, `package-lock.json`, `angular.json`, `tsconfig*.json`, scripts, e2e specs | Support Hub frontend toolchain; POS reference for capability tests | REFERENCE ONLY | POS pins Angular 22.0.8/CDK 22.0.6, npm 12.0.1, Node 24.18, TypeScript 6.0.3, and its own fonts/test tooling. Support Hub owns its package manifest/lock and Angular workspace; do not merge dependency sets in M05. |
 | `src/PosAdminTool.WinUI/**`, `src/PosAdminTool.WinUI/PosAdminTool.WinUI.csproj`, `run_app.cmd` | Retained POS desktop boundary | KEEP AS-IS | Keep Windows App SDK resources, XAML, manifest, view models, service/configuration/log/operation screens, assets, and x64 publish workaround. No browser or Support Hub dependency is introduced; removal is a future dedicated decision. |
+| `README.md`, `MIGRATION_GUIDE.md` | POS repository documentation/reference | REFERENCE ONLY | These root documents may explain POS history or usage, but they must not silently become authoritative RMS+ Support Hub documentation after integration. Use the canonical preparation plan and approved cross-project ADRs for future integration decisions. |
+| `.artifacts/` | None; generated publish output | RETIRE LATER | POS-M05R removed 405 tracked historical publish artifacts totaling 164,321,637 bytes (156.71 MiB) from the current tree. Do not copy generated output; preserve only textual evidence/state. Historical commits may still contain old build artifacts. |
+| `host_trace.txt`, `trace.txt` | None; runtime/debug output | RETIRE LATER | POS-M05R removed these tracked root debug leftovers and added narrow root ignore rules. Do not copy traces or logs; remove any recurrence before integration. |
 | `tests/PosAdminTool.Domain.Tests/**`, `Application.Tests/**`, `Infrastructure.Tests/**` | POS module-owned unit/safety tests | ADAPT DURING MERGE | Preserve fake SQL/filesystem/SCM/SMB/crypto/configuration coverage, exact package versions, deterministic TimeProvider behavior, and fake/temp-only boundaries. Align namespaces and shared fixture ownership only after project layout is approved. |
 | `tests/PosAdminTool.Agent.IntegrationTests/**` | POS Agent/shared-host integration test boundary | NEEDS CROSS-PROJECT DECISION | Preserve WebApplicationFactory, auth, contract shape/serialization, endpoint, worker, operation, SSE, artifact, audit, and security coverage. Current Support Hub one-test-project topology is not evidence that these boundaries can be flattened safely. |
 | POS `.ai/**`, `docs/POS_SUPPORT_HUB_MERGE_PREPARATION_PLAN.md`, `docs/POS_SUPPORT_HUB_PREPARATION_SESSION_PROMPTS.md`, ADRs | POS programme records; selected references in future shared docs | KEEP AS-IS | Update current state/history/active task as memory, not source. Keep ADR-012 and the remote-trigger evidence gates visible. Do not copy raw logs, prompts outside the canonical runbook, or full diffs. |
+
+### 18.5 POS-M05R R1 corrections and explicit dispositions
+
+The current live Support Hub document and source were read read-only at Support Hub `main`
+`4e56beb2d6a83694e937bf91ceb2c46153a7352f` after the live branch advanced from the initial R1
+head `36a0eaa4d42a7dc1c2cb92df4daadc35f7abe5f0`. The canonical cross-project disposition is:
+
+- **Support Hub readiness document:** `VALID AS SUPPORT-HUB-SIDE INTEGRATION INPUT`.
+- **Its direct Core/Data/Api placement recommendations:** `SUPERSEDED FOR PRIVILEGED POS EXECUTION BY CROSS-PROJECT SECURITY REVIEW`.
+- **Final privileged topology:** `SEPARATE WINDOWS POS AGENT RECOMMENDED`.
+- **Final proxy/origin/deployment arrangement:** `NEEDS CROSS-PROJECT DECISION`.
+
+The Support Hub readiness document's capability model at
+`frontend/src/app/core/models/pos-capability.model.ts` is Support-Hub-owned. Its current
+diagnostics, backup/restore, configuration, Windows-services, and environment/connectivity
+categories are useful destination-side planning metadata, but they do not replace POS backend
+contracts, Windows identity, authorization, operation state, artifact ownership, audit, or
+privileged execution.
+
+The following cross-project findings are explicit integration constraints:
+
+| Finding | Disposition |
+| --- | --- |
+| Support Hub raw exception envelope | The current `backend/src/RmsSupportHub.Api/Middleware/ExceptionMiddleware.cs` sends `ex.Message` in an unhandled HTTP 500 envelope. It must not wrap privileged POS Agent endpoints unchanged. Any future proxy/shared boundary must preserve safe Problem Details, stable POS error codes, correlation ID, redaction, and no raw exception text. |
+| Support Hub session cookie | `SessionIdMiddleware` issues the general browser `oot_sid` draft/session cookie. It is not a POS identity and must never substitute for the Windows principal, principal-scoped idempotency, artifact ownership, file-handle ownership, or destructive audit identity. POS identity remains Windows/principal-owned unless a future reviewed architecture provides an equivalent stronger contract. |
+| POS SQL TLS | `TrustServerCertificate = true` in `SqlCmdExecutor` is an `EXISTING POS-OWNED SECURITY DECISION / REVIEW REQUIRED BEFORE DEPLOYMENT TO UNTRUSTED NETWORKS`. It is documentation-only in POS-M05R and is not equivalent to strict certificate validation on the connection-bound POS HTTP trigger path. |
+| Runtime OpenAPI | POS runtime OpenAPI is Development-only after POS-M05R. `Microsoft.Extensions.ApiDescription.Server` and `OpenApiGenerateDocumentsOnBuild` remain the build-time generation path; generated Angular/OpenAPI files remain derived outputs and are not hand-edited or copied. |
+| Health endpoints | `/health/live` and `/health/ready` remain unauthenticated because they are simple loopback liveness/readiness probes. Their fixed status-only output is intentionally non-privileged and must not grow to include environment, service names, paths, credentials, or privileged state. |
+
+The preferred integration strategy is a clean source snapshot/import after architecture freeze. The
+future import must exclude `.artifacts/`, `bin/`, `obj/`, Angular `dist/`, `node_modules/`,
+generated OpenAPI/client output, traces/logs, the historical standalone Angular shell, historical
+execution prompts, local secrets/configuration, and temporary uploads/downloads. Historical commits
+may still contain old build artifacts. Therefore raw Git-history merging into RMS+ Support Hub is
+not authorized; the original POS repository remains read-only historical evidence and important
+POS SHAs should be referenced from a future approved integration ADR.
 
 ## 19. Namespace, route, contract, and error compatibility
 
@@ -662,11 +715,14 @@ The current route topologies are materially different:
 
 POS contract invariants that must survive any later adaptation are stable versioning, logical IDs
 instead of host paths, no browser secrets, principal-scoped idempotency, bounded operation state,
-explicit downloader trigger state, correlation/error codes, and sanitized audit evidence. The
-current adapter’s treatment of a received non-success HTTP response as definitive `Failed` remains
-an explicit Opus R1 question: confirm from the remote API contract whether every non-success means
-the remote job was not created, or whether some 5xx/ambiguous responses require `OutcomeUnknown`.
-No runtime change is made by POS-M05.
+explicit downloader trigger state, correlation/error codes, and sanitized audit evidence. POS-M05R
+corrects the trigger boundary conservatively: after dispatch, every received non-success HTTP
+response is `OutcomeUnknown` with `downloader.trigger_outcome_unknown` because no authoritative
+remote response contract proves that a status code is side-effect-free. A successful 2xx remains
+`Accepted`; pre-dispatch validation, cancellation, endpoint-policy/SSRF rejection, and a first
+connection rejection before HTTP bytes are sent remain `NotAttempted`. Unknown is terminal, does
+not retry, discover SMB output, or publish artifacts, and requires the operator to check remote
+backup state before retrying. No local Agent idempotency claim is a remote idempotency contract.
 
 ## 20. Exact dependency, framework, and build collision map
 
@@ -741,7 +797,7 @@ centralize, or regenerate dependencies.
 | --- | --- |
 | ADR-012 LocalSystem / Session 0 SMB | OPEN. A representative isolated Windows device/server must prove managed-root behavior, `WNetAddConnection2`, SMB enumeration, newest-batch discovery, ZIP read/download, cancellation/timeout cleanup, and scoped disconnect under the proposed service identity. Fake tests do not close this gate. |
 | Remote trigger reconciliation/idempotency | OPEN / UNVERIFIED. No verified remote job-status, reconciliation, or remote idempotency contract exists. Local Agent idempotency is not remote idempotency; `OutcomeUnknown` is a real post-dispatch state and operator-directed retry requires remote evidence. |
-| HTTP rejection semantics | OPEN FOR CLAUDE OPUS 5 R1. Confirm whether every received non-success response means the remote job was not created, or whether 5xx/ambiguous responses must map to `OutcomeUnknown`. Runtime code is unchanged in M05. |
+| HTTP rejection semantics | CORRECTIONS IMPLEMENTED — FOLLOW-UP REVIEW REQUIRED. No authoritative remote response contract was found. Every received non-success response after dispatch now maps to terminal `OutcomeUnknown` with `downloader.trigger_outcome_unknown`; 2xx remains `Accepted`, pre-dispatch rejection remains `NotAttempted`, and no automatic retry/SMB/artifact path follows unknown. Remote reconciliation/idempotency remains `OPEN / UNVERIFIED`. |
 | Live Agent operational evidence | OPEN. Live loopback, Windows Negotiate/local-admin, antiforgery, SSE, and browser evidence remain unavailable in the preparation environment. |
 | SQL/SCM/restore/maintenance/downloader reality | OPEN. Existing evidence is fake/temp/disposable-only; no real destructive SQL, service, SMB, endpoint, or production operation was executed. |
 | Support Hub integration topology | OPEN. Separate Agent versus shared host/proxy, deployment/service identity, API route/transport, browser auth/CORS/HTTPS, configuration, and audit ownership are not approved. |
@@ -802,10 +858,11 @@ Support Hub frontend integration.
 | POS-M04R | Complete; owner-authorized corrective closure | Connection-bound trigger SSRF policy, explicit post-trigger outcome truth, stable repository failure boundary, five Infrastructure transport tests, one Application lifecycle test, four real Agent worker tests, 257 Release .NET tests, zero-warning solution build, and retained WinUI publish passed; no real endpoint/SMB/Session 0 evidence |
 | POS-M04R2 | Complete; owner-authorized corrective closure | Explicit pre/post-dispatch trigger truth with `OutcomeUnknown`, safe terminal/no-SMB/no-retry behavior, browser/audit state and guidance, six focused new tests, 263 Release .NET tests, zero-warning solution build, and retained WinUI publish passed; ADR-012 and remote reconciliation/idempotency gates remain open |
 | POS-M05 | Complete; owner-authorized | Exact POS/Support Hub baseline review, actual Support Hub structure inspection, project/file landing map, namespace/dependency/DI/config/security/test/generated/resource/build collision audit, residual gates, and cross-project decision list recorded. Claude Opus 5 R1 review is required. |
-| R1 | Required after POS-M05 | Claude Opus 5 review of the landing/collision audit, including HTTP rejection semantics and all open evidence gates |
-| POS-M06 | Blocked; not authorized | Do not execute until R1 completes and the owner explicitly authorizes continuation |
+| POS-M05R | Complete; owner-authorized corrective closure | R1 safety, repository-cleanliness, and integration-contract corrections: post-dispatch non-success HTTP responses are terminal `OutcomeUnknown`; focused Infrastructure/Worker/OpenAPI tests added; full Release validation passed 277 .NET tests, a 0-warning solution build, and retained WinUI publish; 405 tracked `.artifacts/` files totaling 164,321,637 bytes and tracked root traces removed; live Support Hub readiness/capability ownership, raw-error/session-identity boundaries, SQL TLS disclosure, health/OpenAPI behavior, clean snapshot strategy, and open gates recorded. Claude Opus 5 follow-up review remains required. |
+| R1 | Corrections implemented — follow-up review required | Claude Opus 5 follow-up review of the corrected landing/collision audit, HTTP response semantics, repository cleanliness, and all open evidence gates |
+| POS-M06 | Blocked; Claude Opus 5 R1 follow-up review required; authorization not granted | Do not execute until the R1 follow-up review confirms closure and the owner explicitly authorizes continuation |
 | R2 | Scheduled after POS-M06 | Claude Opus 5 review before any integration authorization |
-| Repository merge | Not authorized | This task only merged the POS-M05 documentation/session branch into POS `main`; RMS+ Support Hub remains untouched and no cross-project merge is authorized |
+| Repository merge | POS session merge authorized; cross-project merge not authorized | POS-M05R may merge its corrective session branch into POS `main` under the authorized session workflow. RMS+ Support Hub remains untouched; no cross-project repository merge is authorized. |
 
 At successful POS-M06 completion, stop with:
 

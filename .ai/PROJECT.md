@@ -35,20 +35,35 @@ Read this file only when the task requires stable, non-obvious project knowledge
   roots, scoped connection ownership, safe filenames, and partial file cleanup. Application
   downloader execution exposes explicit `NotAttempted`, `Failed`, `Accepted`, and
   `OutcomeUnknown` trigger states and stable failure codes. A post-dispatch unknown trigger is a
-  safe terminal outcome with no automatic retry or SMB discovery; `TriggerAccepted` is only a
-  derived compatibility projection. Downloader operation and audit evidence is logical,
-  path/credential-free, and includes sanitized unknown-outcome guidance.
+  safe terminal outcome with no automatic retry or SMB discovery; every received non-success HTTP
+  response after dispatch is conservatively `OutcomeUnknown` because no authoritative remote
+  response contract proves a status is side-effect-free. `TriggerAccepted` is only a derived
+  compatibility projection. Downloader operation and audit evidence is logical, path/credential-
+  free, and includes sanitized unknown-outcome guidance.
+- Agent runtime OpenAPI is mapped only in Development; build-time OpenAPI document generation
+  remains enabled for the generated Angular-client flow. `/health/live` and `/health/ready` are
+  unauthenticated fixed status-only loopback probes and must not expose environment, service
+  names, paths, credentials, or privileged state.
 - Agent restart intentionally loses in-flight jobs and file handles. Do not add SQLite, SignalR, PWA/service-worker behavior, IndexedDB, or queued browser mutations.
 - Keep WinUI buildable/runnable until the cross-project RMS+ Support Hub review and explicit owner-approved dedicated cutover. Its removal must be a dedicated change.
 
 ## Support Hub merge-preparation baseline
 
 - The reviewed RMS+ Support Hub `main` baseline for POS preparation is
-  `954b35698f5778386ad45826589f2a1ed7dff108`. Its backend is a portable .NET 10
+  `4e56beb2d6a83694e937bf91ceb2c46153a7352f` (the initial R1 read was at
+  `36a0eaa4d42a7dc1c2cb92df4daadc35f7abe5f0`). Its backend is a portable .NET 10
   `RmsSupportHub.Core -> RmsSupportHub.Data -> RmsSupportHub.Api` solution with Dapper-backed
   module repositories, one backend test project, and an Angular 22 frontend that owns the final
   shell, navigation, shared UI, branding, and the informational `/tools/pos-maintenance`
   placeholder. It does not currently contain a POS Agent or equivalent Windows security boundary.
+- The live Support Hub readiness document is valid as Support-Hub-side integration input, but its
+  direct Core/Data/Api placement recommendations are superseded for privileged POS execution by
+  the cross-project security review. A separate Windows POS Agent remains recommended; the final
+  proxy/origin/deployment topology needs a cross-project decision. Support Hub's capability model
+  is Support-Hub-owned planning metadata, not a substitute for POS backend contracts. Its current
+  generic exception middleware exposes raw `ex.Message` in unhandled 500 responses, and its
+  browser session cookie is not POS identity; neither may be carried unchanged into a privileged
+  POS boundary.
 - The POS preparation baseline is `810658467f77b0e2a37aa4a28a66ee3df6519933`. Any future
   cross-project implementation must preserve an isolated Windows POS privileged boundary,
   explicit route/error/auth compatibility, POS audit/idempotency/resource ownership, exact package
@@ -88,6 +103,9 @@ Read this file only when the task requires stable, non-obvious project knowledge
 
 - Exact NuGet/npm versions and lockfiles are intentional; C# stays at 13 until ADR-0013 is changed.
 - `src/PosAdminTool.Web/openapi/` and `src/PosAdminTool.Web/src/app/core/api/generated/` are generated and ignored; change contracts/endpoints, then regenerate.
+- Root `.artifacts/`, `host_trace.txt`, and `trace.txt` are generated/debug output and are ignored;
+  they are not integration sources. Historical commits may still contain old build artifacts, so
+  raw Git-history merging into RMS+ Support Hub is not authorized.
 - Angular/OpenAPI CI uses Windows because the Agent has a Windows TFM. Published branch devices need neither Node nor npm.
 - WinUI unpackaged resources are staged correctly only by publish; its project contains a required Windows App SDK XAML-resource copy workaround.
 - UI status must distinguish fresh, stale, unknown, Agent-unreachable, and RMS-server-unreachable states with evidence and timestamps, not colour alone.

@@ -38,6 +38,32 @@ public sealed class DownloaderSecurityTests
         Assert.Equal(1, handler.RequestCount);
     }
 
+    [Theory]
+    [InlineData(HttpStatusCode.BadRequest)]
+    [InlineData(HttpStatusCode.Unauthorized)]
+    [InlineData(HttpStatusCode.Forbidden)]
+    [InlineData(HttpStatusCode.RequestTimeout)]
+    [InlineData(HttpStatusCode.Conflict)]
+    [InlineData(HttpStatusCode.UnprocessableEntity)]
+    [InlineData(HttpStatusCode.TooManyRequests)]
+    [InlineData(HttpStatusCode.InternalServerError)]
+    [InlineData(HttpStatusCode.BadGateway)]
+    [InlineData(HttpStatusCode.ServiceUnavailable)]
+    [InlineData(HttpStatusCode.GatewayTimeout)]
+    public async Task NonSuccessResponseAfterDispatch_IsOutcomeUnknownWithoutRemoteContract(HttpStatusCode statusCode)
+    {
+        var handler = new CountingHandler(statusCode);
+        var client = new BackupApiClient(
+            new HttpClient(handler),
+            new FixedResolver(IPAddress.Parse("198.51.100.10")));
+
+        var result = await client.TriggerBackupAsync("https://198.51.100.10/trigger", ["B01"]);
+
+        Assert.Equal(DownloaderTriggerState.OutcomeUnknown, result.State);
+        Assert.Equal(DownloaderFailureCodes.TriggerOutcomeUnknown, result.FailureCode);
+        Assert.Equal(1, handler.RequestCount);
+    }
+
     [Fact]
     public async Task HostnameResolvingToPrivateSpace_IsRejectedToPreventDnsSsrfBypass()
     {

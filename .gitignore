@@ -1,5 +1,8 @@
 bin/
 obj/
 artifacts/
+/.artifacts/
+/host_trace.txt
+/trace.txt
 *.user
 .vs/

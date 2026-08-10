@@ -23,6 +23,17 @@ public sealed class AgentWebApplicationFactory : WebApplicationFactory<Program>
 {
     public const string DefaultBrowseRootId = "test-root";
     private const string IndexMarker = "pos-admin-tool-agent-integration-test-shell";
+    private readonly string _environment;
+
+    public AgentWebApplicationFactory()
+        : this("Development")
+    {
+    }
+
+    internal AgentWebApplicationFactory(string environment)
+    {
+        _environment = environment;
+    }
 
     public string FakeWebRootPath { get; } =
         Directory.CreateTempSubdirectory("pos-admin-agent-wwwroot-").FullName;
@@ -51,7 +62,7 @@ public sealed class AgentWebApplicationFactory : WebApplicationFactory<Program>
             Path.Combine(FakeWebRootPath, "index.html"),
             $"<!doctype html><html><body>{IndexMarker}</body></html>");
 
-        builder.UseEnvironment("Development");
+        builder.UseEnvironment(_environment);
         builder.UseWebRoot(FakeWebRootPath);
         builder.UseSetting("Testing:DisableNegotiate", "true");
 

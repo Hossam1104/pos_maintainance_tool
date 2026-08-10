@@ -204,7 +204,10 @@ app.UseAuthorization();
 app.MapGet("/health/live", () => Results.Ok(new { status = "live" })).WithName("GetHealthLive");
 app.MapGet("/health/ready", () => Results.Ok(new { status = "ready" })).WithName("GetHealthReady");
 
-app.MapOpenApi();
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+}
 
 var api = app.MapGroup("/api/v1");
 api.MapSessionEndpoints();

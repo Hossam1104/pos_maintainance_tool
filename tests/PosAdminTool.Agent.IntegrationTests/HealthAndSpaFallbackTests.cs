@@ -32,6 +32,33 @@ public class HealthAndSpaFallbackTests : IClassFixture<AgentWebApplicationFactor
     }
 
     [Fact]
+    public async Task Development_ExposesRuntimeOpenApiDocument()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/openapi/v1.json");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
+        Assert.Contains("\"openapi\"", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Production_DoesNotExposeRuntimeOpenApiDocument()
+    {
+        using var productionFactory = new AgentWebApplicationFactory("Production");
+        var client = productionFactory.CreateClient();
+
+        var response = await client.GetAsync("/openapi/v1.json");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.NotEqual("application/json", response.Content.Headers.ContentType?.MediaType);
+        Assert.DoesNotContain("\"openapi\"", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task RootRequest_ServesIndexHtml()
     {
         var client = _factory.CreateClient();

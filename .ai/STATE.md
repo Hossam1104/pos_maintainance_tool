@@ -1,8 +1,8 @@
 # Current Project State
 
 - **Updated:** 2026-08-10
-- **Branch:** `main` after the verified POS-M05 landing/collision audit merge
-- **Release or milestone:** .NET 10 + Angular 22 migration; Sessions 00-08 and POS-M01 through POS-M05 complete; standalone Angular expansion frozen; Claude Opus 5 R1 required before POS-M06
+- **Branch:** `main` after the verified POS-M05R corrective-closure merge
+- **Release or milestone:** .NET 10 + Angular 22 migration; Sessions 00-08 and POS-M01 through POS-M05R complete; standalone Angular expansion frozen; Claude Opus 5 R1 follow-up review required before POS-M06
 
 ## Working State
 
@@ -60,23 +60,47 @@
   project, and an Angular 22 frontend whose final shell/shared UI/branding owns the live
   `/tools/pos-maintenance` informational placeholder. It has no POS Agent or equivalent Windows
   Negotiate/local-admin/antiforgery/loopback boundary.
-- The canonical preparation plan now records a detailed project/file landing map with exact POS
-  and Support Hub package/framework baselines, namespace/route/error compatibility, DI/config/
-  security/audit/resource/test/generated/build ownership, concrete collisions, and explicit
-  cross-project decisions. The recommended separate Windows POS Agent topology remains undecided.
-- POS-M05 is complete as planning/governance only. `TASK.md` now contains POS-M06 as
-  `BLOCKED - CLAUDE OPUS 5 REVIEW REQUIRED`; POS-M06 was not executed and RMS+ Support Hub
-  integration remains unauthorized.
+- The canonical preparation plan records the detailed project/file landing map, exact package and
+  framework baselines, ownership/collision analysis, and explicit cross-project decisions; the
+  recommended separate Windows POS Agent topology remains undecided.
+- POS-M05 was planning-only; `TASK.md` keeps POS-M06 blocked pending the R1 follow-up. POS-M06 was
+  not executed; RMS+ Support Hub integration remains unauthorized.
+
+## Verified POS-M05R R1 corrective closure
+
+- Post-dispatch HTTP response truth is conservative: without an authoritative remote RMS response
+  contract, every non-success response from `BackupApiClient` maps to terminal `OutcomeUnknown`
+  with `downloader.trigger_outcome_unknown`; 2xx remains `Accepted`, and pre-dispatch validation,
+  cancellation, endpoint-policy/SSRF rejection, and connection rejection before HTTP bytes remain
+  `NotAttempted`. Unknown does not retry, enter SMB discovery, or publish artifacts and carries
+  safe guidance to check remote state before retrying.
+- Focused Infrastructure coverage includes 400, 401, 403, 408, 409, 422, 429, 500, 502, 503, and
+  504, positive 2xx, pre-dispatch SSRF, cancellation, and transport truth. A Worker-path test
+  drives the real `BackupApiClient` through a disposable HTTP response handler and proves unknown
+  REST/audit state, no SMB discovery/artifact, and response/body/URL/IP/socket/exception redaction.
+- Agent runtime OpenAPI is Development-only while build-time `Microsoft.Extensions.ApiDescription.Server`
+  generation remains enabled; health endpoints stay fixed status-only loopback probes. Focused Agent
+  tests cover Development availability and Production non-exposure.
+- The measured snapshot contained 405 tracked `.artifacts/` entries totaling 164,321,637 bytes
+  (156.71 MiB); those files and tracked `host_trace.txt`/`trace.txt` were removed without history
+  rewriting. Root ignore rules now prevent recurrence; clean source snapshot/import is preferred and
+  raw history merge is prohibited.
+- The live Support Hub `main` advanced from the initial R1 head `36a0eaa4d42a7dc1c2cb92df4daadc35f7abe5f0`
+  to `4e56beb2d6a83694e937bf91ceb2c46153a7352f`; the readiness document and capability model were
+  re-read read-only at the current head. Its direct Core/Data/Api placement is superseded for
+  privileged POS execution; a separate Windows POS Agent remains recommended and final
+  proxy/origin/deployment topology remains a cross-project decision. Its raw exception envelope
+  and browser session cookie are not safe POS Problem Details or POS identity boundaries. The
+  Support Hub checkout has a pre-existing uncommitted order-request UI change and was not modified.
 
 ## Active Programme
 
 - Canonical plan: `docs/POS_SUPPORT_HUB_MERGE_PREPARATION_PLAN.md`.
 - Canonical prompts: `docs/POS_SUPPORT_HUB_PREPARATION_SESSION_PROMPTS.md`.
 - `TASK.md` contains the complete POS-M06 final-candidate prompt with status
-  `BLOCKED - CLAUDE OPUS 5 REVIEW REQUIRED`; POS-M01 through POS-M05 are complete, POS-M05
-  requires the Claude Opus 5 R1 review outcome, and POS-M06 is not authorized.
-- Repository merge beyond the authorized session lifecycle, Angular integration, standalone
-  installer cutover, and WinUI removal are not otherwise authorized.
+  `BLOCKED - CLAUDE OPUS 5 R1 FOLLOW-UP REVIEW REQUIRED`; POS-M01 through POS-M05R are complete,
+  the R1 follow-up review is still required, and POS-M06 is not authorized.
+- Repository merge beyond the authorized session lifecycle, Angular integration, standalone installer cutover, and WinUI removal are not otherwise authorized.
 
 ## Known Risks and Gates
 
@@ -90,7 +114,7 @@
 - Remote trigger reconciliation/idempotency remains open: no independently verified remote
   job-status or idempotency contract exists, so an unknown trigger must be checked remotely before
   any operator-directed retry.
-- Claude Opus 5 R1 must review the POS-M05 landing/collision map, the separate-Agent versus shared-
-  host recommendation, package/route/error/security collisions, and the open HTTP rejection
-  semantics question before any POS-M06 authorization.
+- Claude Opus 5 R1 follow-up review must review the corrected POS-M05 landing/collision map, the
+  separate-Agent versus shared-host recommendation, package/route/error/security collisions,
+  conservative HTTP rejection semantics, and repository cleanup before any POS-M06 authorization.
 - WinUI remains retained until cross-project RMS+ Support Hub review and explicit owner-approved dedicated cutover.

@@ -1,6 +1,10 @@
+using System.Net;
+using System.Net.Http;
+using System.Text;
 using PosAdminTool.Domain.Exceptions;
 using PosAdminTool.Domain.Interfaces;
 using PosAdminTool.Domain.Models;
+using PosAdminTool.Infrastructure.Http;
 
 namespace PosAdminTool.Agent.IntegrationTests.TestSupport;
 
@@ -10,23 +14,73 @@ public sealed class FakeDownloaderApiClient : IBackupApiClient
 
     public DownloaderTriggerResult? TriggerResult { get; set; }
 
+    // Optional disposable HTTP mode used by the worker regression to exercise the real
+    // BackupApiClient dispatch/response boundary without contacting a remote endpoint.
+    public HttpStatusCode? RemoteResponseStatus { get; set; }
+
+    public string? RemoteResponseBody { get; set; }
+
+    public int RemoteRequestCount { get; private set; }
+
     public int TriggerCalls { get; private set; }
 
-    public Task<DownloaderTriggerResult> TriggerBackupAsync(
+    public async Task<DownloaderTriggerResult> TriggerBackupAsync(
         string apiUrl,
         IReadOnlyList<string> branchCodes,
         CancellationToken cancellationToken = default)
     {
         TriggerCalls++;
         if (TriggerFailure is not null) throw TriggerFailure;
-        return Task.FromResult(TriggerResult ?? new DownloaderTriggerResult(DownloaderTriggerState.Accepted));
+
+        if (RemoteResponseStatus is { } statusCode)
+        {
+            using var httpClient = new HttpClient(new FixedResponseHandler(
+                statusCode,
+                RemoteResponseBody,
+                () => RemoteRequestCount++));
+            var backupApiClient = new BackupApiClient(
+                httpClient,
+                new FixedHostAddressResolver(IPAddress.Parse("198.51.100.10")));
+            return await backupApiClient.TriggerBackupAsync(apiUrl, branchCodes, cancellationToken);
+        }
+
+        return TriggerResult ?? new DownloaderTriggerResult(DownloaderTriggerState.Accepted);
     }
 
     public void Reset()
     {
         TriggerFailure = null;
         TriggerResult = null;
+        RemoteResponseStatus = null;
+        RemoteResponseBody = null;
         TriggerCalls = 0;
+        RemoteRequestCount = 0;
+    }
+
+    private sealed class FixedResponseHandler(
+        HttpStatusCode statusCode,
+        string? responseBody,
+        Action onRequest) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            onRequest();
+            return Task.FromResult(new HttpResponseMessage(statusCode)
+            {
+                RequestMessage = request,
+                Content = new StringContent(responseBody ?? string.Empty, Encoding.UTF8, "text/plain"),
+            });
+        }
+    }
+
+    private sealed class FixedHostAddressResolver(IPAddress address) : IHostAddressResolver
+    {
+        public Task<IReadOnlyList<IPAddress>> ResolveAsync(
+            string host,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult((IReadOnlyList<IPAddress>)[address]);
     }
 }
 

@@ -87,6 +87,39 @@ public sealed class DownloaderWorkerOutcomeTests
     }
 
     [Fact]
+    public async Task Worker_RealHttpNonSuccessAfterDispatch_IsUnknownAndStopsBeforeSmbOrArtifacts()
+    {
+        await PrepareAsync(["B01"]);
+        const string responseBody =
+            "remote-body https://198.51.100.10/trigger 192.0.2.10 socket message raw exception text";
+        _factory.DownloaderApiClient.RemoteResponseStatus = HttpStatusCode.BadRequest;
+        _factory.DownloaderApiClient.RemoteResponseBody = responseBody;
+
+        using var client = await CreateAdminClientAsync("TESTDOMAIN\\downloader-http-400");
+        var accepted = await SubmitAsync(client, ["B01"], "downloader-worker-http-400");
+        var completed = await WaitForCompletionAsync(client, accepted.OperationId);
+        var operationJson = await client.GetStringAsync($"/api/v1/operations/{accepted.OperationId}");
+        var audit = await ReadAuditAsync();
+
+        Assert.Equal(1, _factory.DownloaderApiClient.RemoteRequestCount);
+        Assert.Equal(OperationState.Failed, completed.State);
+        Assert.Equal(DownloaderFailureCodes.TriggerOutcomeUnknown, completed.ErrorCode);
+        Assert.Equal(DownloaderTriggerStateDto.OutcomeUnknown, completed.DownloaderOutcome!.TriggerState);
+        Assert.False(completed.DownloaderOutcome.TriggerAccepted);
+        Assert.Contains("before retrying", completed.DownloaderOutcome.OperatorGuidance, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(completed.ResultArtifactIds);
+        Assert.Equal(0, _factory.DownloaderRepository.ListDirectoriesCalls);
+        Assert.Contains(DownloaderFailureCodes.TriggerOutcomeUnknown, operationJson, StringComparison.Ordinal);
+        Assert.Contains(DownloaderFailureCodes.TriggerOutcomeUnknown, audit, StringComparison.Ordinal);
+        Assert.DoesNotContain(responseBody, operationJson, StringComparison.Ordinal);
+        Assert.DoesNotContain(responseBody, audit, StringComparison.Ordinal);
+        Assert.DoesNotContain(ApiUrl, operationJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(ApiUrl, audit, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(RdbServerIp, operationJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(RdbServerIp, audit, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Worker_TriggerAcceptedThenSmbFailure_PreservesAcceptedMilestoneAndRepositoryCode()
     {
         await PrepareAsync(["B01", "B02"]);
