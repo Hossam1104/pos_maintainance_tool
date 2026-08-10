@@ -9,6 +9,15 @@ const configuration: Config = {
 };
 const capabilities: Capability = { agentVersion: '1.0', operatingSystem: 'Windows', browseRoots: [{ rootId: 'backups', displayName: 'Managed backups' }] };
 
+interface SettingsPageTestHarness {
+  form: {
+    patchValue(value: Record<string, unknown>): void;
+    controls: Record<string, { readonly value: unknown }>;
+  };
+  message: () => string;
+  save(): Promise<void>;
+}
+
 describe('SettingsPageComponent', () => {
   it('submits both replacement secrets once and immediately clears the form fields', async () => {
     const calls: unknown[] = [];
@@ -23,8 +32,8 @@ describe('SettingsPageComponent', () => {
 
     expect(calls).toHaveLength(1);
     expect(calls[0]).toMatchObject({ sqlPassword: 'sentinel-sql-password', downloader: { rdbPassword: 'sentinel-rdb-password' } });
-    expect(component.form.controls.sqlPassword.value).toBe('');
-    expect(component.form.controls.rdbPassword.value).toBe('');
+    expect(component.form.controls['sqlPassword'].value).toBe('');
+    expect(component.form.controls['rdbPassword'].value).toBe('');
   });
 
   it('preserves non-secret edits after a version conflict while discarding submitted secrets', async () => {
@@ -37,18 +46,18 @@ describe('SettingsPageComponent', () => {
 
     await component.save();
 
-    expect(component.form.controls.clientName.value).toBe('Unsaved client');
-    expect(component.form.controls.sqlPassword.value).toBe('');
-    expect(component.form.controls.rdbPassword.value).toBe('');
+    expect(component.form.controls['clientName'].value).toBe('Unsaved client');
+    expect(component.form.controls['sqlPassword'].value).toBe('');
+    expect(component.form.controls['rdbPassword'].value).toBe('');
     expect(component.message()).toContain('still in this form');
   });
 });
 
-async function create(api: Pick<AgentApi, 'get' | 'mutate'>): Promise<any> {
+async function create(api: Pick<AgentApi, 'get' | 'mutate'>): Promise<SettingsPageTestHarness> {
   await TestBed.configureTestingModule({ imports: [SettingsPageComponent], providers: [{ provide: AgentApi, useValue: api }] }).compileComponents();
   const fixture = TestBed.createComponent(SettingsPageComponent);
   fixture.detectChanges();
   await fixture.componentInstance.ngOnInit();
   fixture.detectChanges();
-  return fixture.componentInstance;
+  return fixture.componentInstance as unknown as SettingsPageTestHarness;
 }
