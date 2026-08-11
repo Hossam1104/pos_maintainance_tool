@@ -1,8 +1,8 @@
 # Current Project State
 
-- **Updated:** 2026-08-10
-- **Branch:** `main` after the verified POS-M06 final-audit merge
-- **Release or milestone:** .NET 10 + Angular 22 migration; POS-M01 through POS-M06 complete; POS is a merge-ready candidate; standalone Angular expansion frozen; Claude Opus 5 R2 review required before integration
+- **Updated:** 2026-08-11
+- **Branch:** `main` after the verified POS-M06 final-audit merge and owner-authorized INT-03R provenance correction
+- **Release or milestone:** .NET 10 + Angular 22 migration; POS-M01 through POS-M06 complete; the Agent source snapshot is self-consistent with `ArtifactCatalog.cs` tracked; POS remains a merge-ready candidate; standalone Angular expansion frozen; Claude Opus 5 R2 review required before integration
 
 ## Working State
 
@@ -98,6 +98,8 @@
   EXECUTION AUTHORIZED`; POS-M06 is complete and its audit evidence is recorded in the canonical plan.
 - The POS-M06 session branch was merged to POS `main`; cross-project merge, Angular integration,
   standalone installer cutover, and WinUI removal remain unauthorized.
+- INT-03R narrowed the root generated-artifact ignore rule and tracked the existing Agent
+  `Artifacts/ArtifactCatalog.cs`; no Agent runtime or other POS implementation was changed.
 
 ## Known Risks and Gates
 

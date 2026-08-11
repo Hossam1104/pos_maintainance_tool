@@ -1,6 +1,6 @@
 bin/
 obj/
-artifacts/
+/artifacts/
 /.artifacts/
 /host_trace.txt
 /trace.txt
